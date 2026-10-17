@@ -25,7 +25,8 @@ export const LT = {
   CAP: 4,                                            // dự phòng khi ⚙️ 2 không có "Sức chứa tối đa / khung"
   REMEMBER: 60 * 864e5, SESSION: 12 * 3600e3,        // nhớ máy 60 ngày · không nhớ thì 12 giờ
   FAILS: 5, LOCK_S: 15 * 60, MEMBER_FAILS: 20,       // sai 5 lần → khoá máy 15 phút · sai 20 lần/giờ trên một tên → khoá tên
-  FIND_MAX: 60,                                      // lượt tìm tên / máy / 10 phút
+  FIND_MAX: 300,                                     // lượt tìm tên / máy / khung 10 phút cố định (trang tìm theo từng chữ gõ: ~8 lượt / người)
+  FIND_TOP: 6,                                       // tối đa 6 người mỗi lượt tìm; nhiều hơn → more: true
   LOG: 'Sổ đặt lịch', DATA: '_dữ liệu',
   ON: 'Đã đặt', MOVED: 'Đã đổi',
   LOG_HEAD: ['Mã phiếu', 'Bản', 'Tuần', 'Ngày', 'Thứ', 'Giờ', 'Hội viên', 'Tên ngắn', 'Coach', 'Loại',
@@ -113,7 +114,7 @@ export function initials(c) { return words(coachName(c)).map(x => x.charAt(0).to
 export function pkgLabel(pkg, total) { const m = String(pkg == null ? '' : pkg).match(/\d+/), n = m ? +m[0] : (+total || 0); return n > 0 ? n + 'B' : ''; }
 export function digits(v) { return String(v == null ? '' : v).replace(/\D+/g, ''); }
 
-/** Gõ tên đệm + tên là ra: các chữ đã gõ phải khớp phần CUỐI của họ tên (bỏ dấu), chữ cuối được gõ dở. */
+/** Luật cũ (bậc 0 của findRank): ≥ 2 chữ khớp liền phần CUỐI của họ tên (bỏ dấu), chữ cuối được gõ dở. */
 export function match(q, nameTokens) {
   const L = q.length;
   if (L < 2 || L > nameTokens.length) return false;
@@ -123,6 +124,65 @@ export function match(q, nameTokens) {
     if (i < L - 1 ? a !== b : b.indexOf(a) !== 0) return false;
   }
   return true;
+}
+
+/**
+ * Cách khớp tốt nhất của các chữ gõ q (đúng thứ tự, được bỏ qua chữ ở giữa) vào ĐẦU các chữ khác nhau của V.
+ * Không khớp → null. Khớp → {last, eq, at}: last = 1 nếu chữ gõ cuối rơi được vào chữ cuối của V (tên gọi),
+ * eq = số chữ gõ trùng trọn một chữ (nhiều nhất, sau khi đã ưu tiên last), at = vị trí trong V của từng chữ gõ.
+ * Quy hoạch động f[i][j] = số chữ trùng trọn nhiều nhất khi khớp i chữ gõ đầu vào j chữ đầu của V (−1: không khớp được).
+ * Trang (app.js · prefixFit) chép đúng hàm này để tô phần khớp.
+ */
+export function prefixFit(q, V) {
+  const n = q.length, m = V.length, f = [];
+  if (!n || n > m) return null;
+  for (let i = 0; i <= n; i++) { f.push([]); for (let j = 0; j <= m; j++) f[i].push(i ? -1 : 0); }
+  for (let i = 1; i <= n; i++) {
+    for (let j = i; j <= m; j++) {
+      let b = f[i][j - 1];
+      if (f[i - 1][j - 1] >= 0 && V[j - 1].indexOf(q[i - 1]) === 0) b = Math.max(b, f[i - 1][j - 1] + (V[j - 1] === q[i - 1] ? 1 : 0));
+      f[i][j] = b;
+    }
+  }
+  const last = V[m - 1].indexOf(q[n - 1]) === 0 && f[n - 1][m - 1] >= 0 ? 1 : 0;
+  let i = last ? n - 1 : n, j = last ? m - 1 : m;
+  if (f[i][j] < 0) return null;
+  const at = [], eq = f[i][j] + (last && V[m - 1] === q[n - 1] ? 1 : 0);
+  if (last) at[n - 1] = m - 1;
+  while (i > 0) { if (f[i][j - 1] === f[i][j]) j--; else { at[i - 1] = j - 1; i--; j--; } }
+  return { last: last, eq: eq, at: at };
+}
+
+/**
+ * Tìm tên — gõ tới đâu ra tới đó. q = các chữ đã gõ (nameKey rồi tách), toks = các chữ của họ tên (nameKey).
+ * Chỉ so với phần tên hiện công khai V = tên đệm + tên (họ chỉ hiện chữ cái đầu "H.", nên gõ riêng họ không ra ai):
+ *  · bậc 0 — luật cũ match(): ≥ 2 chữ khớp liền phần CUỐI của họ tên (kể cả họ), chữ cuối được gõ dở;
+ *  · bậc 1 — mỗi chữ gõ là ĐẦU của một chữ khác nhau trong V, đúng thứ tự, được bỏ qua chữ ở giữa (1 ký tự là đủ);
+ *  · bậc 2 — đúng một chữ, từ 2 ký tự, nằm GIỮA một chữ của V ("hoi" → Khôi).
+ * Không khớp → null. Khớp → {tier, last, eq} để xếp hạng (findAll): last = 1 nếu chữ gõ cuối rơi vào chữ cuối của V
+ * (tên gọi), eq = số chữ gõ trùng trọn một chữ.
+ */
+export function findRank(q, toks) {
+  const n = q.length;
+  if (!n) return null;
+  if (match(q, toks)) return { tier: 0, last: 1, eq: n - 1 + (toks[toks.length - 1] === q[n - 1] ? 1 : 0) };
+  const V = toks.length >= 2 ? toks.slice(1) : toks, f = prefixFit(q, V);
+  if (f) return { tier: 1, last: f.last, eq: f.eq };
+  if (n === 1 && q[0].length >= 2 && V.some(v => v.indexOf(q[0], 1) > 0)) {
+    return { tier: 2, last: V[V.length - 1].indexOf(q[0], 1) > 0 ? 1 : 0, eq: 0 };
+  }
+  return null;
+}
+/**
+ * Mọi hội viên khớp, đã xếp hạng: bậc nhỏ trước → chữ gõ cuối rơi vào tên gọi trước → nhiều chữ trùng trọn trước →
+ * tên ngắn (localeCompare 'vi', như trước đây) → Mã KH. Thứ tự toàn phần, giống hệt ltFindAll_ của Apps Script.
+ */
+export function findAll(q, list) {
+  const hits = [];
+  list.forEach(x => { const r = findRank(q, x.toks); if (r) hits.push({ x: x, r: r }); });
+  hits.sort((a, b) => (a.r.tier - b.r.tier) || (b.r.last - a.r.last) || (b.r.eq - a.r.eq) ||
+    a.x.short.localeCompare(b.x.short, 'vi') || (a.x.key < b.x.key ? -1 : a.x.key > b.x.key ? 1 : 0));
+  return hits.map(h => h.x);
 }
 
 /* ================================================================== */

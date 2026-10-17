@@ -185,7 +185,11 @@ async function deskFlow() {
   ok('Hết nhịp vào → bản WebGL phẳng thay chỗ rồi thả lỏng thành giấy 3D (dáng 1, đã vẽ ' + D0.frames + ' khung, dựng 1 lần)', D0.shown && D0.p === 1 && D0.frames >= 3 && D0.builds === 1, D0);
   await checkTicket(page, 'd-booked', { desk: true, mustHave: ['num', 'wm', 'bc', 'cell', 'list0'] });
 
-  /* làm mới ngầm (quay lại tab sau 45 s): vẽ lại tức thì → không diễn lại, dùng lại texture */
+  /* làm mới ngầm (quay lại tab sau 45 s): vẽ lại tức thì → không diễn lại, dùng lại texture.
+     Từ 1.0.5 vé nghiêng theo con trỏ + lắc gợi ý một lần (app.js · TILT): cho vé đứng yên trước khi đếm khung */
+  await page.mouse.move(2, 2);
+  await page.evaluate(() => { const L = window.__lt, T = L && L.tilt; if (T) { T.touched = true; T.hint = 0; T.hov = null; L.tiltKick(); } });
+  await page.waitForFunction(() => { const T = window.__lt && window.__lt.tilt; return !T || (!T.raf && !T.drag); }, null, { timeout: 15000 });
   const b0 = await dbg(page);
   await page.evaluate(() => { if (window.__lt && window.__lt.S) window.__lt.S.lastFetch = 0; document.dispatchEvent(new Event('visibilitychange')); });
   await sleep(2500);

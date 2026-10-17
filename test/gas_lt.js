@@ -12,7 +12,8 @@ const LA = 'America/Los_Angeles', VN = 'Asia/Ho_Chi_Minh';
 const d = iso => dateIn(LA, iso);                          /* ô ngày của file BA (timezone LA) */
 const vn = (iso, hm) => dateIn(VN, iso, hm).getTime();     /* thời điểm theo giờ Việt Nam */
 
-function baSheets() {
+/** extra: hội viên bịa thêm [số, họ tên, coach, SĐT, Mã KH] (gói 48 buổi còn 20, hạn 2027) — dùng cho phần tìm tên */
+function baSheets(extra) {
   const H = ['', '#', 'Tên', 'Gói', 'Số buổi', 'Loại', 'Đơn giá buổi', 'Coach', 'SĐT', 'Người bán gói', 'Ngày ký', 'Ghi chú', 'Đã tập', 'Còn lại', 'Trạng thái', 'Ngày bắt đầu', 'Ngày kết thúc', 'Ngày hết hạn', 'Mã KH', '_key'];
   const m = (no, name, pkg, kind, coach, phone, left, start, exp, code) =>
     ['', no, name, pkg, parseInt(pkg, 10), kind, 300000, coach, phone, '', '', '', 0, left, '', start ? d(start) : '', '', exp === '' ? '' : (typeof exp === 'string' && exp.indexOf('/') > 0 ? exp : d(exp)), code, name + '|' + start];
@@ -33,7 +34,7 @@ function baSheets() {
     m('922', 'Khách Thứ Hai', '48 buổi', '1:1', 'Quyết Hán', '0900000022', 20, '2026-08-01', '2027-01-01', 'B922DY'),
     m('923', 'Khách Thứ Ba', '48 buổi', '1:1', 'Hiền Mai', '0900000023', 20, '2026-08-01', '2027-01-01', 'B923DY'),
     m('924', 'Khách Thứ Tư', '48 buổi', '1:1', 'Hiền Mai', '0900000024', 20, '2026-08-01', '2027-01-01', 'B924DY')
-  ];
+  ].concat((extra || []).map(e => m(e[0], e[1], '48 buổi', '1:1', e[2], e[3], 20, '2026-08-01', '2027-01-01', e[4])));
   const LH = ['', '#', 'Ngày', 'Thứ', 'Khung giờ', 'Coach', 'Mã coach', 'Học viên', 'Mã HV', 'Loại', 'Khung', 'Trạng thái', '_h', '_tuần', 'Ký điện tử', '_mrow'];
   const log = [['', '— SESSION LOG'], ['', 'test'], [], LH,
     ['', '0001', d('2026-10-19'), 'T2', '', 'Quyết Hán', '', 'Hoàng Đức Nam', '901', '1:1', '', 'Đã tập', '', '', 'app 06:02 · ký: Quyết Hán', 1],
@@ -59,7 +60,7 @@ function outSheets() {
 }
 function setup(nowMs, opts) {
   const clock = { now: nowMs };
-  const files = { BA: new Spreadsheet('BA', LA, baSheets()), OUT: new Spreadsheet('OUT', 'Asia/Saigon', outSheets()) };
+  const files = { BA: new Spreadsheet('BA', LA, baSheets(opts && opts.members)), OUT: new Spreadsheet('OUT', 'Asia/Saigon', outSheets()) };
   files.OUT.title = '[B0DY Studio] Lịch tập tuần';
   const env = makeEnv(files, clock, Object.assign({ props: { BA_ID: 'BA', LT_OUT_ID: 'OUT' } }, opts || {}));
   return { env, clock, files, log: files.OUT.getSheetByName('Sổ đặt lịch') };
@@ -117,7 +118,7 @@ console.log('\n== 3. Tìm tên ==');
   r = call(t, { action: 'lt_find', q: '  Đức   NAM ' });
   ok('"Đức NAM" (có dấu, hoa, thừa cách) → cùng kết quả', r.results.length === 1 && r.results[0].short === 'H. Đức Nam', r);
   r = call(t, { action: 'lt_find', q: 'nam' });
-  ok('Một chữ → chưa tìm (need 2)', r.ok && r.results.length === 0 && r.need === 2, r);
+  ok('Một chữ "nam" → ra ngay hai người tên gọi Nam (không còn need)', r.ok && !('need' in r) && !('more' in r) && r.results.map(x => x.short).join() === 'H. Đức Nam,N. Ngọc Nam', r);
   r = call(t, { action: 'lt_find', q: 'duc n' });
   ok('Chữ cuối gõ dở "duc n" → vẫn ra', r.results.length === 1, r);
   r = call(t, { action: 'lt_find', q: 'hoang duc nam' });
@@ -128,6 +129,58 @@ console.log('\n== 3. Tìm tên ==');
   ok('Hết buổi → không có trong danh sách', r.results.length === 0, r);
   r = call(t, { action: 'lt_find', q: 'gia phong' });
   ok('Hai hợp đồng cùng tên → một kết quả', r.results.length === 1, r);
+  const S = x => x.results.map(y => y.short).join(' | ');
+  r = call(t, { action: 'lt_find', q: 'n' });
+  ok('1 ký tự "n" → hai người tên gọi Nam (họ "Ninh" không tính)', r.ok && S(r) === 'H. Đức Nam | N. Ngọc Nam', r);
+  r = call(t, { action: 'lt_find', q: 'k' });
+  ok('1 ký tự "k" → chỉ B. Không Số (họ "Khách" không tính)', S(r) === 'B. Không Số', r);
+  for (const q of ['khach', 'ninh', 'hoang', 'tran']) {
+    r = call(t, { action: 'lt_find', q });
+    ok('Chỉ gõ họ "' + q + '" → không ai', r.ok && r.results.length === 0 && !('need' in r), r);
+  }
+  r = call(t, { action: 'lt_find', q: 'ong' });
+  ok('Giữa chữ "ong" → tên gọi Phong trước tên đệm Không', S(r) === 'L. Gia Phong | B. Không Số', r);
+  r = call(t, { action: 'lt_find', q: 'th' });
+  ok('"th" → đúng 6 người (4 Thứ + 2 Thị) → không có more', r.results.length === 6 && !('more' in r) && r.results.every(x => /Th/.test(x.short)), r);
+  r = call(t, { action: 'lt_find', q: '  ...  ' });
+  ok('Chỉ dấu câu → rỗng, không need', r.ok && r.results.length === 0 && !('need' in r) && !('more' in r), r);
+  /* 300 lượt / máy / khung 10 phút */
+  const DEVQ = 'devQQQQQQQQQQQQQQQQQQQQ';
+  for (let i = 0; i < 300; i++) r = call(t, { action: 'lt_find', q: 'thu mot', dev: DEVQ });
+  ok('Lượt tìm thứ 300 trong khung 10 phút → vẫn trả kết quả', r.ok === true && S(r) === 'K. Thứ Một', r);
+  r = call(t, { action: 'lt_find', q: 'nam', dev: DEVQ });
+  ok('Lượt thứ 301 → cham_lai', r.ok === false && r.error === 'cham_lai', r);
+  t.clock.now += 10 * 60e3 + 1000;
+  r = call(t, { action: 'lt_find', q: 'nam', dev: DEVQ });
+  ok('… hết 10 phút → tìm lại được', r.ok === true && r.results.length === 2, r);
+}
+
+console.log('\n== 3b. Tìm tên: xếp hạng · tối đa 6 người + more · khớp giữa chữ ==');
+{
+  /* hội viên bịa thêm (rõ là tên giả) */
+  const t = setup(vn('2026-10-18', '07:00'), { members: [
+    ['931', 'Khách Thử Đức Anh', 'Quyết Hán', '0900000031', 'B931DY'], ['932', 'Khách Thử Khôi', 'Hiền Mai', '0900000032', 'B932DY'],
+    ['933', 'Khách Thử An', 'Quyết Hán', '0900000033', 'B933DY'], ['934', 'Khách Thử Anh', 'Hiền Mai', '0900000034', 'B934DY'],
+    ['935', 'Khách Thử Nam Phong', 'Quyết Hán', '0900000035', 'B935DY'], ['936', 'Mẫu Thử Ngọc Ánh', 'Hiền Mai', '0900000036', 'B936DY'],
+    ['938', 'Khách Thử Đức Anh', 'Hiền Mai', '0900000038', 'B938DY']] });
+  const S = x => x.results.map(y => y.short).join(' | ');
+  let r = call(t, { action: 'lt_find', q: 'thu' });
+  ok('"thu" → 11 người (Thứ = Thử) → 6 + more',r.results.length === 6 && r.more === true && r.results.every(x => /Th[ứử]/.test(x.short)), r);
+  r = call(t, { action: 'lt_find', q: 'an' });
+  ok('"an" → An (trùng trọn) trước Anh (gõ dở); người khớp giữa chữ (Văn) xếp cuối', S(r) === 'K. Thử An | K. Thử Anh | K. Thử Đức Anh | K. Thử Đức Anh | M. Thử Ngọc Ánh | Đ. Văn Hưng' && !('more' in r), r);
+  ok('… hai người trùng họ tên xếp theo Mã KH', r.results[2].id === t.env.ltIdOf_('B931DY') && r.results[3].id === t.env.ltIdOf_('B938DY'), r);
+  r = call(t, { action: 'lt_find', q: 'nam' });
+  ok('"nam" → tên gọi Nam trước tên đệm Nam', S(r) === 'H. Đức Nam | N. Ngọc Nam | K. Thử Nam Phong', r);
+  r = call(t, { action: 'lt_find', q: 'hoi' });
+  ok('"hoi" (giữa chữ) → Khôi', S(r) === 'K. Thử Khôi', r);
+  r = call(t, { action: 'lt_find', q: 'o' });
+  ok('"o" (1 ký tự) → không khớp giữa chữ', r.results.length === 0, r);
+  r = call(t, { action: 'lt_find', q: 'Khách Thử Đức Anh' });
+  ok('Đủ họ tên có dấu → hai người trùng', S(r) === 'K. Thử Đức Anh | K. Thử Đức Anh', r);
+  r = call(t, { action: 'lt_find', q: 'ngoc anh' });
+  ok('"ngoc anh" → khớp phần cuối (N. Ngọc Nam không có chữ Anh)', S(r) === 'M. Thử Ngọc Ánh', r);
+  r = call(t, { action: 'lt_find', q: 'mau' });
+  ok('Chỉ gõ họ "mau" → không ai', r.results.length === 0, r);
 }
 
 console.log('\n== 4. Xác minh · khoá máy · nhớ máy ==');

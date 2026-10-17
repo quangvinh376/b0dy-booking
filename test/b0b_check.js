@@ -47,7 +47,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   {
     const { ctx, page } = await open({ reducedMotion: 'reduce' }, null, '?lite');
     ok('B0B.supported (WebGL1 + OES_standard_derivatives)', await page.evaluate(() => B0B.supported === true));
-    ok('B0B.moods đủ 6 tâm trạng', JSON.stringify(await page.evaluate(() => B0B.moods)) === JSON.stringify(MOODS));
+    ok('B0B.moods: 6 tâm trạng gốc đứng đầu + tâm trạng sống mới', JSON.stringify(await page.evaluate(() => B0B.moods.slice(0, 6))) === JSON.stringify(MOODS) && (await page.evaluate(() => B0B.moods.length)) >= 12);
     await page.evaluate(refs => { window.CMP = DEMO.compare(refs); }, REF);
     await page.waitForFunction(() => Array.from(document.querySelectorAll('#cmp img')).every(i => i.complete && i.naturalWidth > 0));
     await sleep(500);
@@ -105,8 +105,9 @@ print(json.dumps(res))
       for (const b of DEMO.live) b._stats = { draws: 0, ms: 0 };
       let n = 0, i = 0; const t0 = performance.now();
       const f = () => { n++; if (performance.now() - t0 < 2500) requestAnimationFrame(f); }; requestAnimationFrame(f);
-      const iv = track ? setInterval(() => { i++; dispatchEvent(new PointerEvent('pointermove', { pointerType: 'mouse', clientX: 80 + (i * 37) % 1000, clientY: 60 + (i * 23) % 700 })); }, 30) : 0;
-      setTimeout(() => { clearInterval(iv); res({ raf: n / 2.5, s: DEMO.live.map(b => ({ fps: b._stats.draws / 2.5, ms: b._stats.ms / Math.max(1, b._stats.draws), w: b.w.track })) }); }, 2500);
+      const seen = DEMO.live.map(() => ({}));
+      const iv = track ? setInterval(() => { i++; dispatchEvent(new PointerEvent('pointermove', { pointerType: 'mouse', clientX: 80 + (i * 37) % 1000, clientY: 60 + (i * 23) % 700 })); DEMO.live.forEach((b, k) => { seen[k][b.debug().att] = 1; }); }, 30) : 0;
+      setTimeout(() => { clearInterval(iv); res({ raf: n / 2.5, s: DEMO.live.map((b, k) => ({ fps: b._stats.draws / 2.5, ms: b._stats.ms / Math.max(1, b._stats.draws), att: Object.keys(seen[k]) })) }); }, 2500);
     }), track);
     await sleep(2800);   /* hết hạn nhìn theo con trỏ (2,6 s) */
     const idle = await measure(false);
@@ -114,7 +115,7 @@ print(json.dumps(res))
     ok('Idle: ~30 fps (≤ 36) và không vượt nhịp rAF', idle.s.every(x => x.fps >= 20 && x.fps <= 36 && x.fps <= idle.raf + .5), idle);
     const trk = await measure(true);
     console.log('  nhìn theo con trỏ:', JSON.stringify(trk));
-    ok('Nhìn theo con trỏ: trọng số > 0,9 và vẽ mỗi nhịp rAF (60 fps khi máy cho)', trk.s.every(x => x.w > .9 && x.fps >= trk.raf * .9), trk);
+    ok('Nhìn theo con trỏ: có đợt chú ý vào con trỏ (ưu tiên 3) và vẽ mỗi nhịp rAF (60 fps khi máy cho)', trk.s.every(x => x.att.indexOf('3:ptr') >= 0 && x.fps >= trk.raf * .9), trk);
     const all = idle.s.concat(trk.s), avgMs = all.reduce((a, x) => a + x.ms, 0) / all.length;
     ok('Thời gian JS trung bình mỗi khung < 1,5 ms', avgMs < 1.5, avgMs);
     const live = await page.$('.live');
@@ -134,7 +135,8 @@ print(json.dumps(res))
     await page.click('#nod'); await sleep(300); await live.screenshot({ path: OUT + '/react_nod.png' });
     await page.click('#blink'); await sleep(90); await live.screenshot({ path: OUT + '/react_blink.png' });
     await page.click('#glance'); await sleep(200); await live.screenshot({ path: OUT + '/react_glance.png' });
-    const lk = await page.evaluate(() => { const b = DEMO.live[0], r = b.host.getBoundingClientRect(); b.lookAtPoint(r.left - 600, r.top - 120, 800); const a = { gx: b.poke.gx, gy: b.poke.gy }; b.lookAtPoint(r.left + r.width / 2, r.top + 900, 800); return { a, down: { gx: b.poke.gx, gy: b.poke.gy } }; });
+    const lk = await page.evaluate(() => { const b = DEMO.live[0], r = b.host.getBoundingClientRect(), g = () => { const x = b._gazeFor(b.att[4].t, performance.now()); return { gx: x.x, gy: x.y }; };
+      b.lookAtPoint(r.left - 600, r.top - 120, 800); const a = g(); b.lookAtPoint(r.left + r.width / 2, r.top + 900, 800); return { a, down: g() }; });
     ok('lookAtPoint: trái-hơi-lên → gx < −0,8, gy âm nhẹ · thẳng xuống → gy > 0,8', lk.a.gx < -.8 && lk.a.gy < 0 && lk.a.gy > -.6 && Math.abs(lk.down.gx) < .05 && lk.down.gy > .8, lk);
     await page.evaluate(() => { document.getElementById('live100').style.display = 'none'; });
     await sleep(400);
@@ -164,7 +166,7 @@ print(json.dumps(res))
     const back = await page.evaluate(() => { const b = DEMO.live[0]; return { img: !!b.img, gl: !!b.G, vis: b.cv.style.visibility }; });
     ok('Khôi phục context → về WebGL', !back.img && back.gl && back.vis === '', back);
     const sz = await page.evaluate(() => { const b = DEMO.live[1]; b.setSize(72); return new Promise(r => setTimeout(() => r({ w: b.host.clientWidth, cw: b.cv.width, css: b.cssW }), 200)); });
-    ok('setSize(72) → canvas theo cỡ mới (DPR 1: 72×1,5)', sz.w === 72 && sz.cw === 108 && sz.css === 72, sz);
+    ok('setSize(72) → canvas theo cỡ mới (DPR 1: 72×1,5 — ±25 % hai bên như v1.0.0, không tràn lề 16 px của mobile)', sz.w === 72 && sz.cw === Math.round(72 * 1.5) && sz.css === 72, sz);
     const ds = await page.evaluate(() => { const b = DEMO.live[1]; const host = b.host; b.destroy(); return { kids: host.childElementCount, dead: b.dead }; });
     ok('destroy() dọn sạch canvas/svg', ds.kids === 0 && ds.dead, ds);
     await ctx.close();
@@ -176,10 +178,10 @@ print(json.dumps(res))
       const g = HTMLCanvasElement.prototype.getContext;
       HTMLCanvasElement.prototype.getContext = function (t, o) { return /webgl/i.test(String(t)) ? null : g.call(this, t, o); };
     };
-    const { ctx, page } = await open({}, stub);
+    const { ctx, page } = await open({}, stub, '?all');
     ok('B0B.supported = false', await page.evaluate(() => B0B.supported === false));
     const imgs = await page.evaluate(() => B0B.moods.map(m => { const h = document.querySelector('#cell-' + m + ' .h100'); const i = h.querySelector('img'); return [m, i ? i.getAttribute('src') : null, h.querySelectorAll('div').length]; }));
-    const want = { observe: 'quan-sat', greet: 'chao', done: 'chao', doubt: 'nghi', sleep: 'ngu', alert: 'quan-sat' };
+    const want = { observe: 'quan-sat', greet: 'chao', done: 'chao', doubt: 'nghi', sleep: 'ngu', alert: 'quan-sat', curious: 'quan-sat', focus: 'quan-sat', proud: 'chao', worry: 'nghi', sleepy: 'quan-sat', excited: 'quan-sat' };
     ok('Mỗi tâm trạng đúng ảnh + 2 lớp bóng sàn CSS', imgs.every(([m, s, n]) => s === '../img/b0b-' + want[m] + '.webp' && n === 2), imgs);
     await page.waitForFunction(() => Array.from(document.querySelectorAll('#grid img')).every(i => i.complete && i.naturalWidth > 0));
     await sleep(1500);

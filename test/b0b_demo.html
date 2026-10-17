@@ -49,9 +49,11 @@
   'use strict';
   var base = '../img/';
   var grid = document.getElementById('grid');
-  var names = { observe: 'Quan sát', greet: 'Chào', done: 'Xong', doubt: 'Nghi', sleep: 'Ngủ', alert: 'Cảnh báo' };
+  var names = { observe: 'Quan sát', greet: 'Chào', done: 'Xong', doubt: 'Nghi', sleep: 'Ngủ', alert: 'Cảnh báo', curious: 'Tò mò', focus: 'Tập trung', proud: 'Ngắm', worry: 'Lo', sleepy: 'Buồn ngủ', excited: 'Háo hức' };
   window.DEMO = { cells: {}, live: [] };
-  if (!/[?&]lite\b/.test(location.search)) B0B.moods.forEach(function (m) {
+  /* lưới: 6 tâm trạng gốc (mỗi ô một ngữ cảnh WebGL — trình duyệt giữ tối đa 16); ?all = mọi tâm trạng (dùng khi không có WebGL) */
+  var GRID = /[?&]all\b/.test(location.search) ? B0B.moods : B0B.moods.slice(0, 6);
+  if (!/[?&]lite\b/.test(location.search)) GRID.forEach(function (m) {
     var c = document.createElement('div'); c.className = 'cell'; c.id = 'cell-' + m;
     var a = document.createElement('div'); a.className = 'h100';
     var b = document.createElement('div'); b.className = 'h56';

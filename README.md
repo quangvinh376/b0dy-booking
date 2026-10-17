@@ -2,7 +2,8 @@
 
 Trang đặt lịch cho hội viên B0DY Studio: https://booking.b0dy.studio (GitHub Pages, nhánh `main`, thư mục gốc).
 
-Hội viên tìm tên (tên đệm + tên, có dấu hay không dấu đều được) → xác minh 4 số cuối điện thoại (nhớ máy 60 ngày) →
+Hội viên tìm tên (gõ tới đâu ra tới đó: vài chữ của tên đệm / tên gọi, có dấu hay không dấu đều được; gõ riêng họ không ra ai vì trang chỉ hiện chữ cái đầu của họ)
+→ xác minh 4 số cuối điện thoại (nhớ máy 60 ngày) →
 chọn 2–4 buổi trên bảng tuần → nhận phiếu. Trong tuần: thêm buổi, đổi buổi (tối đa 2 lần, trước 24 giờ). Mở đặt 06:00 Chủ Nhật.
 
 ## Thành phần
@@ -10,8 +11,8 @@ chọn 2–4 buổi trên bảng tuần → nhận phiếu. Trong tuần: thêm 
 | Thư mục / tệp | Vai trò |
 |---|---|
 | `index.html` · `app.css` · `app.js` | Trang (JavaScript thuần, không build). Luật khung giờ chạy cả ở trang (hiện bảng) lẫn máy chủ (quyết định) |
-| `b0b.js` | Linh vật B0B (WebGL, tâm trạng theo màn, nhìn theo con trỏ) |
-| `tk3d.js` | Phiếu giấy 3D (WebGL2) vẽ lại đúng phiếu DOM; máy không có GPU → phiếu DOM |
+| `b0b.js` | Linh vật B0B 1.1 (WebGL): hệ thần kinh 7 lớp — biểu cảm (lò xo tới hạn), chú ý (ngăn ưu tiên), đầu – mắt (giật mắt, bám, vi giật), cử chỉ, chớp mắt, hơi thở, bộ não (rảnh, ngủ gật, ngủ). Trang chỉ kể việc qua `B0B.emit(loại, dữ liệu)` (cầu nối `bobBridge` / `bobWatch` trong `app.js`), B0B tự phản ứng. Giảm chuyển động → tư thế tĩnh |
+| `tk3d.js` | Phiếu giấy 3D (WebGL2) vẽ lại đúng phiếu DOM, xoay theo chuột / vuốt (`TK3D.rot`; không có GPU → vé DOM nghiêng bằng CSS 3D). `TK3D.snapshot(vé)` vẽ lại đúng vé đang hiện bằng canvas 2D cho "Lưu về máy" (desktop vé ngang, mobile vé dọc) |
 | `sw.js` | Service worker: mở lại trang tức thì, không bao giờ chạm vào lệnh gọi máy chủ |
 | `qc.js` · `qc.css` | Chế độ QC (`?qc`): máy chủ giả chạy ngay trong trình duyệt bằng chính mã `worker/src`, dữ liệu giả, không gọi mạng |
 | `worker/` | Máy chủ chính: Cloudflare Worker + Durable Object (`b0dy-booking-api`). Xem `worker/README.md` |
@@ -31,8 +32,10 @@ npm i playwright   # một lần; Chromium có sẵn trong máy test
 node test/gas_lt.js                 # luật + Apps Script
 node test/ui_states.js              # 97 kiểm tra trạng thái giao diện (E01–E12, desktop + mobile)
 node test/ui_qc.js                  # chế độ QC: kịch bản, hội viên thử, gây lỗi, không gọi mạng, không chạm bộ nhớ trang thật
-node test/ui_smoke.js && node test/ui_sw.js && node test/ui_tk3d.js all && node test/b0b_check.js
+node test/ui_smoke.js && node test/ui_sw.js && node test/ui_tk3d.js all && node test/ui_png.js all && node test/b0b_check.js
 node test/rv_h6_rid_discard.js      # … và các rv_*.js: tái hiện lỗi đã sửa (mất phản hồi, máy dùng chung, 06:00, …)
+node test/rv_find_dynamic.js        # tìm tên gõ tới đâu ra tới đó: tô phần khớp, more, giữ danh sách khi chờ, máy chủ cũ (need: 2)
+node test/rv_tilt.js                # phiếu xoay: góc luôn ≤ giới hạn + 22°, lắc gợi ý một lần, mất pointerup không kẹt
 (cd worker && node test/run_all.mjs)
 ```
 

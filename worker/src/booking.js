@@ -487,17 +487,17 @@ export class BookingCore {
     return C.publicOf(ctx, '', (await this.getBA()).closed);
   }
 
-  /** Tìm tên: cần ít nhất 2 chữ (tên đệm + tên), có dấu hay không dấu đều được. Trả tối đa 5 người. */
+  /** Tìm tên gõ tới đâu ra tới đó (từ 1 ký tự, có dấu hay không dấu đều được; luật ở C.findRank). Trả tối đa 6 người,
+      nhiều hơn thì kèm more: true để trang nhắc gõ thêm. */
   async apiFind(p, now) {
-    if ((await this.bump('lt:q:' + p.dev, 600)) > LT.FIND_MAX) return { ok: false, error: 'cham_lai', now: now };
+    /* đếm theo khung 10 phút cố định (khoá theo mốc khung): đang bị chặn mà gõ tiếp cũng không kéo dài khoá quá hết khung */
+    if ((await this.bump('lt:q:' + p.dev + ':' + Math.floor(now / 6e5), 600)) > LT.FIND_MAX) return { ok: false, error: 'cham_lai', now: now };
     const words = C.nameKey(String(p.q || '').slice(0, 60)).split(' ').filter(x => !!x);
-    if (words.length < 2) return { ok: true, now: now, results: [], need: 2 };
-    const ctx = C.weekCtx(now), list = this.persons(ctx, await this.getBA()), res = [];
-    list.forEach(x => { if (C.match(words, x.toks)) res.push(x); });
-    res.sort((a, b) => a.short.localeCompare(b.short, 'vi'));
+    if (!words.length) return { ok: true, now: now, results: [] };
+    const ctx = C.weekCtx(now), res = C.findAll(words, this.persons(ctx, await this.getBA()));
     const sg = await this.signer(), out = [];
-    for (const x of res.slice(0, 5)) out.push({ id: await sg.idOf(x.key), short: x.short, coach: x.coach });
-    return { ok: true, now: now, results: out };
+    for (const x of res.slice(0, LT.FIND_TOP)) out.push({ id: await sg.idOf(x.key), short: x.short, coach: x.coach });
+    return res.length > LT.FIND_TOP ? { ok: true, now: now, results: out, more: true } : { ok: true, now: now, results: out };
   }
 
   /** Xác minh 4 số cuối điện thoại. Sai 5 lần → khoá MÁY 15 phút; sai 20 lần/giờ trên một tên → khoá TÊN 15 phút. */

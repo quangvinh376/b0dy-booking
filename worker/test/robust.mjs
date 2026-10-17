@@ -378,11 +378,12 @@ console.log('\n== Cron tick ==');
   await w.wk.tick();
   ok('Cron ngay sau đó → không đọc lại (còn mới)', JSON.stringify(w.fg.calls) === c0);
   await w.wk.api({ action: 'lt_find', q: 'duc nam', dev: DEV });
-  ok('Bộ đếm tìm tên lưu storage', !!(await w.wk.storage.get('c:lt:q:' + DEV)));
+  const QK = 'c:lt:q:' + DEV + ':' + Math.floor(w.clock.now / 6e5);   /* khung 10 phút cố định */
+  ok('Bộ đếm tìm tên lưu storage', !!(await w.wk.storage.get(QK)));
   w.clock.now += 11 * 60e3;
   w.wk.lastPurge = 0;
   await w.wk.tick();
-  ok('Cron dọn bộ đếm hết hạn khỏi storage', (await w.wk.storage.get('c:lt:q:' + DEV)) === undefined);
+  ok('Cron dọn bộ đếm hết hạn khỏi storage', (await w.wk.storage.get(QK)) === undefined);
 }
 {
   /* alarm không chạy (vd lỗi nền tảng) → cron mỗi phút vẫn ghi nốt nhật ký */

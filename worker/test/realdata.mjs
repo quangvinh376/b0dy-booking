@@ -100,6 +100,48 @@ ok('lt_verify (4 số cuối thật) cho ' + verN + ' hội viên: state + mã n
 ok('lt_boot bằng mã nhớ máy: state giống hệt (' + bootSame + '/' + verN + ')', bootSame === verN);
 const [gx, wx] = await both({ action: 'lt_verify', id: (await wk.api({ action: 'lt_find', q: gP[0].toks.slice(-2).join(' '), dev: 'devREALWRONG0000001' })).results[0].id, pin: '0000', dev: 'devREALWRONG0000001' });
 ok('Sai mã trên dữ liệu thật: phản hồi giống hệt', canon(gx) === canon(wx));
+
+console.log('\n== Tìm tên gõ tới đâu ra tới đó trên dữ liệu thật (chỉ in số đếm) ==');
+{
+  let qn = 0, qSame = 0, shape = 0;
+  /* đổi máy trước ngưỡng 150 lượt / 10 phút (đồng hồ test đứng yên) */
+  const fnd = async q => {
+    const [g, w] = await both({ action: 'lt_find', q: q, dev: 'devREALDYN' + String(Math.floor(qn++ / 100)).padStart(10, '0') });
+    if (canon(g) === canon(w)) qSame++;
+    return w;
+  };
+  const sg = await wk.signer(), idOf = {};
+  for (const p of wP) idOf[p.key] = await sg.idOf(p.key);
+  /* 26 chữ cái: số người khớp (đếm thẳng bằng findAll của Worker) · phản hồi đúng 6 dòng đầu + more */
+  let maxN = 0, moreN = 0, zeroN = 0;
+  for (let c = 97; c <= 122; c++) {
+    const q = String.fromCharCode(c), all = C.findAll([q], wP), w = await fnd(q);
+    maxN = Math.max(maxN, all.length); if (all.length > 6) moreN++; if (!all.length) zeroN++;
+    if (w.ok && canon(w.results.map(x => x.id)) === canon(all.slice(0, 6).map(x => idOf[x.key])) && !!w.more === all.length > 6 && (all.length > 6 || !('more' in w))) shape++;
+  }
+  ok('26 chữ cái: mỗi phản hồi = 6 người xếp đầu của findAll, more khi hơn 6 (' + shape + '/26)', shape === 26, shape);
+  console.log('        1 chữ cái: nhiều nhất ' + maxN + ' người khớp · ' + moreN + '/26 chữ cái có hơn 6 người (more) · ' + zeroN + '/26 không ai');
+  /* từng hội viên: tên gọi một mình · họ một mình · đủ họ tên */
+  let givenTop = 0, givenMore = 0, famLeak = 0, famN = 0, fullTop = 0, fullFirst = 0;
+  for (const p of wP) {
+    const toks = p.toks, V = toks.length >= 2 ? toks.slice(1) : toks, id = idOf[p.key];
+    const wg = await fnd(toks[toks.length - 1]);
+    if (wg.results.some(x => x.id === id)) givenTop++; else if (wg.more && C.findAll([toks[toks.length - 1]], wP).some(x => x.key === p.key)) givenMore++;
+    if (toks.length >= 2) {
+      famN++;
+      await fnd(toks[0]);
+      /* gõ riêng họ: chỉ được ra người này nếu tên đệm / tên của chính họ có chữ đó */
+      if (C.findAll([toks[0]], wP).some(x => x.key === p.key) && !V.some(v => v.indexOf(toks[0]) >= 0)) famLeak++;
+    }
+    const wf = await fnd(p.name);
+    if (wf.results.some(x => x.id === id)) fullTop++;
+    if (wf.results.length && wf.results[0].short === p.short) fullFirst++;
+  }
+  ok('Tên gọi một mình: mọi hội viên ở 6 dòng đầu hoặc có more để gõ thêm (' + givenTop + ' + ' + givenMore + ' / ' + wP.length + ')', givenTop + givenMore === wP.length, [givenTop, givenMore]);
+  ok('Gõ riêng họ: không hội viên nào ra nhờ họ (' + famLeak + ' / ' + famN + ')', famLeak === 0, famLeak);
+  ok('Đủ họ tên: ra đúng người trong 6 dòng đầu (' + fullTop + '/' + wP.length + '), xếp đầu ' + fullFirst + '/' + wP.length, fullTop === wP.length && fullFirst === wP.length, [fullTop, fullFirst]);
+  ok('Mọi lượt tìm mới (' + qn + '): phản hồi Worker = Apps Script', qSame === qn, qSame + '/' + qn);
+}
 const phones = gP.map(p => p.phone).filter(x => x.length >= 9);
 ok('Không phản hồi nào (' + allOut.length + ' lượt) chứa SĐT hay họ tên đầy đủ', allOut.every(o => phones.every(ph => o.indexOf(ph) < 0) && gP.every(p => o.indexOf(p.name) < 0)));
 

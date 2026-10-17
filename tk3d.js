@@ -46,6 +46,7 @@ var TK3D = (function () {
   var CUR = null, MO = null, RF = 0, WMP = null, SEG = null;
 
   function clamp(x, a, b) { return x < a ? a : x > b ? b : x; }
+  var IDM = [1, 0, 0, 0, 1, 0, 0, 0, 1];
   function each(l, f) { Array.prototype.forEach.call(l, f); }
   function flag() {
     try {
@@ -95,6 +96,7 @@ var TK3D = (function () {
     'uniform float uLA, uPf, uCurl, uBend, uCs, uK, uWave;',
     'uniform mat3 uTk;',
     'uniform vec3 uEye; uniform vec2 uCv;',
+    'uniform mat3 uRot; uniform vec3 uRc; uniform float uLift;',   /* cầm phiếu lên xoay: quay quanh tâm vé + nhấc về phía người xem */
     'out vec2 vP; out vec2 vT; out vec3 vN; out vec3 vW;',
     'vec3 wave(vec2 p){ float a=p.x*0.021+p.y*0.006+1.3, b=p.y*0.017-0.4, c=p.x*0.009-p.y*0.013+2.1;',
     '  float z=0.6*sin(a)*sin(b)+0.4*sin(c);',
@@ -110,8 +112,9 @@ var TK3D = (function () {
     '    L=vec3(uPf+s*cb, aP.y, -s*sb-uCs*q*q+w.x); N=vec3(-dz-w.y, -w.z, cb);',
     '  }',
     '  vec2 lp=uVert==0 ? L.xy : L.yx, ln=uVert==0 ? N.xy : N.yx;',
-    '  vec2 r=(uTk*vec3(lp,1.0)).xy; float z=L.z*uK;',
-    '  vec3 n=normalize(vec3(mat2(uTk)*ln/uK, N.z));',
+    '  vec3 w3=uRc+uRot*(vec3((uTk*vec3(lp,1.0)).xy, L.z*uK)-uRc); w3.z+=uLift;',
+    '  vec2 r=w3.xy; float z=w3.z;',
+    '  vec3 n=normalize(uRot*vec3(mat2(uTk)*ln/uK, N.z));',
     '  float q=uEye.z/(uEye.z-z); vec2 s=uEye.xy+(r-uEye.xy)*q; float ww=1.0/q;',
     '  vP=aP; vT=lp; vN=n; vW=vec3(r,z);',
     '  gl_Position=vec4((s.x/uCv.x*2.0-1.0)*ww, (1.0-s.y/uCv.y*2.0)*ww, 0.0, ww);',
@@ -255,7 +258,7 @@ var TK3D = (function () {
   function setup() { while (OK === null) boot1(); return OK === true && !LOST; }
   function initP() {
     TXI = null; TXS = '';   /* ngữ cảnh mới (lần đầu / có lại sau khi mất) → texture cũ không còn */
-    PP = prog(VS_P, FS_P, ['uPc', 'uVert', 'uCurl', 'uBend', 'uCs', 'uK', 'uWave', 'uTk', 'uEye', 'uCv', 'uSs', 'uWH', 'uAtt', 'uFx', 'uGrain', 'uIref', 'uShin',
+    PP = prog(VS_P, FS_P, ['uPc', 'uVert', 'uCurl', 'uBend', 'uCs', 'uK', 'uWave', 'uTk', 'uEye', 'uCv', 'uRot', 'uRc', 'uLift', 'uSs', 'uWH', 'uAtt', 'uFx', 'uGrain', 'uIref', 'uShin',
       'uKnee', 'uExp', 'uInk', 'uNoise', 'uPaper', 'uLp', 'uEp', 'uLt'].concat(UCOM));
     PP.bufs = {};
   }
@@ -326,18 +329,22 @@ var TK3D = (function () {
     try {
       /* "· MỚI" (::after) → chữ thật để đo + vẽ */
       each(cl.querySelectorAll('.tk-list .new'), function (e) { var t = unq(getComputedStyle(e, '::after').content); e.classList.remove('new'); if (t) e.appendChild(document.createTextNode(t)); });
-      /* bọc từng đoạn chữ + điểm dò 0 × 0 ở chân chữ (trong span thường → đúng đường chân chữ, kể cả khi cha là flex) */
+      /* bọc từng đoạn chữ + điểm dò 0 × 0 ở chân chữ (trong phần tử inline thường → đúng đường chân chữ, kể cả khi cha là flex).
+         Vỏ bọc là thẻ tự đặt (tk-t), KHÔNG phải span: luật CSS theo thẻ span (".tk-list span{color:…}") sẽ áp lên vỏ bọc
+         → chữ buổi đã qua trong danh sách (span.was, xám) bị đọc thành màu mực đen. */
       var tn = [], twk = document.createTreeWalker(cl, NodeFilter.SHOW_TEXT, null), n;
       while ((n = twk.nextNode())) if (/\S/.test(n.data) && !(n.parentNode && n.parentNode.closest && n.parentNode.closest('svg'))) tn.push(n);
       var wr = tn.map(function (t) {
-        var sp = document.createElement('span'), pr = document.createElement('i'), ps = pr.style;
+        var sp = document.createElement('tk-t'), pr = document.createElement('i'), ps = pr.style;
         ps.display = 'inline-block'; ps.width = '0px'; ps.height = '0px'; ps.margin = '0'; ps.padding = '0'; ps.border = '0'; ps.verticalAlign = 'baseline';
         t.parentNode.insertBefore(sp, t); sp.appendChild(pr); sp.appendChild(t); return { n: t, sp: sp, pr: pr };
       });
-      var b0 = cl.getBoundingClientRect(), ox = b0.left, oy = b0.top, rg = document.createRange(), items = [], texts = [];
+      var b0 = cl.getBoundingClientRect(), ox = b0.left, oy = b0.top, rg = document.createRange(), items = [], texts = [], ord = new Map();
 
-      /* nền ô, viền trong, nét đứt, mã vạch, chữ B0DY — theo thứ tự DOM */
-      each(cl.querySelectorAll('*'), function (e) {
+      /* nền ô, viền trong, nét đứt, mã vạch, chữ B0DY — theo thứ tự DOM. o = thứ tự cây (= thứ tự trình duyệt vẽ: mọi thứ trong vé
+         là phần tử flex / grid, vẽ trọn từng phần tử) — snapshot() xếp theo o để chữ tràn nằm dưới hộp vẽ sau nó (nét đứt, ô) */
+      each(cl.querySelectorAll('*'), function (e, oi) {
+        ord.set(e, oi);
         if (e.tagName.toLowerCase() !== 'svg' && e.closest('svg')) return;
         var r = e.getBoundingClientRect(); if (!r.width || !r.height) return;
         var x = r.left - ox, y = r.top - oy, cs = getComputedStyle(e);
@@ -345,20 +352,20 @@ var TK3D = (function () {
           if (e.classList.contains('bc')) {
             var vb = e.viewBox && e.viewBox.baseVal, d = (e.querySelector('path') || { getAttribute: function () { return ''; } }).getAttribute('d') || '', bars = [], m, re = /M([\d.]+)[ ,]0h([\d.]+)/g;
             while ((m = re.exec(d))) bars.push([+m[1], +m[2]]);
-            items.push({ k: 'bc', x: x, y: y, w: r.width, h: r.height, vw: vb && vb.width || 1, bars: bars, c: cs.color });
+            items.push({ k: 'bc', x: x, y: y, w: r.width, h: r.height, vw: vb && vb.width || 1, bars: bars, c: cs.color, o: oi });
           }
           return;
         }
-        if (e.classList.contains('tk-wm')) { items.push({ k: 'wm', x: x, y: y, w: r.width, h: r.height, c: cs.color }); return; }
+        if (e.classList.contains('tk-wm')) { items.push({ k: 'wm', x: x, y: y, w: r.width, h: r.height, c: cs.color, o: oi }); return; }
         if (e.classList.contains('tk-dash')) {
           var bi = cs.backgroundImage, col = /rgba?\([^)]*\)/.exec(bi), nums = (bi.match(/([\d.]+)px/g) || []).map(parseFloat);
-          items.push({ k: 'dash', x: x, y: y, w: r.width, h: r.height, c: col ? col[0] : '#E5E5E5', on: nums[1] || 2, p: nums[3] || 5 });
+          items.push({ k: 'dash', x: x, y: y, w: r.width, h: r.height, c: col ? col[0] : '#E5E5E5', on: nums[1] || 2, p: nums[3] || 5, o: oi });
           return;
         }
         var rad = parseFloat(cs.borderTopLeftRadius) || 0;
-        if (rgbaA(cs.backgroundColor) > 0 && cs.backgroundColor !== c.paperCss) items.push({ k: 'b', x: x, y: y, w: r.width, h: r.height, r: rad, c: cs.backgroundColor });
+        if (rgbaA(cs.backgroundColor) > 0 && cs.backgroundColor !== c.paperCss) items.push({ k: 'b', x: x, y: y, w: r.width, h: r.height, r: rad, c: cs.backgroundColor, o: oi });
         var ins = /inset/.test(cs.boxShadow) && /(rgba?\([^)]*\))\s+0px\s+0px\s+0px\s+([\d.]+)px\s+inset/.exec(cs.boxShadow);
-        if (ins) items.push({ k: 'ring', x: x, y: y, w: r.width, h: r.height, r: rad, c: ins[1], bw: parseFloat(ins[2]) });
+        if (ins) items.push({ k: 'ring', x: x, y: y, w: r.width, h: r.height, r: rad, c: ins[1], bw: parseFloat(ins[2]), o: oi });
       });
       /* chữ: từng cụm ký tự (dấu tiếng Việt đi cùng chữ) đúng vị trí trình duyệt đã dàn (giãn chữ, căn lề có sẵn) */
       wr.forEach(function (w) {
@@ -371,7 +378,7 @@ var TK3D = (function () {
           }
           k += x.length;
         });
-        if (g.length) texts.push({ k: 't', font: cs.fontStyle + ' ' + cs.fontWeight + ' ' + cs.fontSize + ' ' + cs.fontFamily, c: cs.color, g: g });
+        if (g.length) texts.push({ k: 't', font: cs.fontStyle + ' ' + cs.fontWeight + ' ' + cs.fontSize + ' ' + cs.fontFamily, c: cs.color, g: g, o: ord.get(w.sp) });
       });
       var M = { W: W, H: cl.offsetHeight || H, items: items.concat(texts) };
       M.n = M.items.length; M.sig = JSON.stringify(M.items) + '|' + M.W + 'x' + M.H;
@@ -457,7 +464,11 @@ var TK3D = (function () {
       s.position = 'absolute'; s.left = q[0] + 'px'; s.top = q[1] + 'px'; s.width = '0px'; s.height = '0px'; s.margin = '0'; s.padding = '0'; s.border = '0';
       tk.appendChild(i); return i;
     });
+    /* vé DOM đang được nghiêng bằng CSS (app.js · .tk-fit.tilt, khi WebGL vừa mất rồi có lại) → đo ở dáng nghỉ, trả nghiêng ngay trong cùng tác vụ */
+    var fit = tk.closest ? tk.closest('.tk-fit') : null, tl = !!(fit && fit.classList.contains('tilt'));
+    if (tl) fit.classList.remove('tilt');
     var sr = st.getBoundingClientRect(), P = pr.map(function (i) { var r = i.getBoundingClientRect(); return [r.left - sr.left, r.top - sr.top]; });
+    if (tl) fit.classList.add('tilt');
     pr.forEach(function (i) { tk.removeChild(i); });
     var ax = [(P[1][0] - P[0][0]) / W, (P[1][1] - P[0][1]) / W], ay = [(P[2][0] - P[0][0]) / H, (P[2][1] - P[0][1]) / H], K = Math.hypot(ax[0], ax[1]) || 1;
     var xs = [P[0][0], P[1][0], P[2][0], P[1][0] + P[2][0] - P[0][0]], ys = [P[0][1], P[1][1], P[2][1], P[1][1] + P[2][1] - P[0][1]];
@@ -475,6 +486,7 @@ var TK3D = (function () {
     c.d = d; c.cw = Wd / d; c.ch = Hd / d; c.K = K; c.box = [x0, y0, Wd / d, Hd / d];
     c.T = [ax[0], ax[1], 0, ay[0], ay[1], 0, P[0][0] - x0, P[0][1] - y0, 1];
     var T = c.T, ctr = [T[0] * W / 2 + T[3] * H / 2 + T[6], T[1] * W / 2 + T[4] * H / 2 + T[7]], ey = H * V.eyeY[g.v];
+    c.rc = [ctr[0], ctr[1], 0];
     c.eye = [T[0] * W / 2 + T[3] * ey + T[6], T[1] * W / 2 + T[4] * ey + T[7], (g.v ? V.eyeM : V.eyeD) * K];
     c.lp = [ctr[0] + V.lp[0] * V.ld * K, ctr[1] + V.lp[1] * V.ld * K, V.lp[2] * V.ld * K];
     var dv = [c.lp[0] - ctr[0], c.lp[1] - ctr[1], c.lp[2]], dl = Math.hypot(dv[0], dv[1], dv[2]);
@@ -483,16 +495,26 @@ var TK3D = (function () {
 
   /* =================== dáng → vẽ một khung =================== */
   function params(c, p) {
-    var k = 1 + V.flex * Math.sin(Math.PI * clamp(p, 0, 1));
-    return { curl: (c.geo.v ? V.curlM : V.curlD) * c.geo.P * p * k, bend: V.bend * p * k, cs: V.cs * p, wave: V.wave * p, fx: clamp(p, 0, 1),
-      s1: [V.s1[0] + V.l1[0] * p, V.s1[1] + V.l1[1] * p, V.s1[2] + V.l1[2] * p], s2: [V.s2[0] + V.l2[0] * p, V.s2[1] + V.l2[1] * p, V.s2[2] + V.l2[2] * p] };
+    var k = 1 + V.flex * Math.sin(Math.PI * clamp(p, 0, 1)), r = c.rot || R0, fl = 1 + .3 * clamp(r.flex, -1, 1), lf = clamp(r.lift, 0, 1.2);
+    /* cầm lên: giấy võng thêm theo đà xoay (fl), bóng xa ra, nhoè và nhạt đi (lf) */
+    return { curl: (c.geo.v ? V.curlM : V.curlD) * c.geo.P * p * k * fl, bend: V.bend * p * k * fl, cs: V.cs * p * fl, wave: V.wave * p, fx: clamp(p, 0, 1),
+      s1: [V.s1[0] + V.l1[0] * p + 16 * lf, V.s1[1] + V.l1[1] * p + 12 * lf, V.s1[2] + V.l1[2] * p - .025 * lf], s2: [V.s2[0] + V.l2[0] * p + 3 * lf, V.s2[1] + V.l2[1] * p + 2.5 * lf, V.s2[2] + V.l2[2] * p - .03 * lf] };
+  }
+  /* quay phiếu: yaw quanh trục dọc (dương → mép phải lùi vào), pitch quanh trục ngang (dương → mép trên lùi vào) — ma trận cột cho GLSL */
+  var R0 = { yaw: 0, pitch: 0, lift: 0, flex: 0 };
+  function rotM(r) {
+    var y = (r ? r.yaw : 0) * Math.PI / 180, p = (r ? r.pitch : 0) * Math.PI / 180, cy = Math.cos(y), sy = Math.sin(y), cp = Math.cos(p), sp = Math.sin(p);
+    return [cy, 0, -sy, sy * sp, cp, cy * sp, sy * cp, -sp, cy * cp];
   }
   /* điểm (A, C) của mảnh pc sau cong / gập + ma trận vé + phối cảnh (bản JS của shader, không gợn) */
   function prj(c, P, A, C, pc) {
     var g = c.geo, a = A, z = 0;
     if (pc === 0) { var t = 1 - clamp(A / g.P, 0, 1); z = -P.curl * t * t; }
     else { var sl = g.LA - g.P, s = A - g.P, q = clamp(s / sl, 0, 1.2); a = g.P + s * Math.cos(P.bend); z = -s * Math.sin(P.bend) - P.cs * q * q; }
-    var lx = g.v ? C : a, ly = g.v ? a : C, T = c.T, X = T[0] * lx + T[3] * ly + T[6], Y = T[1] * lx + T[4] * ly + T[7], e = c.eye, k = e[2] / (e[2] - z * c.K);
+    var lx = g.v ? C : a, ly = g.v ? a : C, T = c.T, X = T[0] * lx + T[3] * ly + T[6], Y = T[1] * lx + T[4] * ly + T[7], Z = z * c.K, e = c.eye;
+    var M = c.rm || IDM, o = c.rc || [0, 0, 0], dx = X - o[0], dy = Y - o[1], dz = Z - o[2];
+    X = o[0] + M[0] * dx + M[3] * dy + M[6] * dz; Y = o[1] + M[1] * dx + M[4] * dy + M[7] * dz; Z = o[2] + M[2] * dx + M[5] * dy + M[8] * dz + (c.lift || 0);
+    var k = e[2] / (e[2] - Z);
     return [e[0] + (X - e[0]) * k, e[1] + (Y - e[1]) * k];
   }
   /* ô vuông đơn vị → tứ giác (ma trận chiếu 3×3 theo cột) · nghịch đảo · nhân */
@@ -518,6 +540,7 @@ var TK3D = (function () {
     gl.uniform2f(u.uD, g.d0, g.d1); gl.uniform2f(u.uRad, g.rn, g.rh); gl.uniform3f(u.uHo, g.h0, g.hp, g.hn);
   }
   function draw(c) {
+    c.rm = rotM(c.rot); c.lift = (c.rot ? clamp(c.rot.lift, 0, 1.2) : 0) * 30 * c.K;
     var g = c.geo, P = params(c, c.p), o1 = g.v ? [P.s1[0], 0] : [0, P.s1[0]], o2 = g.v ? [P.s2[0], 0] : [0, P.s2[0]];
     gl.viewport(0, 0, cv.width, cv.height); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
     /* 1 · bóng đổ lên nền */
@@ -535,6 +558,7 @@ var TK3D = (function () {
     gl.uniform1i(u.uVert, g.v); gl.uniform1i(u.uSs, c.ts / c.d >= 1.6 ? 1 : 0);
     gl.uniform1f(u.uCurl, P.curl); gl.uniform1f(u.uBend, P.bend); gl.uniform1f(u.uCs, P.cs); gl.uniform1f(u.uK, c.K); gl.uniform1f(u.uWave, P.wave);
     gl.uniformMatrix3fv(u.uTk, false, c.T); gl.uniform3f(u.uEye, c.eye[0], c.eye[1], c.eye[2]); gl.uniform2f(u.uCv, c.cw, c.ch);
+    gl.uniformMatrix3fv(u.uRot, false, c.rm); gl.uniform3f(u.uRc, c.rc[0], c.rc[1], c.rc[2]); gl.uniform1f(u.uLift, c.lift);
     gl.uniform2f(u.uWH, c.M.W, c.M.H); gl.uniform1f(u.uFx, P.fx); gl.uniform1f(u.uGrain, V.grain); gl.uniform1f(u.uIref, c.iref); gl.uniform1f(u.uShin, V.sh); gl.uniform1f(u.uKnee, V.knee); gl.uniform1f(u.uExp, V.exp);
     gl.uniform3f(u.uPaper, c.paper[0], c.paper[1], c.paper[2]); gl.uniform3f(u.uLp, c.lp[0], c.lp[1], c.lp[2]); gl.uniform3f(u.uEp, c.eye[0], c.eye[1], c.eye[2]);
     gl.uniform2f(u.uAtt, c.ad, V.att); gl.uniform4f(u.uLt, V.ka, V.kd, V.kh, V.ks);
@@ -582,6 +606,15 @@ var TK3D = (function () {
     var c = CUR; if (!c || c.dead || !c.shown || LOST) return;
     p = clamp(p, 0, 1); if (Math.abs(p - c.p) < 1e-5 && c.drawn === p) return;
     c.p = p; try { draw(c); } catch (e) { fail(e); }
+  }
+  /* cầm phiếu (app.js điều khiển vật lý): góc quay (độ), độ nhấc 0–1, độ võng theo đà. Chỉ vẽ khi đã hiện 3D. */
+  function rot(yaw, pitch, lift, flex) {
+    var c = CUR; if (!c || c.dead || !c.shown || LOST || !c.rc) return false;
+    var r = c.rot || (c.rot = { yaw: 0, pitch: 0, lift: 0, flex: 0 });
+    if (Math.abs(r.yaw - yaw) < 1e-4 && Math.abs(r.pitch - pitch) < 1e-4 && Math.abs(r.lift - lift) < 1e-4 && Math.abs(r.flex - flex) < 1e-4) return true;
+    r.yaw = yaw; r.pitch = pitch; r.lift = lift; r.flex = flex;
+    try { draw(c); } catch (e) { fail(e); return false; }
+    return true;
   }
   /* khung đổi (thu nhỏ cho vừa, xoay màn, phông về muộn): đo lại ở khung kế; bố cục / độ nét đổi → vẽ chữ lại */
   function refit() { if (!CUR || RF) return; RF = requestAnimationFrame(function () { RF = 0; refit0(); }); }
@@ -642,8 +675,200 @@ var TK3D = (function () {
   function lose() { var x = gl && gl.getExtension('WEBGL_lose_context'); if (!x) return false; x.loseContext(); window._tk3dLx = x; return true; }
   function restore() { var x = window._tk3dLx; if (!x) return false; x.restoreContext(); return true; }
 
+  /* =================== ảnh phẳng 2D cho "Lưu về máy" (không cần WebGL) ===================
+     snapshot(vé) → canvas: vẽ lại ĐÚNG vé DOM được truyền vào (app.js truyền vé đang hiện: desktop #tkW ngang · mobile #tkT dọc)
+     ở dáng phẳng (pose 0), như vé DOM lúc đứng yên — ảnh lưu về máy trùng thiết kế trên màn:
+     · bố cục + mực: cùng measure() + paintItem() với texture của bản 3D (từng cụm ký tự đúng chỗ trình duyệt đã dàn, giãn chữ, chữ hoa,
+       "· MỚI", ô Acid, viền ô, nét đứt, mã vạch, chữ B0DY) → không còn bản vẽ tay thứ hai lệch dần với vé
+     · giấy: đúng path của .tk-paper (răng cưa, khía, lỗ kim — số do tkPaper() của app.js tính, cũng là nguồn mép của bản 3D)
+     · nghiêng: đúng transform lúc đứng yên của vé (rotate 1° / 0,8° quanh tâm); KHÔNG lấy tỉ lệ thu cho vừa khung (--tks)
+     · bóng: đúng chuỗi filter drop-shadow của vé (đọc từ CSS): mỗi lớp = mặt nạ alpha (giấy + mực tràn ra ngoài giấy) làm mờ Gauss
+       σ = độ nhoè CSS (Chrome · Safari · Firefox đều coi số thứ ba là σ), dời, tô màu; lớp sau đổ bóng cả lớp trước (filter nối tiếp).
+       Tự tính bằng JS trên lưới thưa (σ lớn) / lưới 1 px (σ nhỏ) rồi phóng lên — không dùng shadowBlur của canvas (Chrome σ = blur / 2,
+       Safari ≈ blur / 3 → lệch bóng DOM). Đọc mặt nạ không tin được (trình duyệt chống dò vân tay) → shadowBlur làm dự phòng.
+     Mặc định 3× (tự hạ nếu cạnh > 4096 px hoặc > 16 triệu điểm ảnh — giới hạn canvas của iOS), nền giấy của trang (#FAFAFA), lề đủ
+     cho bóng tắt hẳn. Chỉ canvas 2D: chạy cả khi không có WebGL / tk3d tắt. Không đụng bản 3D (CUR, texture, khung vẽ, V).
+     Vé chưa sẵn sàng (chưa có path giấy, đang ẩn) → null. Chờ phông (document.fonts) là việc của nơi gọi.
+     canvas.tkSnap = { s, T (ma trận vé → ảnh, điểm ảnh), W, H, el, v } — để test so với vé DOM. */
+  /* transform + filter của vé lúc đứng yên: bản sao nông không có .in / .gl / animation, cùng cỡ vé */
+  function snapPose(tk, st, W, H) {
+    var e = tk.cloneNode(false), s = e.style, r = { m: [1, 0, 0, 1, 0, 0], o: [W / 2, H / 2], f: 'none' };
+    ['id', 'role', 'aria-label', 'style'].forEach(function (a) { e.removeAttribute(a); });
+    e.classList.remove('in', 'gl');
+    s.position = 'absolute'; s.left = '0px'; s.top = '0px'; s.width = W + 'px'; s.height = H + 'px'; s.margin = '0'; s.animation = 'none'; s.transition = 'none';
+    s.visibility = 'hidden'; s.pointerEvents = 'none';
+    st.appendChild(e);
+    try {
+      var cs = getComputedStyle(e), m = /matrix(3d)?\(([^)]+)\)/.exec(cs.transform || ''), o = String(cs.transformOrigin || '').split(/\s+/).map(parseFloat);
+      if (m) { var v = m[2].split(',').map(parseFloat); r.m = m[1] ? [v[0], v[1], v[4], v[5], v[12], v[13]] : v.slice(0, 6); }
+      if (r.m.some(function (x) { return !isFinite(x); })) r.m = [1, 0, 0, 1, 0, 0];
+      if (o.length > 1 && isFinite(o[0]) && isFinite(o[1])) r.o = [o[0], o[1]];
+      r.f = cs.filter || 'none';
+    } finally { st.removeChild(e); }
+    return r;
+  }
+  /* "drop-shadow(rgba(10, 10, 10, 0.1) 0px 20px 22px) drop-shadow(…)" → [{ x, y, s (σ), a, c: [r, g, b] }] theo thứ tự áp */
+  function snapShadows(f) {
+    var out = [], re = /drop-shadow\(((?:[^()]|\([^()]*\))*)\)/g, m;
+    while ((m = re.exec(f || ''))) {
+      var cm = /rgba?\([^)]*\)/.exec(m[1]), col = cm ? cm[0] : 'rgb(0, 0, 0)', L = (m[1].replace(col, ' ').match(/-?[\d.]+(?=px)/g) || []).map(parseFloat), c = rgb01(col);
+      if (L.length > 1) out.push({ x: L[0], y: L[1], s: L[2] || 0, a: rgbaA(col), c: [c[0] * 255, c[1] * 255, c[2] * 255] });
+    }
+    /* trình duyệt viết filter kiểu khác → số của V (đã ghi y hệt vé DOM) */
+    if (!out.length && /drop-shadow/.test(f || '')) out = [V.s1, V.s2].map(function (q) { return { x: 0, y: q[0], s: q[1], a: q[2], c: [10, 10, 10] }; });
+    return out;
+  }
+  /* làm mờ Gauss tách trục, ngoài lưới = 0 (σ tính bằng ô lưới) */
+  function snapBlur(a, w, h, sg) {
+    var R = Math.max(1, Math.ceil(sg * 3)), n = 2 * R + 1, k = new Float32Array(n), t = 0, i, x, y, j;
+    for (i = 0; i < n; i++) { k[i] = Math.exp(-(i - R) * (i - R) / (2 * sg * sg)); t += k[i]; }
+    for (i = 0; i < n; i++) k[i] /= t;
+    var b = new Float32Array(w * h), o = new Float32Array(w * h);
+    for (y = 0; y < h; y++) {   /* ngang: cộng từng nhịp nhân của cả hàng (vòng trong không rẽ nhánh) */
+      var r0 = y * w;
+      for (j = 0; j < n; j++) { var kj = k[j], dd = j - R, x0 = dd < 0 ? -dd : 0, x1 = dd > 0 ? w - dd : w; for (x = x0; x < x1; x++) b[r0 + x] += a[r0 + x + dd] * kj; }
+    }
+    for (y = 0; y < h; y++) {   /* dọc: cộng cả hàng lân cận */
+      var r1 = y * w;
+      for (j = 0; j < n; j++) { var yy = y + j - R; if (yy < 0 || yy >= h) continue; var kv = k[j], rs = yy * w; for (x = 0; x < w; x++) o[r1 + x] += b[rs + x] * kv; }
+    }
+    return o;
+  }
+  /* lấy mẫu song tuyến lưới f (w × h, tâm ô = số nguyên, ngoài lưới = 0) lên lưới gw × gh: ô (i, j) ← f(au·i + bu, av·j + bv) */
+  function snapRes(f, w, h, gw, gh, au, bu, av, bv) {
+    var o = new Float32Array(gw * gh), X = new Int32Array(gw), F = new Float32Array(gw), i, j;
+    for (i = 0; i < gw; i++) { var u = au * i + bu, x0 = Math.floor(u); X[i] = x0; F[i] = u - x0; }
+    for (j = 0; j < gh; j++) {
+      var v = av * j + bv, y0 = Math.floor(v), fy = v - y0, r0 = y0 * w, r1 = r0 + w, k0 = y0 >= 0 && y0 < h, k1 = y0 + 1 >= 0 && y0 + 1 < h, oj = j * gw;
+      if (!k0 && !k1) continue;
+      for (i = 0; i < gw; i++) {
+        var x = X[i], fx = F[i], a = 0, b = 0;
+        if (x >= 0 && x < w) { if (k0) a = f[r0 + x] * (1 - fx); if (k1) b = f[r1 + x] * (1 - fx); }
+        if (x + 1 >= 0 && x + 1 < w) { if (k0) a += f[r0 + x + 1] * fx; if (k1) b += f[r1 + x + 1] * fx; }
+        o[oj + i] = a * (1 - fy) + b * fy;
+      }
+    }
+    return o;
+  }
+  /* mặt nạ alpha trên lưới (gốc gx, gy · bước h px CSS): giấy + mực tràn — vẽ bằng canvas 2D rồi đọc kênh alpha */
+  function snapMask(paint, gx, gy, gw, gh, h) {
+    var cv = document.createElement('canvas'); cv.width = gw; cv.height = gh;
+    var x = cv.getContext('2d', { willReadFrequently: true }); if (!x) return null;
+    try {
+      x.setTransform(1 / h, 0, 0, 1 / h, -gx / h, -gy / h); paint(x, '#000');
+      var d = x.getImageData(0, 0, gw, gh).data, a = new Float32Array(gw * gh);
+      for (var i = 0; i < a.length; i++) a[i] = d[i * 4 + 3] / 255;
+      return a;
+    } finally { cv.width = cv.height = 0; }
+  }
+  /* các lớp bóng: lưới riêng mỗi lớp (bước ≈ σ / 3, mịn nhất 1 px CSS) → alpha → vẽ phóng lên theo ma trận T. Lớp sau nằm dưới. */
+  function snapShade(x, T, sh, paint, bb, W, H) {
+    var L = [], n, i, k;
+    for (n = 0; n < sh.length; n++) {
+      var q = sh[n], h = Math.max(1, q.s / 3), reach = Math.max(Math.abs(q.x), Math.abs(q.y)) + 3 * q.s + 2 * h;
+      var gx = bb[0] - reach, gy = bb[1] - reach, gw = Math.ceil((bb[2] - bb[0] + 2 * reach) / h), gh = Math.ceil((bb[3] - bb[1] + 2 * reach) / h);
+      var a = snapMask(paint, gx, gy, gw, gh, h); if (!a) return false;
+      /* mặt nạ đọc ra phải đúng: góc ngoài trống, giữa vé kín giấy (trình duyệt chống dò vân tay trả ảnh nhiễu / trắng → dự phòng) */
+      var ci = Math.floor((H / 2 - gy) / h) * gw + Math.floor((W / 2 - gx) / h);
+      if (!(a[0] < .02 && a[gw * gh - 1] < .02 && a[ci] > .98)) return false;
+      /* filter nối tiếp: lớp này đổ bóng cả các lớp trước → mặt nạ = 1 − (1 − mực)(1 − bóng trước) */
+      L.forEach(function (l) {
+        var v = snapRes(l.g, l.gw, l.gh, gw, gh, h / l.h, (gx + .5 * h - l.gx) / l.h - .5, h / l.h, (gy + .5 * h - l.gy) / l.h - .5);
+        for (k = 0; k < v.length; k++) if (v[k] > 0) a[k] = 1 - (1 - a[k]) * (1 - v[k]);
+      });
+      /* σ theo ô lưới; trừ phần nhoè sẵn của ô vuông khi vẽ mặt nạ (phương sai 1/12) · dời theo độ lệch bóng · nhân độ đậm */
+      var sg = Math.sqrt(Math.max(q.s * q.s / (h * h) - 1 / 12, 0)), f = sg > .25 ? snapBlur(a, gw, gh, sg) : a, g = snapRes(f, gw, gh, gw, gh, 1, -q.x / h, 1, -q.y / h);
+      for (k = 0; k < g.length; k++) g[k] *= q.a;
+      L.push({ gx: gx, gy: gy, h: h, gw: gw, gh: gh, g: g, c: q.c });
+    }
+    for (n = L.length - 1; n >= 0; n--) {
+      var l = L[n], cv = document.createElement('canvas'); cv.width = l.gw; cv.height = l.gh;
+      var c = cv.getContext('2d'); if (!c) return false;
+      var im = c.createImageData(l.gw, l.gh), d = im.data;
+      for (i = 0; i < l.g.length; i++) { var al = Math.round(Math.min(1, l.g[i]) * 255); if (al > 0) { d[i * 4] = l.c[0]; d[i * 4 + 1] = l.c[1]; d[i * 4 + 2] = l.c[2]; d[i * 4 + 3] = al; } }
+      c.putImageData(im, 0, 0);
+      x.setTransform(T[0], T[1], T[2], T[3], T[4], T[5]); x.imageSmoothingEnabled = true;
+      x.drawImage(cv, l.gx, l.gy, l.gw * l.h, l.gh * l.h);
+      cv.width = cv.height = 0;
+    }
+    return true;
+  }
+  /* dự phòng: shadowBlur của canvas (σ = blur / 2 theo chuẩn), chỉ bóng — hình đặt ra ngoài khung, bóng dời về đúng chỗ */
+  function snapShadeNative(x, T, sh, paint, s, Wc) {
+    for (var n = sh.length - 1; n >= 0; n--) {
+      var q = sh[n], D = Wc + 8 * q.s * s + 64;
+      x.save(); x.setTransform(T[0], T[1], T[2], T[3], T[4] - D, T[5]);
+      x.shadowColor = 'rgba(' + q.c.map(Math.round).join(',') + ',' + q.a + ')'; x.shadowBlur = 2 * q.s * s;
+      x.shadowOffsetX = D + T[0] * q.x + T[2] * q.y; x.shadowOffsetY = T[1] * q.x + T[3] * q.y;
+      paint(x, '#000'); x.restore();
+    }
+  }
+  function snapshot(tk, o) {
+    o = o || {};
+    if (!tk || !tk.isConnected || !tk.offsetWidth || !tk.offsetHeight || !window.Path2D) return null;
+    var pe = tk.querySelector('.tk-paper path'), d = pe && pe.getAttribute('d'), svg = pe && pe.ownerSVGElement, st = tk.closest('.tk-stage') || tk.parentNode;
+    if (!d || !st) return null;
+    var pc = paperCss(tk), M = measure({ tk: tk, stage: st, paperCss: pc }), W = M.W, H = M.H;
+    if (!W || !H) return null;
+    var P = snapPose(tk, st, W, H), sh = o.shadow === false ? [] : snapShadows(P.f);
+    /* thứ tự vẽ như trình duyệt (thứ tự cây, xếp ổn định): measure() trả hộp trước, chữ sau — chữ tràn (tên rất dài) phải nằm dưới
+       nét đứt / ô vẽ sau nó như vé DOM */
+    if (M.items.every(function (it) { return typeof it.o === 'number'; })) M.items.sort(function (a, b) { return a.o - b.o; });
+    /* path giấy: viewBox → hộp vé như SVG (xMidYMid meet; bình thường viewBox = W × H → giữ nguyên) */
+    var path = new Path2D(d), vb = svg && svg.viewBox && svg.viewBox.baseVal, pm = [1, 0, 0, 1, 0, 0];
+    if (vb && vb.width && vb.height) { var kv = Math.min(W / vb.width, H / vb.height); pm = [kv, 0, 0, kv, (W - vb.width * kv) / 2 - vb.x * kv, (H - vb.height * kv) / 2 - vb.y * kv]; }
+    /* ô, viền, nét đứt, mã vạch, chữ B0DY: mép hộp bám px CSS trong toạ độ vé — đúng cách trình duyệt vẽ hộp của phần tử có transform
+       (chữ: measure() đã làm tròn đường chân chữ; x giữ phần lẻ như trình duyệt). Đo ở 3×: viền ô lệch 0,8 → 0,02 điểm ảnh. */
+    M.items.forEach(function (it) {
+      if (it.k === 't') return;
+      var x0 = Math.round(it.x), y0 = Math.round(it.y), x1 = Math.round(it.x + it.w), y1 = Math.round(it.y + it.h);
+      it.x = x0; it.y = y0; it.w = Math.max(0, x1 - x0); it.h = Math.max(0, y1 - y0);
+    });
+    /* hộp nội dung (toạ độ vé): giấy + mực tràn ra ngoài giấy (tên rất dài…) — mực tràn cũng đổ bóng như vé DOM */
+    var bb = [0, 0, W, H], over = [];
+    M.items.forEach(function (it) {
+      var b;
+      if (it.k === 't') {
+        var fs = parseFloat((/([\d.]+)px/.exec(it.font) || [0, 16])[1]) || 16; b = [Infinity, Infinity, -Infinity, -Infinity];
+        it.g.forEach(function (g) { b[0] = Math.min(b[0], g[1] - fs * .1); b[1] = Math.min(b[1], g[2] - fs); b[2] = Math.max(b[2], g[1] + fs); b[3] = Math.max(b[3], g[2] + fs * .3); });
+      } else b = [it.x, it.y, it.x + it.w, it.y + it.h];
+      if (b[0] < -.5 || b[1] < -.5 || b[2] > W + .5 || b[3] > H + .5) { over.push(it); bb = [Math.min(bb[0], b[0]), Math.min(bb[1], b[1]), Math.max(bb[2], b[2]), Math.max(bb[3], b[3])]; }
+    });
+    function paint(c, col) {
+      c.save(); c.transform(pm[0], pm[1], pm[2], pm[3], pm[4], pm[5]); c.fillStyle = col; c.fill(path, 'evenodd'); c.restore();
+      c.textBaseline = 'alphabetic'; c.textAlign = 'left';
+      over.forEach(function (it) { paintItem(c, it); });
+    }
+    /* vé (px CSS, chưa biến đổi) → trang: A = dời(gốc) · matrix · dời(−gốc) */
+    var m = P.m, ox = P.o[0], oy = P.o[1], A = [m[0], m[1], m[2], m[3], m[4] + ox - m[0] * ox - m[2] * oy, m[5] + oy - m[1] * ox - m[3] * oy];
+    var cx = [], cy = [];
+    [[bb[0], bb[1]], [bb[2], bb[1]], [bb[0], bb[3]], [bb[2], bb[3]]].forEach(function (p) { cx.push(A[0] * p[0] + A[2] * p[1] + A[4]); cy.push(A[1] * p[0] + A[3] * p[1] + A[5]); });
+    /* lề (px CSS): tối thiểu 32; đủ để mỗi lớp bóng tắt hẳn (2,4 σ ngoài mép bóng đã dời: < 0,25 mức màu) */
+    var mg = [32, 32, 32, 32];
+    sh.forEach(function (q) { var r = 2.4 * q.s; mg[0] = Math.max(mg[0], r - q.x); mg[1] = Math.max(mg[1], r - q.y); mg[2] = Math.max(mg[2], r + q.x); mg[3] = Math.max(mg[3], r + q.y); });
+    var X0 = Math.floor(Math.min.apply(null, cx) - mg[0]), Y0 = Math.floor(Math.min.apply(null, cy) - mg[1]);
+    var X1 = Math.ceil(Math.max.apply(null, cx) + mg[2]), Y1 = Math.ceil(Math.max.apply(null, cy) + mg[3]), cw = X1 - X0, ch = Y1 - Y0;
+    var s = Math.min(o.scale || 3, 4096 / Math.max(cw, ch), Math.sqrt(16e6 / (cw * ch))), Wc = Math.round(cw * s), Hc = Math.round(ch * s);
+    s = Math.min(Wc / cw, Hc / ch);
+    var T = [s * A[0], s * A[1], s * A[2], s * A[3], s * (A[4] - X0), s * (A[5] - Y0)];
+    var cv = document.createElement('canvas'); cv.width = Wc; cv.height = Hc;
+    var x = cv.getContext('2d'); if (!x) return null;
+    var bg = o.bg || (function () { var b = getComputedStyle(document.body).backgroundColor; return rgbaA(b) === 1 ? b : '#FAFAFA'; })();
+    x.fillStyle = bg; x.fillRect(0, 0, Wc, Hc);
+    if (sh.length) { var ok = false; try { ok = snapShade(x, T, sh, paint, bb, W, H); } catch (e) { ok = false; } if (!ok) { x.setTransform(1, 0, 0, 1, 0, 0); x.fillStyle = bg; x.fillRect(0, 0, Wc, Hc); snapShadeNative(x, T, sh, paint, s, Wc); } }
+    /* giấy rồi mực, cùng ma trận (chữ dựng thẳng theo góc nghiêng, sắc như vé DOM) */
+    x.setTransform(T[0], T[1], T[2], T[3], T[4], T[5]);
+    x.save(); x.transform(pm[0], pm[1], pm[2], pm[3], pm[4], pm[5]); x.fillStyle = pc; x.fill(path, 'evenodd'); x.restore();
+    x.textBaseline = 'alphabetic'; x.textAlign = 'left';
+    M.items.forEach(function (it) { paintItem(x, it); });
+    x.setTransform(1, 0, 0, 1, 0, 0);
+    cv.tkSnap = { s: s, T: T, W: W, H: H, el: tk.id, v: tk.classList.contains('tkm') ? 'm' : 'd' };
+    return cv;
+  }
+
   return {
-    attach: attach, show: show, pose: pose, refit: refit, release: release, warm: warm,
+    snapshot: snapshot,
+    attach: attach, show: show, pose: pose, rot: rot, refit: refit, release: release, warm: warm,
     ready: function () { var c = CUR; return OK === false || LOST || !c || c.dead ? -1 : c.rdy ? 1 : 0; },
     booted: function () { return OK === true && !LOST; },
     shown: function () { var c = CUR; return c && !c.dead && c.shown ? c.p : -1; },

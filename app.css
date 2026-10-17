@@ -222,6 +222,14 @@ button.stepn .ic{width:16px;height:16px}
 .rrow .ic{stroke:currentColor}
 .rrow.on{background:var(--muc);color:var(--giay);box-shadow:none}
 @media (hover:hover) and (pointer:fine){ .rrow:hover{background:var(--muc);color:var(--giay);box-shadow:none} }
+/* tô phần khớp chữ đã gõ (app.js · hitHTML): chỉ đổi màu, cùng độ đậm 500, không gạch chân — phần còn lại Graphite, phần khớp Ink;
+   dòng đang chọn / di chuột (nền Ink): chữ trên nền tối 70 % / 100 % Paper */
+.rrow .nm.hl,.rrow .hit{transition:color var(--hov)}
+.rrow .nm.hl{color:var(--than)}
+.rrow .hit{color:var(--muc)}
+.rrow.on .nm.hl{color:rgba(250,250,250,.7)}
+.rrow.on .hit{color:var(--giay)}
+@media (hover:hover) and (pointer:fine){ .rrow:hover .nm.hl{color:rgba(250,250,250,.7)} .rrow:hover .hit{color:var(--giay)} }
 .keys{display:flex;justify-content:flex-end;padding:12px 20px 0}
 .miss{display:flex;flex-direction:column;gap:12px;padding:20px 20px 0}
 .miss .h22{font-size:22px}
@@ -393,6 +401,7 @@ button.stepn .ic{width:16px;height:16px}
 .tkp-top .hello .sub2{font-family:var(--mono);font-size:10px;line-height:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--than)}
 .tk-stage{position:relative;flex:1 1 auto;display:flex;align-items:center;justify-content:center;min-height:440px;padding:24px 0}
 .tk-fit{transform-origin:50% 50%;transform:scale(var(--tks,1))}
+.tk-fit.tilt{transform:perspective(1600px) rotateX(var(--tkp,0deg)) rotateY(var(--tky,0deg)) scale(var(--tks,1))}   /* vé DOM khi không có WebGL: cầm nghiêng bằng CSS 3D */
 /* phiếu giấy thật (tk3d.js): canvas WebGL vẽ vé như tờ giấy 3D; vé DOM vẫn là mô hình (bố cục, trợ năng) nhưng trong suốt */
 .tk3d{position:absolute;left:0;top:0;z-index:2;display:block;pointer-events:none}
 .tk.gl,.tkm.gl{opacity:0!important;user-select:none;-webkit-user-select:none}   /* chữ DOM trong suốt: không bôi chọn được (vùng chọn sẽ lệch với tờ 3D) */
@@ -582,6 +591,7 @@ button.stepn .ic{width:16px;height:16px}
   .tkp{padding:20px 16px 16px}
   .tk-stage{min-height:0;padding:12px 0 8px;align-items:flex-start}
   .tk-fit{transform:none;width:100%}
+  .tk-fit.tilt{transform:perspective(1150px) rotateX(var(--tkp,0deg)) rotateY(var(--tky,0deg))}
 }
 
 /* mobile: phiếu dọc */

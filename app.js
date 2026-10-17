@@ -9,7 +9,7 @@
 'use strict';
 
 /* ============================== CẤU HÌNH ============================== */
-var VER = '1.0.4';
+var VER = '1.0.5';
 var API_URL = 'https://b0dy-booking-api.little-bonus-1d87.workers.dev/';
 var API_SLOW = false;                 /* true khi chạy Apps Script (chậm hơn nhiều) → nới thời gian chờ */
 /* chế độ QC (?qc): máy chủ giả chạy ngay trên máy (qc.js, đúng mã của Worker) với dữ liệu giả — không gọi mạng,
@@ -34,7 +34,9 @@ function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
 var MQ_RM = window.matchMedia('(prefers-reduced-motion: reduce)'), MQ_DESK = window.matchMedia('(min-width: 960px)');
 function rm() { return MQ_RM.matches; }
 function desk() { return MQ_DESK.matches; }
-function fold(s) { return String(s == null ? '' : s).normalize('NFD').replace(/\p{M}/gu, '').replace(/[đĐ]/g, 'd').toLowerCase(); }
+/* gập dấu đúng luật máy chủ (core.js · fold): bỏ dải U+0300–U+036F, đ → d, chữ thường — để chữ gõ và chữ tô khớp trùng máy chủ */
+var MARKS = new RegExp('[' + String.fromCharCode(0x300) + '-' + String.fromCharCode(0x36f) + ']', 'g');
+function fold(s) { return String(s == null ? '' : s).normalize('NFD').replace(MARKS, '').replace(/[đĐ]/g, 'd').toLowerCase(); }
 function words(s) { return fold(s).replace(/[^a-z0-9 ]+/g, ' ').trim().split(/\s+/).filter(Boolean); }
 function cap1(s) { s = String(s || ''); return s.charAt(0).toUpperCase() + s.slice(1); }
 var SEQ = 0;
@@ -243,6 +245,12 @@ var S = {
   st: null,                 /* state đã xác minh (từ máy chủ) */
   pub: null,                /* thông tin tuần công khai (chưa xác minh) */
   q: '', results: [], sel: 0, qSeq: 0, qCache: {}, qState: 'idle', qErr: '',
+  qMore: false,             /* máy chủ còn hơn 6 người khớp → nhắc gõ thêm */
+  qShown: '',               /* chữ gõ (đã chuẩn hoá) của danh sách đang hiện — để tô phần khớp */
+  qNeed: 0,                 /* máy chủ cũ đòi ≥ 2 chữ (phản hồi có need) → 2: không gửi lượt 1 chữ nữa */
+  qSlow: false,             /* lượt tìm đầu đã chờ quá 400 ms → mới hiện "Đang tìm…" */
+  qFly: '',                 /* chữ gõ đang chờ máy chủ trả lời — gõ lại đúng chữ đó (Telex: ee → ê) thì không hỏi lại */
+  qHold: 0,                 /* máy chủ báo tìm quá nhiều (cham_lai) → ngừng hỏi tới mốc này (ms) */
   who: null,                /* {id, short, coach} người vừa chọn ở bước tìm tên */
   pin: '', pinShow: -1, pinErr: '', remember: true,
   picks: [], addMode: false, gone: [], sug: null,
@@ -369,6 +377,140 @@ function bobGlance(el) {
 }
 function bobReact(kind) { [BOB.d, BOB.m].forEach(function (b) { if (b && b.react) try { b.react(kind); } catch (e) { /* bỏ qua */ } }); }
 function bobSlot(page) { var slot = page && page.querySelector('.bob-slot'); if (slot && BOB.hostM.parentNode !== slot) slot.appendChild(BOB.hostM); }
+
+/* ---------- B0B · cầu nối cảm giác (v1.1): trang KỂ điều đang xảy ra, B0B tự quyết định cảm và phản ứng ----------
+   Không chen vào logic đặt lịch: đọc trạng thái S 8 lần / giây + nghe sự kiện DOM ở cấp document. Lỗi ở đây không bao giờ lan ra trang. */
+var BB = { v: '', from: '', nres: -1, rkey: '', first: '', pin: -1, perr: '', picks: null, chg: '', ready: false, send: false, sec: -1, hov: null, hovT: 0, notice: '', toast: false, sheet: false, tk: '' };
+function bobEmit(type, data) {
+  if (BOB.fb || !window.B0B || typeof window.B0B.emit !== 'function') return;
+  try { window.B0B.emit(type, data || {}); } catch (e) { /* B0B không bao giờ được làm hỏng trang */ }
+}
+var BBC = null;
+/* vị trí con trỏ chữ trong ô tìm (0–1 theo bề ngang ô): B0B đọc theo chữ đang gõ */
+function bobCaret(inp) {
+  try {
+    var cs = getComputedStyle(inp), r = inp.getBoundingClientRect(); if (!r.width) return .5;
+    if (!BBC) BBC = document.createElement('canvas').getContext('2d');
+    BBC.font = cs.fontWeight + ' ' + cs.fontSize + ' ' + cs.fontFamily;
+    var pos = inp.selectionStart == null ? inp.value.length : inp.selectionStart;
+    var x = inp.offsetLeft + parseFloat(cs.paddingLeft || 0) + BBC.measureText(inp.value.slice(0, pos)).width;
+    var host = inp.parentNode && inp.parentNode.getBoundingClientRect ? inp.parentNode.getBoundingClientRect() : r;
+    return Math.max(.04, Math.min(.96, (r.left - host.left + x - inp.offsetLeft) / Math.max(1, host.width)));
+  } catch (e) { return .5; }
+}
+function bobVisible(sel) { var a = document.querySelectorAll(sel); for (var i = 0; i < a.length; i++) { var r = a[i].getBoundingClientRect(); if (r.width && r.height) return a[i]; } return null; }
+function bobBridge() {
+  document.addEventListener('input', function (e) {
+    var t = e.target; if (!t || t.id !== 'q') return;
+    bobEmit('type', { el: t.parentNode && t.parentNode.classList && t.parentNode.classList.contains('sbox') ? t.parentNode : t, ax: bobCaret(t), space: / $/.test(t.value) });
+  }, true);
+  /* liếc thứ con trỏ đang trỏ (ô lịch, dòng tên, nút) — thưa ra, không giật theo từng điểm ảnh */
+  document.addEventListener('pointerover', function (e) {
+    if (e.pointerType !== 'mouse' || !e.target || !e.target.closest) return;
+    var el = e.target.closest('#wkb .c, .rrow, .pk, .btn, .ib, .tk-fit, .pin, .chk');
+    if (!el || el === BB.hov) return;
+    var t = performance.now(); if (t - BB.hovT < 140) return;
+    BB.hov = el; BB.hovT = t; bobEmit('hover', { el: el, ms: 700 });
+  }, true);
+  document.addEventListener('click', function (e) {
+    var t = e.target && e.target.closest ? e.target : null; if (!t) return;
+    var c = t.closest('#wkb .c');
+    if (c && (c.getAttribute('aria-disabled') === 'true' || (S.view === 'book' && S.st && S.picks.length >= maxPicks() && !c.classList.contains('sel') && !S.picks.some(function (p) { return p.date === c.dataset.d; })))) bobEmit('nope', { el: c });
+    if (t.closest('[data-a="png"]')) bobEmit('save', {});
+  }, true);
+  window.addEventListener('offline', function () { bobEmit('offline', { el: $('#hd') }); });
+  window.addEventListener('online', function () { bobEmit('online', {}); });
+  setInterval(function () { try { bobWatch(); } catch (e) { /* bỏ qua */ } }, 120);
+}
+function bobPicksKey(a) { return a.map(function (p) { return p.date + '@' + p.h; }); }
+function bobCell(k) { var x = k.split('@'); return document.querySelector('#wkb .c[data-d="' + x[0] + '"][data-h="' + x[1] + '"]'); }
+function bobWatch() {
+  if (!BOB.d && !BOB.m) return;
+  var v = S.view, page = S.page;
+  if (v !== BB.v) {
+    var from = BB.v; BB.v = v; BB.nres = -1; BB.rkey = ''; BB.first = ''; BB.pin = -1; BB.perr = ''; BB.picks = null; BB.chg = ''; BB.ready = false; BB.send = false; BB.tk = '';
+    var el = v === 'find' ? $('.sbox') : v === 'verify' ? $('#pins') : v === 'closed' || v === 'lock' ? $('#cdv') : page && page.querySelector('h1');
+    bobEmit('screen', { view: v, el: el, ms: 1800 });
+    if (from === 'find' && (v === 'verify' || v === 'lock')) bobEmit('choose', { el: $('#pins') });
+    if (from === 'verify' && v !== 'find' && v !== 'lock' && v !== 'verify') bobEmit('pinok', {});
+    if (v === 'lock') bobEmit('lock', {});
+    if (from === 'closed' && v === 'find' && BB.sec >= 0 && BB.sec <= 3) bobEmit('open', {});
+  }
+  /* 01 tìm tên */
+  if (v === 'find') {
+    var rows = page ? page.querySelectorAll('.rrow') : [], n = S.qState === 'done' ? S.results.length : S.qState === 'none' ? 0 : -1;
+    var rk = n > 0 ? S.results.map(function (x) { return x.id; }).join(',') : String(n);
+    if (rk !== BB.rkey && n >= 0) {
+      var first = n > 0 ? String(S.results[0].id) : '';
+      BB.rkey = rk;
+      /* tìm theo từng chữ gõ: người đứng đầu đổi (hoặc từ không ai → có người) thì mắt sáng lên, liếc dòng đầu;
+         chỉ phần đuôi danh sách đổi thì liếc nhẹ dòng cuối — không giật mình theo từng phím */
+      if (n > 0 && rows.length) {
+        if (first !== BB.first) bobEmit('results', { el: rows[0], n: n, more: !!S.qMore || n >= 6, last: rows[rows.length - 1] });
+        else bobEmit('hover', { el: rows[rows.length - 1], ms: 600 });
+      } else if (n === 0) bobEmit('none', { el: $('.sbox') });
+      BB.first = first;
+    }
+  }
+  /* 02 xác minh: B0B quay đi khi mã đang gõ */
+  if (v === 'verify') {
+    var pn = (S.pin || '').length;
+    if (pn !== BB.pin) { BB.pin = pn; bobEmit('pin', { n: pn, el: $('#pins') }); }
+    if (S.pinErr && S.pinErr !== BB.perr) bobEmit('pinbad', {});
+    BB.perr = S.pinErr || '';
+  }
+  /* 03 bảng tuần · đổi lịch */
+  if ((v === 'book' || v === 'change') && S.st) {
+    if (v === 'book') {
+      var cur = bobPicksKey(S.picks), prev = BB.picks;
+      if (prev) {
+        var added = cur.filter(function (k) { return prev.indexOf(k) < 0; }), gone = prev.filter(function (k) { return cur.indexOf(k) < 0; });
+        if (added.length) bobEmit('pick', { el: bobCell(added[added.length - 1]), n: cur.length, max: maxPicks() });
+        else if (gone.length) bobEmit('unpick', { el: bobCell(gone[0]) });
+      }
+      BB.picks = cur;
+      var ready = cur.length >= minPicks();
+      if (ready && !BB.ready) bobEmit('ready', { el: bobVisible('#cta, #ctaM') });
+      BB.ready = ready;
+    } else {
+      var ck = (S.chg.from ? S.chg.from.date + '@' + S.chg.from.h : '') + '>' + (S.chg.to ? S.chg.to.date + '@' + S.chg.to.h : '');
+      if (BB.chg && ck !== BB.chg) {
+        var last = S.chg.to || S.chg.from;
+        if (last) bobEmit('pick', { el: bobCell(last.date + '@' + last.h), n: 0 });
+        if (S.chg.from && S.chg.to) bobEmit('ready', { el: bobVisible('#cta, #ctaM') });
+      }
+      BB.chg = ck;
+    }
+    if (S.sending && !BB.send) bobEmit('send', { el: bobVisible('#cta, #ctaM') });
+    if (!S.sending && BB.send) bobEmit('sent', {});
+    BB.send = !!S.sending;
+    var nk = S.notice ? (S.notice.type || '') + (S.notice.title || '') : '';
+    if (nk && nk !== BB.notice && S.notice.tone === 'warn') bobEmit('error', { el: page && page.querySelector('.note, .notice, [data-a="note"]') });
+    BB.notice = nk;
+  }
+  /* 04 phiếu: đặt / đổi / thêm xong → nhảy mừng rồi ngắm phiếu */
+  if (v === 'ticket' && S.st) {
+    var tkKey = S.tkVariant + ':' + S.st.mine.ver;
+    if (tkKey !== BB.tk) {
+      var tk = bobVisible('#tkW, #tkT, .tk-fit');
+      if (BB.tk === '' && S.tkVariant && S.tkVariant !== 'home') bobEmit('booked', { el: tk });
+      else bobEmit('ticket', { el: tk, ms: 4000 });
+      BB.tk = tkKey;
+    }
+  }
+  /* màn chờ: 60 giây cuối B0B tỉnh, 10 giây cuối con ngươi Acid và đếm cùng */
+  if (v === 'closed') {
+    var w = S.st ? S.st.week : S.pub ? S.pub.week : null, sec = w ? Math.ceil((w.nextOpen - now()) / 1000) : -1;
+    if (sec !== BB.sec) { BB.sec = sec; if (sec >= 0 && sec <= 62) bobEmit('countdown', { sec: sec, el: $('#cdv') }); }
+  } else if (v !== 'find') BB.sec = -1;
+  /* thông báo nổi + cửa sổ */
+  var to = $('#toast'), ton = !!(to && to.classList.contains('on'));
+  if (ton && !BB.toast) bobEmit('toast', { el: to });
+  BB.toast = ton;
+  var sh = $('#sheet'), dr = $('#drawer'), son = !!((sh && !sh.hidden && sh.classList.contains('on')) || (dr && !dr.hidden && dr.classList.contains('on')));
+  if (son && !BB.sheet) bobEmit('sheet', { el: sh && !sh.hidden ? sh : dr });
+  BB.sheet = son;
+}
 
 /* ============================== HEADER ============================== */
 var HD = { flow: '', steps: null };
@@ -592,16 +734,19 @@ function closedReason(st) {
 }
 
 /* ============================== 01 · TÌM TÊN (01A · 01B · E02) ============================== */
+/* Gõ tới đâu ra tới đó: từ ký tự đầu tiên, đợi ngừng gõ 120 ms rồi hỏi máy chủ (luật khớp ở core.js · findRank).
+   Danh sách đang hiện giữ nguyên tới khi có kết quả mới; máy chủ cũ trả need: 2 thì quay về cách cũ (≥ 2 chữ). */
 var QT = 0;
+var Q_IDLE = 'Gõ vài chữ trong tên của bạn, ví dụ Nam', Q_OLD = 'Gõ tên đệm và tên của bạn, ví dụ Đức Nam', Q_MORE = 'Gõ thêm để thu hẹp danh sách';
 VIEWS.find = function () {
   var page = pageEl('pg-find', '<div class="ctr st"><div class="col">' +
     '<div class="ttl-row rs"><div class="ttl"><h1 class="h56">Tên của bạn là?</h1></div><div class="bob-slot m"></div></div>' +
     '<div class="find rs r1">' +
-      '<label class="sbox" for="q">' + ico('search') + '<input id="q" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" inputmode="search" enterkeyhint="search" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" maxlength="60" placeholder="Gõ tên của bạn" aria-label="Gõ tên đệm và tên của bạn" aria-controls="res" data-focus>' +
+      '<label class="sbox" for="q">' + ico('search') + '<input id="q" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" inputmode="search" enterkeyhint="search" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" maxlength="60" placeholder="Gõ tên của bạn" aria-label="Gõ tên của bạn" aria-controls="res" data-focus>' +
       '<button class="ib ib-32" type="button" data-a="clearq" aria-label="Xoá" hidden>' + ico('close') + '</button></label>' +
       '<p class="hint lbl" id="qhint" aria-live="polite"></p>' +
       '<div class="res" id="res" role="listbox" aria-label="Kết quả"></div>' +
-      '<div class="miss" id="miss" hidden><p class="h22">Không tìm thấy tên của bạn.</p><p class="b14">Gõ tên đệm và tên của bạn, ví dụ Đức Nam.<br>Gói đã hết hạn hoặc chưa kích hoạt sẽ không có trong danh sách.</p></div>' +
+      '<div class="miss" id="miss" hidden><p class="h22">Không tìm thấy tên của bạn.</p><p class="b14">Thử gõ tên gọi, ví dụ Nam, hoặc tên đệm và tên, ví dụ Đức Nam.<br>Gói đã hết hạn hoặc chưa kích hoạt sẽ không có trong danh sách.</p></div>' +
       '<p class="keys lbl d" id="keys" hidden>↑ ↓ chọn · enter mở lịch · esc xoá</p>' +
     '</div></div></div>');
   var inp = page.querySelector('#q');
@@ -611,45 +756,136 @@ VIEWS.find = function () {
   return { page: page, mood: 'observe', step: 0, after: function () { renderFind(true); if (S.q) onQuery(true); } };
 };
 function qKey(q) { return words(q).join(' '); }
+/** kết quả của chữ gõ k (từ máy chủ hoặc bộ nhớ) lên màn */
+function found(k, c) { S.results = c.results; S.qMore = c.more; S.qShown = k; S.sel = 0; S.qErr = ''; S.qState = c.results.length ? 'done' : 'none'; }
 function onQuery(now) {
   clearTimeout(QT);
   var k = qKey(S.q), n = k ? k.split(' ').length : 0, btn = S.page.querySelector('[data-a="clearq"]');
   if (btn) btn.hidden = !S.q;
-  if (n < 2) { S.qSeq++; S.results = []; S.qState = n ? 'need' : 'idle'; renderFind(); return; }
-  if (S.qCache[k]) { S.results = S.qCache[k]; S.qState = S.results.length ? 'done' : 'none'; S.sel = 0; renderFind(); return; }
-  S.qState = S.qState === 'done' || S.qState === 'none' ? S.qState : 'wait';
-  QT = setTimeout(function () { search(k); }, now ? 0 : 220);
+  /* chưa có chữ nào (hoặc máy chủ cũ cần ≥ 2 chữ): không hỏi máy chủ, bỏ mọi phản hồi đang về */
+  if (!n || n < S.qNeed) { S.qSeq++; S.results = []; S.qMore = false; S.qShown = ''; S.qState = n ? 'need' : 'idle'; renderFind(); return; }
+  if (S.qCache[k]) { S.qSeq++; found(k, S.qCache[k]); renderFind(); return; }
+  /* gõ thêm vào cuối chữ cuối của một lượt đã "không ai khớp" → chắc chắn vẫn không ai (khớp đầu chữ / giữa chữ ≥ 2 ký tự) → khỏi hỏi */
+  if (qNone(k)) { S.qSeq++; S.qCache[k] = { results: [], more: false }; found(k, S.qCache[k]); renderFind(); return; }
+  if (S.qState !== 'done' && S.qState !== 'none') S.qState = 'wait';
+  if (k === S.qFly) { renderFind(); return; }                                 /* đang hỏi đúng chữ này: chờ phản hồi đang về */
+  if (Date.now() < S.qHold) { S.qState = 'err'; S.qErr = 'Bạn tìm hơi nhiều. Đợi vài phút rồi thử lại.'; renderFind(); return; }   /* vừa bị báo tìm quá nhiều: tạm không hỏi */
+  QT = setTimeout(function () { search(k); }, now ? 0 : 120);
+}
+function qNone(k) {
+  var w = k.split(' '), n = w.length, last = w[n - 1];
+  for (var k0 in S.qCache) {
+    var c = S.qCache[k0]; if (!c || c.results.length) continue;
+    var v = k0.split(' '), l0 = v[n - 1];
+    if (v.length !== n || last.length <= l0.length || last.indexOf(l0) !== 0 || (n === 1 && l0.length < 2)) continue;
+    for (var i = 0; i < n - 1 && v[i] === w[i]; i++) { /* các chữ trước phải y hệt */ }
+    if (i === n - 1) return true;
+  }
+  return false;
 }
 function search(k) {
   var seq = ++S.qSeq;
-  S.qState = S.results.length ? 'done' : 'wait'; renderFind();
+  S.qSlow = false; S.qFly = k;
+  if (S.qState !== 'done' && S.qState !== 'none') S.qState = 'wait';   /* danh sách / hộp "không thấy" đang hiện giữ nguyên tới khi có kết quả mới */
+  renderFind();
+  setTimeout(function () { if (seq === S.qSeq && S.qState === 'wait') { S.qSlow = true; renderFind(); } }, 400);
   call('lt_find', { q: k }).then(function (r) {
-    if (seq !== S.qSeq || S.view !== 'find') return;
-    if (r && r.ok) { S.qCache[k] = r.results || []; S.results = S.qCache[k]; S.sel = 0; S.qState = S.results.length ? 'done' : 'none'; S.qErr = ''; }
-    else if (r && r.error === 'cham_lai') { S.qState = 'err'; S.qErr = 'Bạn tìm hơi nhanh. Đợi một phút rồi thử lại.'; }
+    if (S.qFly === k) S.qFly = '';
+    if (r && r.ok && r.need) S.qNeed = +r.need || 2;                                       /* máy chủ cũ: cần ≥ 2 chữ */
+    else if (r && r.ok) S.qCache[k] = { results: r.results || [], more: !!r.more };       /* về muộn vẫn lưu: gõ lùi lại là có ngay */
+    else if (r && r.error === 'cham_lai') S.qHold = Date.now() + 60e3;
+    /* lượt cũ hơn lượt đang hiện thì bỏ — trừ khi đúng chữ đang gõ (gõ lại chữ đang chờ thì không hỏi lại, nhận phản hồi này) */
+    if ((seq !== S.qSeq && k !== qKey(S.q)) || S.view !== 'find') return;
+    if (r && r.ok && r.need) { S.results = []; S.qMore = false; S.qShown = ''; S.qErr = ''; S.qState = 'need'; }
+    else if (r && r.ok) found(k, S.qCache[k]);
+    else if (r && r.error === 'cham_lai') { S.qState = 'err'; S.qErr = 'Bạn tìm hơi nhiều. Đợi vài phút rồi thử lại.'; }
     else { S.qState = 'err'; S.qErr = 'Máy chủ đang bận. Thử lại sau vài giây.'; }
     renderFind();
   }, function () {
-    if (seq !== S.qSeq || S.view !== 'find') return;
+    if (S.qFly === k) S.qFly = '';
+    if ((seq !== S.qSeq && k !== qKey(S.q)) || S.view !== 'find') return;
     S.qState = 'err'; S.qErr = 'Chưa kết nối được. Kiểm tra mạng rồi thử lại.'; renderFind();
   });
+}
+/* Cách khớp tốt nhất của các chữ gõ q vào ĐẦU các chữ của V, đúng thứ tự — chép nguyên prefixFit của máy chủ (core.js)
+   để tô đúng những chữ máy chủ đã khớp. Trả {last, eq, at} hoặc null. */
+function prefixFit(q, V) {
+  var n = q.length, m = V.length, f = [], i, j, b;
+  if (!n || n > m) return null;
+  for (i = 0; i <= n; i++) { f.push([]); for (j = 0; j <= m; j++) f[i].push(i ? -1 : 0); }
+  for (i = 1; i <= n; i++) {
+    for (j = i; j <= m; j++) {
+      b = f[i][j - 1];
+      if (f[i - 1][j - 1] >= 0 && V[j - 1].indexOf(q[i - 1]) === 0) b = Math.max(b, f[i - 1][j - 1] + (V[j - 1] === q[i - 1] ? 1 : 0));
+      f[i][j] = b;
+    }
+  }
+  var last = V[m - 1].indexOf(q[n - 1]) === 0 && f[n - 1][m - 1] >= 0 ? 1 : 0;
+  i = last ? n - 1 : n; j = last ? m - 1 : m;
+  if (f[i][j] < 0) return null;
+  var at = [], eq = f[i][j] + (last && V[m - 1] === q[n - 1] ? 1 : 0);
+  if (last) at[n - 1] = m - 1;
+  while (i > 0) { if (f[i][j - 1] === f[i][j]) j--; else { at[i - 1] = j - 1; i--; j--; } }
+  return { last: last, eq: eq, at: at };
+}
+/* Tô phần khớp của tên ngắn ("H. Đức Nam") với các chữ gõ q: gập dấu TỪNG ký tự bằng fold() (tiếng Việt: 1 ký tự → 1 ký tự)
+   nên vị trí trên chuỗi gập trỏ đúng ký tự đang hiện; rồi khớp lại theo ba bậc của máy chủ (core.js · findRank):
+   0 · liền phần cuối họ tên (họ chỉ hiện chữ cái đầu: gõ cả họ thì tô chữ cái đó) · 1 · đầu chữ, đúng thứ tự · 2 · giữa một chữ.
+   Phần khớp bọc <span class="hit">; mọi chữ đều qua esc(). */
+function hitHTML(short, q) {
+  var s = String(short == null ? '' : short), f = '', at = [], hit = [], R = [], T = [], re = /[a-z0-9]+/g, i, j, c, m, x;
+  for (i = 0; i < s.length; i++) { c = fold(s[i]); for (j = 0; j < c.length; j++) { f += /[a-z0-9]/.test(c[j]) ? c[j] : ' '; at.push(i); } }
+  while ((m = re.exec(f))) T.push({ t: m[0], a: m.index });
+  /* "H. Đức Nam": chữ cái đầu là họ; phần còn lại là tên đệm + tên (V của máy chủ) */
+  var fam = s.charAt(1) === '.' && s.charAt(2) === ' ' && T.length && at[T[0].a] === 0 ? T[0] : null;
+  var V = fam ? T.slice(1) : T, n = q.length, off = T.length - n, ok = n >= 2 && off >= 0;
+  for (i = 0; ok && i < n; i++) { x = T[off + i]; ok = x === fam ? q[i].indexOf(x.t) === 0 : i < n - 1 ? q[i] === x.t : x.t.indexOf(q[i]) === 0; }
+  if (ok) for (i = 0; i < n; i++) { x = T[off + i]; R.push([x.a, x.a + (x === fam ? x.t.length : q[i].length)]); }
+  else if ((m = prefixFit(q, V.map(function (v) { return v.t; })))) m.at.forEach(function (k, qi) { R.push([V[k].a, V[k].a + q[qi].length]); });
+  else if (n === 1 && q[0].length >= 2) for (i = V.length - 1; i >= 0; i--) { j = V[i].t.indexOf(q[0], 1); if (j > 0) { R.push([V[i].a + j, V[i].a + j + q[0].length]); break; } }
+  R.forEach(function (r) { for (var k = r[0]; k < r[1]; k++) hit[at[k]] = 1; });
+  for (i = 1; i < s.length; i++) if (hit[i - 1] && !hit[i] && fold(s[i]) === '') hit[i] = 1;   /* dấu viết rời (NFD) đi theo chữ trước */
+  var h = '', a = 0;
+  for (i = 1; i <= s.length; i++) {
+    if (i < s.length && !hit[i] === !hit[a]) continue;
+    h += hit[a] ? '<span class="hit">' + esc(s.slice(a, i)) + '</span>' : esc(s.slice(a, i));
+    a = i;
+  }
+  return h;
+}
+/* Dòng kết quả theo id: gõ tiếp thì dòng còn lại giữ nguyên tại chỗ (chỉ đổi phần tô), dòng mới trồi lên, dòng hết khớp rời đi */
+function findRows(res, list, first) {
+  var q = S.qShown ? S.qShown.split(' ') : [], old = Object.create(null), k = 0;
+  $$('.rrow', res).forEach(function (b) { old[b.dataset.id] = b; });
+  list.forEach(function (x, i) {
+    var b = old[x.id], nm = hitHTML(x.short, q), on = i === S.sel;
+    if (b) delete old[x.id];
+    else {
+      b = document.createElement('button');
+      b.type = 'button'; b.className = 'rrow'; b.setAttribute('role', 'option'); b.dataset.a = 'pick'; b.dataset.id = x.id;
+      b.innerHTML = '<span class="nm"></span>' + ico('right');
+      if (!first && !rm()) b.style.animation = 'rise .32s var(--rise) ' + (k++ * 0.04) + 's both';
+    }
+    var sp = b.firstChild;
+    if (sp._h !== nm) { sp._h = nm; sp.innerHTML = nm; sp.classList.toggle('hl', nm.indexOf('class="hit"') >= 0); }
+    b.classList.toggle('on', on); b.id = 'opt' + i; b.dataset.i = String(i); b.setAttribute('aria-selected', String(on));
+    if (res.children[i] !== b) res.insertBefore(b, res.children[i] || null);
+  });
+  for (var id in old) old[id].remove();
 }
 function renderFind(first) {
   var p = S.page; if (!p || S.view !== 'find') return;
   var hint = p.querySelector('#qhint'), res = p.querySelector('#res'), miss = p.querySelector('#miss'), keys = p.querySelector('#keys');
   var st = S.qState, txt = '';
-  if (st === 'idle' || st === 'need') txt = 'Gõ tên đệm và tên của bạn, ví dụ Đức Nam';
+  /* đang tìm: giữ lời nhắc cũ, quá 400 ms mới hiện "Đang tìm…" (máy chủ nhanh thì không chớp chữ) */
+  if (st === 'idle' || (st === 'wait' && !S.qSlow)) txt = S.qNeed ? Q_OLD : Q_IDLE;
+  else if (st === 'need') txt = Q_OLD;
   else if (st === 'wait') txt = 'Đang tìm…';
   else if (st === 'err') txt = S.qErr;
+  else if (st === 'done' && S.qMore) txt = Q_MORE;
   hint.textContent = txt; hint.hidden = !txt;
   var showRes = st === 'done' && S.results.length > 0;
-  var h = showRes ? S.results.map(function (x, i) {
-    return '<button class="rrow' + (i === S.sel ? ' on' : '') + '" type="button" role="option" id="opt' + i + '" aria-selected="' + (i === S.sel) + '" data-a="pick" data-i="' + i + '"><span class="nm">' + esc(x.short) + '</span>' + ico('right') + '</button>';
-  }).join('') : '';
-  if (res._h !== h) {
-    res._h = h; res.innerHTML = h;
-    if (h && !first && !rm()) $$('.rrow', res).forEach(function (b, i) { b.style.animation = 'rise .32s var(--rise) ' + (i * 0.04) + 's both'; });
-  }
+  findRows(res, showRes ? S.results : [], first);
   /* trình đọc màn hình đọc dòng đang chọn khi bấm ↑ ↓ (tiêu điểm vẫn ở ô nhập) */
   var qi = p.querySelector('#q');
   if (qi) {
@@ -663,11 +899,18 @@ function onFindKey(e) {
   var n = S.results.length;
   if (e.key === 'ArrowDown' && n) { e.preventDefault(); S.sel = (S.sel + 1) % n; renderFind(true); }
   else if (e.key === 'ArrowUp' && n) { e.preventDefault(); S.sel = (S.sel - 1 + n) % n; renderFind(true); }
-  else if (e.key === 'Enter') { e.preventDefault(); if (S.qState === 'done' && n) choose(S.sel); else if (qKey(S.q).split(' ').length >= 2) { clearTimeout(QT); search(qKey(S.q)); } }
+  else if (e.key === 'Enter') {
+    e.preventDefault();
+    var k = qKey(S.q);
+    /* chỉ chọn khi danh sách đang hiện đúng là của chữ đang gõ — không thì hỏi ngay chữ đang gõ */
+    if (S.qState === 'done' && n && S.qShown === k) choose(S.sel);
+    else if (k && k.split(' ').length >= S.qNeed && k !== S.qFly && Date.now() >= S.qHold) { clearTimeout(QT); search(k); }
+  }
   else if (e.key === 'Escape') { e.preventDefault(); S.q = ''; e.target.value = ''; onQuery(); }
 }
 function choose(i) {
   var x = S.results[i]; if (!x) return;
+  clearTimeout(QT);
   S.who = { id: x.id, short: x.short, coach: x.coach }; S.pin = ''; S.pinErr = '';
   var lock = +LS.get('lt_lock') || 0;
   go(lock > now() ? 'lock' : 'verify', 'fwd', { push: true });
@@ -1675,22 +1918,165 @@ function tkPaper() {
 function tkQ(sel) { return (S.page || document).querySelector(sel); }
 function tkCur() { return tkQ(desk() ? '#tkW' : '#tkT'); }
 function tk3dGo(op) {
+  tiltBind();
   var T = window.TK3D; if (!T) return;
   var was = T.shown() >= 1;
   afKill('tk3d'); twKill('tk3d');
   if (!T.attach(tkCur())) return;
   var fin = rm() || (op.instant && was);
-  if (fin && T.booted() && T.show(1, true)) return;
+  if (fin && T.booted()) { tiltHand(true); var ok0 = T.show(1, true); tiltHand(false); if (ok0) return; }
   after(op.instant || fin ? 0 : 1.1, function go1() {
     if (S.view !== 'ticket') return;
     var el = tkCur(); if (!el) return;
     if (T.el() !== el && !T.attach(el)) return;
     var r = T.ready(); if (r < 0) return;
     if (!r || tkMoving(el)) { after(.1, go1, 'tk3d'); return; }
-    if (fin) { T.show(1); return; }
-    if (!T.show(0)) return;
+    /* vé DOM đang được nghiêng bằng CSS: gỡ nghiêng để tk3d đo đúng vé, bản WebGL nhận lại đúng góc ngay trong cùng khung */
+    tiltHand(true);
+    if (fin) { T.show(1); tiltHand(false); return; }
+    if (!T.show(0)) { tiltHand(false); return; }
+    tiltHand(false);
     tw({ key: 'tk3d', from: 0, to: 1, dur: .6, ease: EO, set: function (v) { T.pose(v); } });
   }, 'tk3d');
+}
+
+/* ---------- cầm phiếu lên xem (v1.1): rê chuột thì phiếu nghiêng theo, nhấn giữ kéo thì xoay có đà rồi lò xo về dáng nghỉ ----------
+   Thông số theo tvOS focus · model-viewer · pokemon-cards (nghiên cứu 17/10): rê ±10° ngang · ±7° dọc, lò xo ζ 0,7 (~0,45 s);
+   kéo 0,32°/px (chuột) · 0,45°/px (cảm ứng), giới hạn mềm ±38° / ±24° (quá giới hạn co giãn ×0,3); thả: đà 80 ms cuối (≤ 720°/s),
+   tắt dần τ 0,3 s, rồi lò xo ζ 0,78 về dáng nghỉ. Cầm lên thì giấy nhấc về phía người xem, bóng xa + nhoè ra, giấy võng theo đà.
+   Cảm ứng: touch-action pan-y — vuốt dọc vẫn cuộn trang, vuốt ngang mới xoay phiếu. Vào phiếu mà chưa chạm: lắc gợi ý một lần.
+   Có WebGL 3D → xoay tờ giấy thật (TK3D.rot: ánh sáng, bóng đổ theo góc); không có → nghiêng vé DOM bằng CSS 3D. Giảm chuyển động: tắt. */
+var TILT = { st: null, key: '', y: 0, p: 0, vy: 0, vp: 0, ty: 0, tp: 0, l: 0, vl: 0, tl: 0, fx: 0, dvy: 0, dvp: 0, drag: null, hov: null, raf: 0, last: 0,
+  mode: '', settle: 0, hint: 0, touched: false, emitT: 0, smp: [] };
+function tiltLim() { return desk() ? { hy: 10, hp: 7, dy: 38, dp: 24, k: .32 } : { hy: 0, hp: 0, dy: 34, dp: 26, k: .45 }; }
+/* quá giới hạn mềm: co giãn tiệm cận — không bao giờ quá giới hạn + 22° (vé không dựng cạnh / lật mặt ngược) */
+function tiltRb(v, lim) { var a = Math.abs(v); return a <= lim ? v : (v < 0 ? -1 : 1) * (lim + 22 * (1 - Math.exp(-(a - lim) / 22))); }
+function tiltBind() {
+  var st = tkQ('.tk-stage'); if (!st || st._tilt) return;
+  st._tilt = 1;
+  /* cùng phiếu được vẽ lại (làm mới ngầm ~2 phút / quay lại tab) → giữ góc đang có rồi lò xo về, không lắc gợi ý lại;
+     phiếu khác (đặt / đổi / thêm xong, về phiếu chính) → bắt đầu lại từ dáng nghỉ */
+  var T = TILT, key = S.st && S.st.mine ? (S.tkVariant || '') + ':' + S.st.mine.ver : '', same = !!key && key === T.key;
+  tiltStop(); T.st = st; T.key = key; T.drag = null; T.mode = '';
+  if (!same) { T.hov = null; T.y = T.p = T.vy = T.vp = T.l = T.vl = T.fx = T.ty = T.tp = T.tl = 0; T.touched = false; T.hint = 0; }
+  /* vuốt dọc vẫn cuộn trang; giữ được chụm hai ngón phóng to (trình duyệt không hiểu pinch-zoom thì chỉ pan-y) */
+  st.style.touchAction = 'pan-y pinch-zoom'; if (st.style.touchAction.indexOf('pan-y') < 0) st.style.touchAction = 'pan-y';
+  st.addEventListener('pointermove', tiltMove);
+  st.addEventListener('pointerdown', tiltDown);
+  st.addEventListener('pointerup', tiltUp);
+  st.addEventListener('pointercancel', tiltUp);
+  st.addEventListener('lostpointercapture', tiltUp);   /* mất pointerup (đổi cửa sổ, hộp thoại) → không kẹt ở trạng thái kéo */
+  st.addEventListener('pointerleave', function (e) { if (TILT.st === st && e.pointerType === 'mouse' && !TILT.drag) { TILT.hov = null; st.style.cursor = ''; tiltKick(); } });
+  if (same) { tiltKick(); return; }
+  if (!rm()) setTimeout(function () {
+    if (TILT.st !== st || !st.isConnected || TILT.touched || TILT.hov || S.view !== 'ticket') return;
+    TILT.hint = performance.now(); tiltKick(); bobEmit('hover', { el: tkCur(), ms: 1800 });
+  }, 3600);
+}
+function tiltStop() { if (TILT.raf) cancelAnimationFrame(TILT.raf); TILT.raf = 0; }
+/* toạ độ con trỏ trên vé (−1…1), ngoài vé → null */
+function tiltIn(e) {
+  var tk = tkCur(); if (!tk) return null;
+  var r = tk.getBoundingClientRect(); if (!r.width || e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) return null;
+  return { x: (e.clientX - r.left) / r.width * 2 - 1, y: (e.clientY - r.top) / r.height * 2 - 1 };
+}
+function tiltMove(e) {
+  var T = TILT; if (T.st !== e.currentTarget) return;   /* sự kiện của vé cũ (đang rời màn) → bỏ qua */
+  if (T.drag && e.pointerId === T.drag.id) {
+    if (e.pointerType === 'mouse' && !(e.buttons & 1)) { tiltUp(e); return; }   /* nút chuột đã nhả mà không có pointerup */
+    var L = tiltLim(), d = T.drag, t = performance.now();
+    T.y = tiltRb(d.y0 + (e.clientX - d.x) * L.k, L.dy); T.p = tiltRb(d.p0 - (e.clientY - d.y) * L.k * .8, L.dp);
+    T.smp.push([t, T.y, T.p]); while (T.smp.length > 2 && t - T.smp[0][0] > 120) T.smp.shift();
+    var a = T.smp[0], dt = Math.max(.016, (t - a[0]) / 1000); T.dvy = (T.y - a[1]) / dt; T.dvp = (T.p - a[2]) / dt;
+    tiltKick(); return;
+  }
+  if (e.pointerType !== 'mouse' || rm()) return;
+  T.hov = tiltIn(e); T.st.style.cursor = T.hov ? 'grab' : '';
+  if (T.hov) T.touched = true;
+  tiltKick();
+}
+function tiltDown(e) {
+  var T = TILT;
+  if (T.st !== e.currentTarget || rm() || e.button > 0 || T.drag || !tiltIn(e)) return;
+  var t = performance.now();
+  T.touched = true; T.hint = 0; T.mode = ''; T.vy = T.vp = 0;
+  T.drag = { id: e.pointerId, x: e.clientX, y: e.clientY, y0: T.y, p0: T.p }; T.smp = [[t, T.y, T.p]]; T.dvy = T.dvp = 0;
+  try { T.st.setPointerCapture(e.pointerId); } catch (x) { /* bỏ qua */ }
+  if (e.pointerType === 'mouse') { e.preventDefault(); T.st.style.cursor = 'grabbing'; }
+  bobEmit('hover', { el: tkCur(), ms: 1400 });
+  tiltKick();
+}
+function tiltUp(e) {
+  var T = TILT; if (T.st !== e.currentTarget || !T.drag || e.pointerId !== T.drag.id) return;
+  var t = performance.now(), a = T.smp[0], dt = Math.max(.016, (t - a[0]) / 1000), fresh = t - T.smp[T.smp.length - 1][0] < 90;
+  /* đà lúc thả: trung bình ~80 ms cuối, tối đa 720°/s; giữ yên rồi mới thả → không có đà */
+  T.vy = fresh ? Math.max(-720, Math.min(720, (T.y - a[1]) / dt)) : 0; T.vp = fresh ? Math.max(-720, Math.min(720, (T.p - a[2]) / dt)) : 0;
+  T.drag = null; T.mode = 'coast';
+  try { T.st.releasePointerCapture(e.pointerId); } catch (x) { /* bỏ qua */ }
+  if (e.pointerType === 'mouse') { T.hov = tiltIn(e); T.st.style.cursor = T.hov ? 'grab' : ''; }
+  tiltKick();
+}
+function tiltKick() { if (!TILT.raf && TILT.st) { TILT.last = performance.now(); TILT.raf = requestAnimationFrame(tiltTick); } }
+function tiltTick(t) {
+  var T = TILT; T.raf = 0;
+  if (!T.st || !T.st.isConnected || S.view !== 'ticket') { tiltCss(0, 0, false); T.st = null; return; }
+  var dt = Math.min(.25, Math.max(0, (t - T.last) / 1000)), L = tiltLim(); T.last = t;   /* khung chậm vẫn đúng nhịp (bước con 8 ms) */
+  var n = Math.max(1, Math.ceil(dt / .008)), h = dt / n;
+  for (var i = 0; i < n; i++) tiltPhys(h, L, t);
+  tiltRender(L, t);
+  var moving = T.drag || T.hint || T.mode === 'coast' || t < T.settle || Math.abs(T.vy) + Math.abs(T.vp) > .3 || Math.abs(T.y - T.ty) + Math.abs(T.p - T.tp) > .01 || Math.abs(T.l - T.tl) + Math.abs(T.vl) > .002 || T.fx > .002;
+  if (moving) T.raf = requestAnimationFrame(tiltTick);
+  else { T.y = T.ty; T.p = T.tp; tiltRender(L, t); }
+}
+function tiltPhys(h, L, t) {
+  var T = TILT, ty = 0, tp = 0;
+  if (T.hov && !T.drag) { ty = T.hov.x * L.hy; tp = -T.hov.y * L.hp; }
+  if (T.hint) { var u = (t - T.hint) / 1900; if (u >= 1 || T.touched) T.hint = 0; else ty += 9 * Math.sin(Math.PI * 2 * u) * Math.pow(1 - u, 1.4); }
+  T.ty = ty; T.tp = tp; T.tl = T.drag ? 1 : 0;
+  if (T.drag) { T.vy = T.vp = 0; }
+  else if (T.mode === 'coast') {
+    var dec = Math.exp(-h / .3);
+    T.vy *= dec; T.vp *= dec;
+    /* quá giới hạn: tường mềm kéo về */
+    var oy = Math.abs(T.y) > L.dy ? T.y - (T.y < 0 ? -L.dy : L.dy) : 0, op = Math.abs(T.p) > L.dp ? T.p - (T.p < 0 ? -L.dp : L.dp) : 0;
+    T.vy -= oy * 90 * h; T.vp -= op * 90 * h;
+    T.y += T.vy * h; T.p += T.vp * h;
+    /* hất mạnh: chặn cứng ở giới hạn + 22°, triệt đà ở đó (không dựng cạnh, không lật) */
+    var my = L.dy + 22, mp = L.dp + 22;
+    if (T.y > my) { T.y = my; if (T.vy > 0) T.vy = 0; } else if (T.y < -my) { T.y = -my; if (T.vy < 0) T.vy = 0; }
+    if (T.p > mp) { T.p = mp; if (T.vp > 0) T.vp = 0; } else if (T.p < -mp) { T.p = -mp; if (T.vp < 0) T.vp = 0; }
+    if (Math.abs(T.vy) < 2 && Math.abs(T.vp) < 2) { T.mode = ''; T.settle = t + 240; }
+  } else if (t >= T.settle) {
+    var k = T.hov ? 240 : 80, c = 2 * (T.hov ? .7 : .78) * Math.sqrt(k);
+    T.vy += (k * (T.ty - T.y) - c * T.vy) * h; T.y += T.vy * h;
+    T.vp += (k * (T.tp - T.p) - c * T.vp) * h; T.p += T.vp * h;
+  }
+  var kl = 140, cl = 2 * .85 * Math.sqrt(kl);
+  T.vl += (kl * (T.tl - T.l) - cl * T.vl) * h; T.l += T.vl * h;
+  /* giấy võng theo đà xoay */
+  var sp = Math.min(1, Math.hypot(T.drag ? T.dvy : T.vy, T.drag ? T.dvp : T.vp) / 420);
+  T.fx += (sp - T.fx) * Math.min(1, h * 9);
+}
+function tiltRender(L, t) {
+  var T = TILT, K = window.TK3D;
+  if (K && K.shown && K.rot && K.shown() >= 0) { tiltCss(0, 0, false); K.rot(T.y, T.p, Math.max(0, T.l), T.fx); }
+  else tiltCss(T.y, T.p, true);
+  if (t - T.emitT > 100 && (T.drag || Math.abs(T.y) + Math.abs(T.p) > .4)) {
+    T.emitT = t;
+    bobEmit('tilt', { el: tkCur(), x: T.y / L.dy, y: T.p / L.dp, v: Math.hypot(T.drag ? T.dvy : T.vy, T.drag ? T.dvp : T.vp) / 300 });
+  }
+}
+/* bàn giao vé DOM ↔ WebGL: gỡ nghiêng CSS trước khi tk3d đo; xong thì áp góc hiện tại cho bản WebGL ngay */
+function tiltHand(before) {
+  if (before) { tiltCss(0, 0, false); return; }
+  var K = window.TK3D, T = TILT;
+  if (K && K.shown && K.rot && K.shown() >= 0 && (T.y || T.p || T.l)) K.rot(T.y, T.p, Math.max(0, T.l), T.fx);
+}
+function tiltCss(y, p, on) {
+  var f = tkQ('#tkfit'); if (!f) return;
+  if (on && (Math.abs(y) > .01 || Math.abs(p) > .01 || TILT.drag)) {
+    f.classList.add('tilt'); f.style.setProperty('--tky', y.toFixed(3) + 'deg'); f.style.setProperty('--tkp', p.toFixed(3) + 'deg');
+  } else if (f.classList.contains('tilt')) { f.classList.remove('tilt'); f.style.removeProperty('--tky'); f.style.removeProperty('--tkp'); }
 }
 /* vé DOM còn đang vào: CSS animation đang chạy / số buổi đang đếm lên */
 function tkMoving(el) {
@@ -1776,7 +2162,10 @@ function icsRemind() {
   toast('Đã tạo lời nhắc. Mở tệp để thêm vào lịch của máy.');
 }
 
-/* ---------- Lưu về máy (ảnh PNG của phiếu, vẽ bằng canvas — cùng bố cục phiếu mobile) ---------- */
+/* ---------- Lưu về máy (ảnh PNG của phiếu) ----------
+   Ảnh = đúng vé đang hiện (desktop: vé ngang #tkW · mobile: vé dọc #tkT), dáng phẳng như vé DOM lúc đứng yên: TK3D.snapshot() (tk3d.js)
+   đo bố cục vé DOM rồi vẽ lại bằng canvas 2D — chữ, ô Acid, mã vạch, chữ B0DY, mép răng cưa, khía, lỗ kim, góc nghiêng, hai lớp bóng đổ —
+   không cần WebGL. Không có tk3d.js / chụp lỗi → drawTicket() bên dưới (bố cục phiếu mobile vẽ tay — chỉ còn là dự phòng). */
 var WMP = null;
 function wmPaths() {
   if (WMP) return WMP;
@@ -1860,15 +2249,37 @@ function drawTicket() {
   txt(code.lbl.toUpperCase(), L, by1 + 54, MO, 9, '#4A4A4A', 0.5);
   return cv;
 }
-var PNGC = { key: '', blob: null };
-function pngKey() { var m = S.st.mine; return m.code + ':' + m.ver + ':' + m.sessions.map(function (s) { return s.date + s.h + s.st; }).join(','); }
+/* khoá ảnh = loại vé đang hiện (desktop / mobile) + cỡ vé + mọi dữ liệu in trên vé → đổi cỡ màn / đổi lịch / "· MỚI" → vẽ lại.
+   PNGC.p: lượt vẽ đang chạy (chuẩn bị sẵn lúc rảnh) — bấm lưu giữa chừng thì chờ chung, không vẽ hai lần. */
+var PNGC = { key: '', blob: null, pk: '', p: null };
+function pngKey() {
+  var st = S.st, m = st.mine, me = st.me, tk = tkCur();
+  return [desk() ? 'd' : 'm', tk ? tk.offsetWidth + 'x' + tk.offsetHeight : '-', m.code, m.ver, m.changesLeft, tkWeekLbl(), me.coach, me.short, me.pkg, me.kind,
+    tkSessions().map(function (s) { return s.date + s.h + s.st + (s.fresh ? '*' : ''); }).join(',')].join('|');
+}
+/* vé đang hiện → canvas (TK3D.snapshot); không được (thiếu tk3d.js, vé chưa sẵn sàng, lỗi) → bản vẽ tay cũ */
+function ticketCanvas() {
+  var T = window.TK3D, tk = tkCur(), cv = null;
+  if (T && T.snapshot && tk) { try { cv = T.snapshot(tk); } catch (e) { cv = null; } }
+  return cv || drawTicket();
+}
 function makePng() {
   var key = pngKey();
   if (PNGC.key === key && PNGC.blob) return Promise.resolve(PNGC.blob);
-  var fonts = document.fonts && document.fonts.load ? Promise.all([document.fonts.load('500 16px "SVN-Switzer"'), document.fonts.load('500 16px "JetBrains Mono"')]).catch(function () {}) : Promise.resolve();
-  return fonts.then(function () {
-    return new Promise(function (res, rej) { drawTicket().toBlob(function (b) { if (b) { PNGC = { key: key, blob: b }; res(b); } else rej(new Error('png')); }, 'image/png'); });
+  if (PNGC.pk === key && PNGC.p) return PNGC.p;
+  /* chờ đủ hai phông (canvas vẽ chữ bằng phông đã nạp; vé DOM cũng dàn lại theo phông thật) */
+  var fonts = document.fonts && document.fonts.load ? Promise.all([document.fonts.load('500 16px "SVN-Switzer"'), document.fonts.load('500 16px "JetBrains Mono"')])
+    .then(function () { return document.fonts.ready; }).catch(function () {}) : Promise.resolve();
+  var p = fonts.then(function () {
+    var k = pngKey(), cv = ticketCanvas();   /* khoá theo đúng lúc vẽ (dữ liệu / cỡ vé có thể đã đổi trong lúc chờ phông) */
+    return new Promise(function (res, rej) {
+      cv.toBlob(function (b) { cv.width = cv.height = 0; if (b) { PNGC.key = k; PNGC.blob = b; res(b); } else rej(new Error('png')); }, 'image/png');
+    });
   });
+  PNGC.pk = key; PNGC.p = p;
+  function done() { if (PNGC.p === p) { PNGC.p = null; PNGC.pk = ''; } }
+  p.then(done, done);
+  return p;
 }
 function savePng() {
   var name = 'b0dy-phieu-tuan-' + S.st.week.no + '-ban-' + S.st.mine.ver + '.png';
@@ -2130,6 +2541,7 @@ function boot() {
   if (!QC && Math.abs(SKEW) > 7 * DAY) SKEW = 0;      /* QC: đồng hồ giả có thể lệch giờ thật bao nhiêu cũng được */
   var hd = $('#hd'); var b = document.createElement('i'); b.className = 'busy'; b.id = 'busy'; hd.appendChild(b);
   bobInit();
+  bobBridge();
   clockTick();
   history.replaceState && history.replaceState({ v: 'root' }, '');
   var tok = TOK.get(), cached = tok ? loadSt() : null, ctx = weekCtx(now());
@@ -2153,10 +2565,14 @@ function boot() {
   window.addEventListener('resize', function () { tkFit(); nowLine(); if (S.view === 'ticket') tkPaper(); mbarSize(); });
   if (window.ResizeObserver) new ResizeObserver(mbarSize).observe($('#mbar'));
   MQ_DESK.addEventListener && MQ_DESK.addEventListener('change', function () { if (S.view === 'ticket') { tkFit(); tkPaper(); } bobSlot(S.page); });
-  /* chuẩn bị sẵn ảnh phiếu khi rảnh để nút "Lưu về máy" mở bảng chia sẻ ngay trong cú chạm */
-  setInterval(function () { if (S.view === 'ticket' && S.st && PNGC.key !== pngKey()) makePng().catch(function () {}); }, 4000);
+  /* chuẩn bị sẵn ảnh phiếu khi rảnh để nút "Lưu về máy" mở bảng chia sẻ ngay trong cú chạm.
+     Không chen vào lúc vé còn đang vào màn / giấy 3D đang thả lỏng (vẽ ảnh 3× tốn vài chục ms) → để nhịp 4 s sau */
+  setInterval(function () {
+    var el = S.view === 'ticket' && S.st ? tkCur() : null;
+    if (el && !TWS.length && !tkMoving(el) && !TILT.raf && !TILT.drag && PNGC.key !== pngKey()) makePng().catch(function () {});
+  }, 4000);
 }
-window.__lt = { S: S, ver: VER, code128B: code128B, why: function (d, h, l) { return why(d, h, l); }, weekCtx: weekCtx };
+window.__lt = { S: S, ver: VER, code128B: code128B, why: function (d, h, l) { return why(d, h, l); }, weekCtx: weekCtx, tilt: TILT, tiltKick: function () { tiltKick(); } };
 /* QC: nạp máy chủ giả (qc.js — module) + bảng QC rồi mới khởi động; đặt đồng hồ trang theo đồng hồ giả trước khi vẽ màn đầu.
    Không nạp được thì báo lỗi, KHÔNG bao giờ lui về máy chủ thật. */
 function qcStart() {

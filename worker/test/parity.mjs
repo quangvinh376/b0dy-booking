@@ -36,7 +36,8 @@ const vn = (iso, hm) => dateIn(VN, iso, hm).getTime();
 const SECRET = 'bimat-chi-dung-cho-test-khong-phai-that-0123456789';
 const SA = fakeServiceAccount();
 
-function baSheets() {
+/** extra: hội viên bịa thêm [số, họ tên, coach, SĐT, Mã KH] (gói 48 buổi còn 20, hạn 2027) — dùng cho ma trận tìm tên */
+function baSheets(extra) {
   const H = ['', '#', 'Tên', 'Gói', 'Số buổi', 'Loại', 'Đơn giá buổi', 'Coach', 'SĐT', 'Người bán gói', 'Ngày ký', 'Ghi chú', 'Đã tập', 'Còn lại', 'Trạng thái', 'Ngày bắt đầu', 'Ngày kết thúc', 'Ngày hết hạn', 'Mã KH', '_key'];
   const m = (no, name, pkg, kind, coach, phone, left, start, exp, code) =>
     ['', no, name, pkg, parseInt(pkg, 10), kind, 300000, coach, phone, '', '', '', 0, left, '', start ? d(start) : '', '', exp === '' ? '' : (typeof exp === 'string' && exp.indexOf('/') > 0 ? exp : d(exp)), code, name + '|' + start];
@@ -57,7 +58,7 @@ function baSheets() {
     m('922', 'Khách Thứ Hai', '48 buổi', '1:1', 'Quyết Hán', '0900000022', 20, '2026-08-01', '2027-01-01', 'B922DY'),
     m('923', 'Khách Thứ Ba', '48 buổi', '1:1', 'Hiền Mai', '0900000023', 20, '2026-08-01', '2027-01-01', 'B923DY'),
     m('924', 'Khách Thứ Tư', '48 buổi', '1:1', 'Hiền Mai', '0900000024', 20, '2026-08-01', '2027-01-01', 'B924DY')
-  ];
+  ].concat((extra || []).map(e => m(e[0], e[1], '48 buổi', '1:1', e[2], e[3], 20, '2026-08-01', '2027-01-01', e[4])));
   const LH = ['', '#', 'Ngày', 'Thứ', 'Khung giờ', 'Coach', 'Mã coach', 'Học viên', 'Mã HV', 'Loại', 'Khung', 'Trạng thái', '_h', '_tuần', 'Ký điện tử', '_mrow'];
   const log = [['', '— SESSION LOG'], ['', 'test'], [], LH,
     ['', '0001', d('2026-10-19'), 'T2', '', 'Quyết Hán', '', 'Hoàng Đức Nam', '901', '1:1', '', 'Đã tập', '', '', 'app 06:02 · ký: Quyết Hán', 1],
@@ -85,10 +86,10 @@ function setup(nowMs, opts) {
   opts = opts || {};
   const clock = { now: nowMs };
   const secret = (opts.props && opts.props.LT_SECRET) || SECRET;
-  const files = { BA: new Spreadsheet('BA', LA, baSheets()), OUT: new Spreadsheet('OUT', 'Asia/Saigon', outSheets()) };
+  const files = { BA: new Spreadsheet('BA', LA, baSheets(opts.members)), OUT: new Spreadsheet('OUT', 'Asia/Saigon', outSheets()) };
   files.OUT.title = '[B0DY Studio] Lịch tập tuần';
   const env = makeEnv(files, clock, Object.assign({}, opts, { props: Object.assign({ BA_ID: 'BA', LT_OUT_ID: 'OUT', LT_SECRET: secret }, opts.props || {}) }));
-  const wfiles = { BA: new Spreadsheet('BA', LA, baSheets()), OUT: new Spreadsheet('OUT', 'Asia/Saigon', outSheets()) };
+  const wfiles = { BA: new Spreadsheet('BA', LA, baSheets(opts.members)), OUT: new Spreadsheet('OUT', 'Asia/Saigon', outSheets()) };
   const fg = new FakeGoogle(wfiles, { publicKey: SA.publicKey });
   const storage = new FakeStorage();
   const wk = new BookingCore({ storage, env: { BA_ID: 'BA', OUT_ID: 'OUT', SA_JSON: SA.saJson, LT_SECRET: secret },
@@ -100,10 +101,12 @@ function setup(nowMs, opts) {
 const DEV = 'devAAAAAAAAAAAAAAAAAAAA', DEV2 = 'devBBBBBBBBBBBBBBBBBBBB';
 const flushLog = [];
 const PING_EXTRA = ['pending', 'oldestMs', 'lastFlushAt', 'lastError'];
-async function call(t, body) {
+/** afterApi: chạy ngay sau khi Worker trả lời, trước khi đợi DO rảnh (vd thả "khoá đang bận") */
+async function call(t, body, afterApi) {
   const b = Object.assign({ dev: DEV }, body);
   const g = JSON.parse(JSON.stringify(t.env.ltDoPost_(structuredClone(b))));
   const w = JSON.parse(JSON.stringify(await t.wk.api(structuredClone(b))));
+  if (afterApi) afterApi();
   await t.wk.idle();
   if (b.action === 'lt_ping') {
     ok('lt_ping của Worker có thêm tình trạng nhật ký (' + PING_EXTRA.join(', ') + '), không có dữ liệu cá nhân',
@@ -185,7 +188,7 @@ console.log('\n== 3. Tìm tên ==');
   r = await call(t, { action: 'lt_find', q: '  Đức   NAM ' });
   ok('"Đức NAM" (có dấu, hoa, thừa cách) → cùng kết quả', r.results.length === 1 && r.results[0].short === 'H. Đức Nam', r);
   r = await call(t, { action: 'lt_find', q: 'nam' });
-  ok('Một chữ → chưa tìm (need 2)', r.ok && r.results.length === 0 && r.need === 2, r);
+  ok('Một chữ "nam" → ra ngay hai người tên gọi Nam (không còn need)', r.ok && !('need' in r) && !('more' in r) && r.results.map(x => x.short).join() === 'H. Đức Nam,T. Ngọc Nam', r);
   r = await call(t, { action: 'lt_find', q: 'duc n' });
   ok('Chữ cuối gõ dở "duc n" → vẫn ra', r.results.length === 1, r);
   r = await call(t, { action: 'lt_find', q: 'hoang duc nam' });
@@ -196,8 +199,17 @@ console.log('\n== 3. Tìm tên ==');
   ok('Hết buổi → không có trong danh sách', r.results.length === 0, r);
   r = await call(t, { action: 'lt_find', q: 'gia phong' });
   ok('Hai hợp đồng cùng tên → một kết quả', r.results.length === 1, r);
-  for (let i = 0; i < 53; i++) r = await call(t, { action: 'lt_find', q: 'thu ' + (i % 3 ? 'mot' : 'hai') });
-  ok('Lượt tìm thứ 61 trong 10 phút → cham_lai (giống Apps Script)', r.ok === false && r.error === 'cham_lai', r);
+  /* giới hạn 300 lượt / máy / khung 10 phút: đếm trên một máy riêng */
+  const DEVQ = 'devQQQQQQQQQQQQQQQQQQQQ';
+  for (let i = 0; i < 300; i++) r = await call(t, { action: 'lt_find', q: ['n', 'thu mot', 'th', 'duc'][i % 4], dev: DEVQ });
+  ok('Lượt tìm thứ 300 trong khung 10 phút → vẫn trả kết quả', r.ok === true && r.results.length === 1, r);
+  r = await call(t, { action: 'lt_find', q: 'nam', dev: DEVQ });
+  ok('Lượt thứ 301 → cham_lai (giống Apps Script)', r.ok === false && r.error === 'cham_lai' && !('results' in r), r);
+  r = await call(t, { action: 'lt_find', q: 'nam' });
+  ok('… máy khác vẫn tìm được', r.ok === true && r.results.length === 2, r);
+  t.clock.now += 10 * 60e3 + 1000;
+  r = await call(t, { action: 'lt_find', q: 'nam', dev: DEVQ });
+  ok('… hết 10 phút → máy đó tìm lại được', r.ok === true && r.results.length === 2, r);
 }
 
 console.log('\n== 4. Xác minh · khoá máy · nhớ máy ==');
@@ -418,7 +430,9 @@ console.log('\n== 10. Chưa mở đặt · khoá ghi · ảnh chụp danh sách 
   sameSheets(t, 'ảnh chụp _dữ liệu');
   const t2 = setup(vn('2026-10-18', '07:00'), { lockBusy: true, props: { BA_ID: 'BA', LT_OUT_ID: 'OUT', LT_SECRET: 'bimatthu-khongdungthat' } });
   const s2 = await login(t2, 'duc nam', '0001');
-  r = await call(t2, { action: 'lt_book', tok: s2.tok, rid: rid(), week: '2026-W43', picks: [{ date: '2026-10-19', h: 6 }, { date: '2026-10-21', h: 18 }] });
+  /* khoá giữ tới khi Worker đã trả lời — không dựa vào 150 ms tính từ lúc setup (máy đang tải nặng thì login đã ăn hết 150 ms) */
+  let release; t2.wk.testHold = new Promise(res => { release = res; });
+  r = await call(t2, { action: 'lt_book', tok: s2.tok, rid: rid(), week: '2026-W43', picks: [{ date: '2026-10-19', h: 6 }, { date: '2026-10-21', h: 18 }] }, () => release());
   ok('Khoá ghi đang bận → he_thong_ban, không ghi', r.error === 'he_thong_ban' && logRows(t2).length === 0, r);
   r = await call(t2, { action: 'lt_book', tok: 'abc.def', rid: rid(), week: '2026-W43', picks: [] });
   ok('Mã phiên giả → het_phien', r.error === 'het_phien', r);
@@ -454,6 +468,88 @@ console.log('\n== 11. Bản phiếu (base): lệnh mất phản hồi rồi gử
   const s2 = await login(t2, 'duc nam', '0001');
   r = await call(t2, { action: 'lt_book', tok: s2.tok, rid: rid(), week: '2026-W43', base: 0, picks: [{ date: '2026-10-21', h: 20 }, { date: '2026-10-23', h: 18 }] });
   ok('Lỗi theo khung (đặt muộn T4 20:00 dưới 24 giờ) → trả kèm date + h để trang gọi đúng tên khung', r.why === 'duoi_24h' && r.date === '2026-10-21' && r.h === 20, [r.why, r.date, r.h]);
+}
+
+console.log('\n== 12. Tìm tên gõ tới đâu ra tới đó: ma trận chữ gõ (mỗi phản hồi Worker = Apps Script) ==');
+{
+  /* hội viên bịa thêm (rõ là tên giả): trùng họ tên khác Mã KH, tên một chữ, tên có gạch nối, tên đệm Nam, tên gọi An / Anh */
+  const EXTRA = [
+    ['931', 'Khách Thử Đức Anh', 'Quyết Hán', '0900000031', 'B931DY'],
+    ['932', 'Khách Thử Khôi', 'Hiền Mai', '0900000032', 'B932DY'],
+    ['933', 'Khách Thử An', 'Quyết Hán', '0900000033', 'B933DY'],
+    ['934', 'Khách Thử Anh', 'Hiền Mai', '0900000034', 'B934DY'],
+    ['935', 'Khách Thử Nam Phong', 'Quyết Hán', '0900000035', 'B935DY'],
+    ['936', 'Mẫu Thử Ngọc Ánh', 'Hiền Mai', '0900000036', 'B936DY'],
+    ['937', 'Mẫu Thử Hà-Linh', 'Quyết Hán', '0900000037', 'B937DY'],
+    ['938', 'Khách Thử Đức Anh', 'Hiền Mai', '0900000038', 'B938DY'],
+    ['939', 'Khách Thử Ngọc Bảo Anh', 'Quyết Hán', '0900000039', 'B939DY'],
+    ['940', 'Thửnghiệm', 'Hiền Mai', '0900000040', 'B940DY']
+  ];
+  const t = setup(vn('2026-10-18', '07:00'), { members: EXTRA });
+  const sg = await t.wk.signer(), outs = [];
+  const id = {}; for (const k of ['B901DY', 'B931DY', 'B938DY']) id[k] = await sg.idOf(k);
+  /** một lượt tìm: đúng danh sách tên ngắn theo thứ tự, more chỉ có khi hơn 6 người, không còn need */
+  const chk = async (q, want, label, more) => {
+    const r = await call(t, { action: 'lt_find', q: q });
+    outs.push(JSON.stringify(r));
+    const got = r.results ? r.results.map(x => x.short).join(' | ') : '';
+    ok(label + ' · ' + JSON.stringify(q.length > 24 ? q.slice(0, 12) + '…' : q) + ' → ' + (want.length ? want.join(' | ') : '(không ai)') + (more ? ' + more' : ''),
+       r.ok === true && !('need' in r) && got === want.join(' | ') && (more ? r.more === true : !('more' in r)) &&
+       r.results.every(x => Object.keys(x).sort().join() === 'coach,id,short'), r);
+    return r;
+  };
+  const NAM3 = ['H. Đức Nam', 'T. Ngọc Nam', 'K. Thử Nam Phong'], DANH = ['K. Thử Đức Anh', 'K. Thử Đức Anh'];
+  const TH6 = ['Thửnghiệm', 'K. Thử An', 'K. Thử Anh', 'K. Thứ Ba'].concat(DANH);
+  /* rỗng / chỉ dấu câu */
+  for (const q of ['', '   ', '...', '?! 🙂']) await chk(q, [], 'Không có chữ nào → rỗng');
+  /* 1 ký tự: chỉ khớp ĐẦU chữ của tên đệm + tên; chữ cuối rơi vào tên gọi xếp trước */
+  await chk('n', ['H. Đức Nam', 'T. Ngọc Nam', 'K. Thử Nam Phong', 'K. Thử Ngọc Bảo Anh', 'M. Thử Ngọc Ánh'], '1 ký tự, tên gọi bắt đầu bằng N xếp trước');
+  await chk('N', ['H. Đức Nam', 'T. Ngọc Nam', 'K. Thử Nam Phong', 'K. Thử Ngọc Bảo Anh', 'M. Thử Ngọc Ánh'], 'Chữ hoa như chữ thường');
+  await chk('k', ['K. Thử Khôi', 'B. Không Số'], '1 ký tự: họ "Khách" không tính, tên gọi Khôi trước tên đệm Không');
+  await chk('o', [], '1 ký tự không khớp giữa chữ (Khôi không ra)');
+  let r = await chk('đ', ['H. Đức Nam'].concat(DANH), 'đ = d');
+  ok('… hai người trùng họ tên xếp theo Mã KH (B931DY trước B938DY)', r.results[0].id === id.B901DY && r.results[1].id === id.B931DY && r.results[2].id === id.B938DY, r);
+  await chk('D', ['H. Đức Nam'].concat(DANH), 'D hoa = đ');
+  /* 2 ký tự trở lên · more khi hơn 6 người */
+  await chk('th', TH6, 'Tên một chữ (Thửnghiệm) là tên gọi → xếp đầu; 16 người → 6 + more', true);
+  await chk('thu', TH6, '"thu": họ "Thử" của T. Ngọc Nam không tính; 14 người → 6 + more', true);
+  await chk('an', ['K. Thử An', 'K. Thử Anh'].concat(DANH, ['K. Thử Ngọc Bảo Anh', 'M. Thử Ngọc Ánh']), 'Trùng trọn chữ (An) trước gõ dở (Anh); người thứ 7 (Văn, khớp giữa chữ) → more', true);
+  await chk('nam', NAM3, 'Tên gọi Nam trước tên đệm Nam (dù K < T)');
+  /* nhiều chữ: bậc 0 (phần cuối họ tên) > bậc 1 (đầu chữ, đúng thứ tự, được bỏ chữ giữa) */
+  await chk('d nam', ['H. Đức Nam'], 'Đầu chữ đúng thứ tự: "d nam"');
+  await chk('thu nam', ['K. Thử Nam Phong'], 'Họ "Thử" (T. Ngọc Nam) không ghép được với tên');
+  await chk('ngoc anh', ['M. Thử Ngọc Ánh', 'K. Thử Ngọc Bảo Anh'], 'Khớp liền phần cuối xếp trước khớp có bỏ chữ giữa (dù K < M)');
+  await chk('thu an', ['K. Thử An', 'K. Thử Anh'].concat(DANH, ['K. Thử Ngọc Bảo Anh', 'M. Thử Ngọc Ánh']), 'Đúng 6 người → không có more');
+  await chk('thi linh', ['T. Thị Mỹ Linh'], 'Bỏ tên đệm ở giữa: "thi linh"');
+  await chk('linh thi', [], 'Sai thứ tự → không ra');
+  /* chỉ gõ họ → không ai (họ chỉ hiện chữ cái đầu) */
+  for (const q of ['khach', 'mau', 'hoang', 'tran', 'phan', 'le', 'Bùi']) await chk(q, [], 'Chỉ gõ họ');
+  await chk('hoang duc', [], 'Họ + tên đệm (không phải phần cuối)');
+  /* họ tên đầy đủ · có dấu / không dấu · thừa cách · chữ hoa · dấu câu */
+  await chk('hoang duc nam', ['H. Đức Nam'], 'Đủ họ tên');
+  await chk('HOÀNG ĐỨC NAM', ['H. Đức Nam'], 'Đủ họ tên, chữ hoa có dấu');
+  r = await chk('Khách Thử Đức Anh', DANH, 'Đủ họ tên, hai người trùng');
+  ok('… vẫn theo Mã KH', r.results[0].id === id.B931DY && r.results[1].id === id.B938DY, r);
+  await chk('khach thu duc anh', DANH, 'Đủ họ tên không dấu');
+  await chk('   ĐỨC    anh  ', DANH, 'Thừa cách, lẫn hoa thường');
+  await chk('Hà-Linh', ['M. Thử Hà-Linh'], 'Tên có gạch nối');
+  await chk('ha linh', ['M. Thử Hà-Linh'], 'Gạch nối = cách');
+  await chk('(duc) nam?', ['H. Đức Nam'], 'Dấu câu bỏ qua');
+  await chk('🙂 nam!!', NAM3, 'Emoji bỏ qua');
+  /* khớp giữa chữ: đúng một chữ, từ 2 ký tự; xếp sau mọi người khớp đầu chữ */
+  await chk('hoi', ['K. Thử Khôi'], 'Giữa chữ: "hoi" → Khôi');
+  await chk('oi', ['K. Thử Khôi'], 'Giữa chữ, 2 ký tự');
+  await chk('ung', ['Đ. Văn Hưng', 'Thửnghiệm'], 'Giữa chữ: "ung" → Hưng, Thửnghiệm');
+  await chk('ong', ['K. Thử Nam Phong', 'L. Gia Phong', 'B. Không Số'], 'Giữa chữ: tên gọi trước tên đệm (dù B < K)');
+  await chk('nghiem', ['Thửnghiệm'], 'Giữa chữ của tên một chữ');
+  await chk('hoi nam', [], 'Hai chữ thì không khớp giữa chữ');
+  /* dài quá 60 ký tự: cắt ở 60 như trước */
+  await chk('nam' + ' '.repeat(57) + 'zzz', NAM3, 'Quá 60 ký tự → phần sau ký tự 60 bỏ');
+  await chk('x'.repeat(80), [], '80 ký tự một chữ');
+  await chk('a '.repeat(40), [], '30 chữ "a" (nhiều chữ hơn tên)');
+  await chk('x', [], 'Không ai');
+  ok('Ma trận tìm tên: không phản hồi nào lộ họ đầy đủ hay SĐT (' + outs.length + ' lượt)',
+     outs.every(o => !/Khách|Mẫu|Hoàng|Trần|0900/.test(o)), outs.filter(o => /Khách|Mẫu|Hoàng|Trần|0900/.test(o)));
 }
 
 {

@@ -24,7 +24,8 @@ var LT = {
   CAP: 4,                                            // dự phòng khi ⚙️ 2 không có "Sức chứa tối đa / khung"
   REMEMBER: 60 * 864e5, SESSION: 12 * 3600e3,        // nhớ máy 60 ngày · không nhớ thì 12 giờ
   FAILS: 5, LOCK_S: 15 * 60, MEMBER_FAILS: 20,       // sai 5 lần → khoá máy 15 phút · sai 20 lần/giờ trên một tên → khoá tên
-  FIND_MAX: 60,                                      // lượt tìm tên / máy / 10 phút
+  FIND_MAX: 300,                                     // lượt tìm tên / máy / khung 10 phút cố định (trang tìm theo từng chữ gõ: ~8 lượt / người)
+  FIND_TOP: 6,                                       // tối đa 6 người mỗi lượt tìm; nhiều hơn → more: true
   OUT_NAME: '[B0DY Studio] Lịch tập tuần', LOG: 'Sổ đặt lịch', DATA: '_dữ liệu',
   ON: 'Đã đặt', MOVED: 'Đã đổi',
   LOG_HEAD: ['Mã phiếu', 'Bản', 'Tuần', 'Ngày', 'Thứ', 'Giờ', 'Hội viên', 'Tên ngắn', 'Coach', 'Loại',
@@ -111,7 +112,7 @@ function ltInitials_(c) { return ltWords_(ltCoach_(c)).map(function (x) { return
 function ltPkg_(pkg, total) { var m = String(pkg == null ? '' : pkg).match(/\d+/), n = m ? +m[0] : (+total || 0); return n > 0 ? n + 'B' : ''; }
 function ltDigits_(v) { return String(v == null ? '' : v).replace(/\D+/g, ''); }
 
-/** Gõ tên đệm + tên là ra: các chữ đã gõ phải khớp phần CUỐI của họ tên (bỏ dấu), chữ cuối được gõ dở. */
+/** Luật cũ (bậc 0 của ltFindRank_): ≥ 2 chữ khớp liền phần CUỐI của họ tên (bỏ dấu), chữ cuối được gõ dở. */
 function ltMatch_(q, nameTokens) {
   var L = q.length;
   if (L < 2 || L > nameTokens.length) return false;
@@ -121,6 +122,67 @@ function ltMatch_(q, nameTokens) {
     if (i < L - 1 ? a !== b : b.indexOf(a) !== 0) return false;
   }
   return true;
+}
+
+/**
+ * Cách khớp tốt nhất của các chữ gõ q (đúng thứ tự, được bỏ qua chữ ở giữa) vào ĐẦU các chữ khác nhau của V.
+ * Không khớp → null. Khớp → {last, eq, at}: last = 1 nếu chữ gõ cuối rơi được vào chữ cuối của V (tên gọi),
+ * eq = số chữ gõ trùng trọn một chữ (nhiều nhất, sau khi đã ưu tiên last), at = vị trí trong V của từng chữ gõ.
+ * Quy hoạch động f[i][j] = số chữ trùng trọn nhiều nhất khi khớp i chữ gõ đầu vào j chữ đầu của V (−1: không khớp được).
+ * Giống hệt prefixFit của Worker (worker/src/core.js).
+ */
+function ltPrefixFit_(q, V) {
+  var n = q.length, m = V.length, f = [], i, j;
+  if (!n || n > m) return null;
+  for (i = 0; i <= n; i++) { f.push([]); for (j = 0; j <= m; j++) f[i].push(i ? -1 : 0); }
+  for (i = 1; i <= n; i++) {
+    for (j = i; j <= m; j++) {
+      var b = f[i][j - 1];
+      if (f[i - 1][j - 1] >= 0 && V[j - 1].indexOf(q[i - 1]) === 0) b = Math.max(b, f[i - 1][j - 1] + (V[j - 1] === q[i - 1] ? 1 : 0));
+      f[i][j] = b;
+    }
+  }
+  var last = V[m - 1].indexOf(q[n - 1]) === 0 && f[n - 1][m - 1] >= 0 ? 1 : 0;
+  i = last ? n - 1 : n; j = last ? m - 1 : m;
+  if (f[i][j] < 0) return null;
+  var at = [], eq = f[i][j] + (last && V[m - 1] === q[n - 1] ? 1 : 0);
+  if (last) at[n - 1] = m - 1;
+  while (i > 0) { if (f[i][j - 1] === f[i][j]) j--; else { at[i - 1] = j - 1; i--; j--; } }
+  return { last: last, eq: eq, at: at };
+}
+
+/**
+ * Tìm tên — gõ tới đâu ra tới đó. q = các chữ đã gõ (ltName_ rồi tách), toks = các chữ của họ tên (ltName_).
+ * Chỉ so với phần tên hiện công khai V = tên đệm + tên (họ chỉ hiện chữ cái đầu "H.", nên gõ riêng họ không ra ai):
+ *  · bậc 0 — luật cũ ltMatch_: ≥ 2 chữ khớp liền phần CUỐI của họ tên (kể cả họ), chữ cuối được gõ dở;
+ *  · bậc 1 — mỗi chữ gõ là ĐẦU của một chữ khác nhau trong V, đúng thứ tự, được bỏ qua chữ ở giữa (1 ký tự là đủ);
+ *  · bậc 2 — đúng một chữ, từ 2 ký tự, nằm GIỮA một chữ của V ("hoi" → Khôi).
+ * Không khớp → null. Khớp → {tier, last, eq} để xếp hạng (ltFindAll_): last = 1 nếu chữ gõ cuối rơi vào chữ cuối của V
+ * (tên gọi), eq = số chữ gõ trùng trọn một chữ.
+ */
+function ltFindRank_(q, toks) {
+  var n = q.length;
+  if (!n) return null;
+  if (ltMatch_(q, toks)) return { tier: 0, last: 1, eq: n - 1 + (toks[toks.length - 1] === q[n - 1] ? 1 : 0) };
+  var V = toks.length >= 2 ? toks.slice(1) : toks, f = ltPrefixFit_(q, V);
+  if (f) return { tier: 1, last: f.last, eq: f.eq };
+  if (n === 1 && q[0].length >= 2 && V.some(function (v) { return v.indexOf(q[0], 1) > 0; })) {
+    return { tier: 2, last: V[V.length - 1].indexOf(q[0], 1) > 0 ? 1 : 0, eq: 0 };
+  }
+  return null;
+}
+/**
+ * Mọi hội viên khớp, đã xếp hạng: bậc nhỏ trước → chữ gõ cuối rơi vào tên gọi trước → nhiều chữ trùng trọn trước →
+ * tên ngắn (localeCompare 'vi', như trước đây) → Mã KH. Thứ tự toàn phần, giống hệt findAll của Worker.
+ */
+function ltFindAll_(q, persons) {
+  var hits = [];
+  persons.forEach(function (x) { var r = ltFindRank_(q, x.toks); if (r) hits.push({ x: x, r: r }); });
+  hits.sort(function (a, b) {
+    return (a.r.tier - b.r.tier) || (b.r.last - a.r.last) || (b.r.eq - a.r.eq) ||
+      a.x.short.localeCompare(b.x.short, 'vi') || (a.x.key < b.x.key ? -1 : a.x.key > b.x.key ? 1 : 0);
+  });
+  return hits.map(function (h) { return h.x; });
 }
 
 /* ================================================================== */
@@ -632,15 +694,16 @@ function ltPublic_(ctx, why) {
            week: { key: ctx.key, no: ctx.no, mon: ctx.mon, days: ctx.days, phase: ctx.phase, lead: ctx.lead > 0, nextOpen: ctx.nextOpen, nextNo: ctx.nextNo } };
 }
 
-/** Tìm tên: cần ít nhất 2 chữ (tên đệm + tên), có dấu hay không dấu đều được. Trả tối đa 5 người. */
+/** Tìm tên gõ tới đâu ra tới đó (từ 1 ký tự, có dấu hay không dấu đều được; luật ở ltFindRank_). Trả tối đa 6 người,
+    nhiều hơn thì kèm more: true để trang nhắc gõ thêm. */
 function ltApiFind_(p, now) {
-  if (ltBump_('lt:q:' + p.dev, 600) > LT.FIND_MAX) return { ok: false, error: 'cham_lai', now: now };
+  /* đếm theo khung 10 phút cố định (khoá theo mốc khung): đang bị chặn mà gõ tiếp cũng không kéo dài khoá quá hết khung */
+  if (ltBump_('lt:q:' + p.dev + ':' + Math.floor(now / 6e5), 600) > LT.FIND_MAX) return { ok: false, error: 'cham_lai', now: now };
   var q = ltName_(String(p.q || '').slice(0, 60)).split(' ').filter(function (x) { return !!x; });
-  if (q.length < 2) return { ok: true, now: now, results: [], need: 2 };
-  var ctx = ltWeekCtx_(now), persons = ltPersonsNow_(ctx, false), res = [];
-  persons.forEach(function (x) { if (ltMatch_(q, x.toks)) res.push(x); });
-  res.sort(function (a, b) { return a.short.localeCompare(b.short, 'vi'); });
-  return { ok: true, now: now, results: res.slice(0, 5).map(function (x) { return { id: ltIdOf_(x.key), short: x.short, coach: x.coach }; }) };
+  if (!q.length) return { ok: true, now: now, results: [] };
+  var ctx = ltWeekCtx_(now), res = ltFindAll_(q, ltPersonsNow_(ctx, false));
+  var out = res.slice(0, LT.FIND_TOP).map(function (x) { return { id: ltIdOf_(x.key), short: x.short, coach: x.coach }; });
+  return res.length > LT.FIND_TOP ? { ok: true, now: now, results: out, more: true } : { ok: true, now: now, results: out };
 }
 
 /** Xác minh 4 số cuối điện thoại. Sai 5 lần → khoá MÁY 15 phút; sai 20 lần/giờ trên một tên → khoá TÊN 15 phút. */
