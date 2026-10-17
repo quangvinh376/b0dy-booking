@@ -654,12 +654,13 @@ export class BookingCore {
     }
     await this.reply(jobs, res, ctx, ba);
   }
-  /** Kiểm một lượt (giống ltLocked_: trùng mã yêu cầu → dup; khác tuần → tuan_doi; rồi luật đặt / đổi). */
+  /** Kiểm một lượt (giống ltLocked_: trùng mã yêu cầu → dup; khác tuần → tuan_doi; bản phiếu cũ → ban_cu; rồi luật đặt / đổi). */
   decide(ctx, ba, j, made) {
     const L = this.log;
     if (L.rids.has(j.pre.rid)) return { ok: true, dup: true };      /* gồm cả mục còn trong nhật ký */
     if (String(j.p.week || '') !== ctx.key) return { error: 'tuan_doi' };
     const env = C.envOf(ctx, L.rows, this.trialsFor(ctx, ba), j.pre.closed, j.pre.cap), m = C.mine(L.rows, j.pre.me, ctx);
+    if (C.baseStale(j.p.base, m)) return { error: 'ban_cu' };
     const r = j.kind === 'book' ? this.planBook(ctx, j, env, m) : this.planChange(ctx, j, env, m, L);
     if (!r.entry) return r;
     applyEntry(L, r.entry);
@@ -709,6 +710,7 @@ export class BookingCore {
           st.ok = false;
           st.error = r.error;
           if (r.why) st.why = r.why;
+          if (r.date) { st.date = r.date; st.h = r.h; }       /* khung bị từ chối → trang gọi đúng tên khung */
           if (r.full) st.full = r.full;
         }
         j.resolve(st);

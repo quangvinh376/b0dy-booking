@@ -722,6 +722,12 @@ function ltPre_(p, now) {
 }
 
 /** Đoạn ghi trong LockService: đọc sổ + tập thử MỚI, kiểm, ghi. Nhả khoá rồi mới dựng phản hồi. */
+/**
+ * Bản phiếu khách đang xem (base) đã cũ: phiếu trên sổ đã lên bản khác kể từ lúc khách xem → không ghi (ban_cu).
+ * Chặn việc một lệnh mất phản hồi đã vào sổ rồi khách gửi thêm một lựa chọn khác (thành thêm buổi ngoài ý muốn).
+ * Không gửi base (máy khách cũ) → không kiểm, như trước.
+ */
+function ltBaseStale_(base, m) { return base !== undefined && base !== null && base !== '' && Number(base) !== m.ver; }
 function ltLocked_(pre, p, write) {
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(28000)) return { ok: false, error: 'he_thong_ban', now: Date.now() };
@@ -734,8 +740,12 @@ function ltLocked_(pre, p, write) {
     if (!res && String(p.week || '') !== ctx.key) res = { error: 'tuan_doi' };
     if (!res) {
       trials = ltTrials_(ctx.days);
-      res = write(ctx, sh, rows, ltEnv_(ctx, rows, trials, pre.closed, pre.cap), ltMine_(rows, pre.me, ctx));
-      if (res.ok) { SpreadsheetApp.flush(); rows = ltLogRows_(sh); }
+      var mine = ltMine_(rows, pre.me, ctx);
+      if (ltBaseStale_(p.base, mine)) res = { error: 'ban_cu' };
+      else {
+        res = write(ctx, sh, rows, ltEnv_(ctx, rows, trials, pre.closed, pre.cap), mine);
+        if (res.ok) { SpreadsheetApp.flush(); rows = ltLogRows_(sh); }
+      }
     }
   } finally {
     lock.releaseLock();
@@ -747,6 +757,7 @@ function ltLocked_(pre, p, write) {
     st.ok = false;
     st.error = res.error;
     if (res.why) st.why = res.why;
+    if (res.date) { st.date = res.date; st.h = res.h; }       /* khung bị từ chối → trang gọi đúng tên khung */
     if (res.full) st.full = res.full;
   }
   return st;

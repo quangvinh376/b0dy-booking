@@ -426,6 +426,36 @@ console.log('\n== 10. Chưa mở đặt · khoá ghi · ảnh chụp danh sách 
   ok('Mã yêu cầu không hợp lệ → khong_hop_le/rid', r.why === 'rid', r);
 }
 
+console.log('\n== 11. Bản phiếu (base): lệnh mất phản hồi rồi gửi lựa chọn khác → không thành thêm buổi ==');
+{
+  const t = setup(vn('2026-10-18', '07:00'));
+  const s = await login(t, 'duc nam', '0001'), tok = s.tok;
+  ok('Chưa đặt: bản phiếu 0', s.mine.ver === 0, s.mine.ver);
+  const R1 = rid();
+  let r = await call(t, { action: 'lt_book', tok, rid: R1, week: '2026-W43', base: 0, picks: [{ date: '2026-10-19', h: 18 }, { date: '2026-10-21', h: 18 }] });
+  ok('Đặt T2 + T4 với base 0 → ok, bản 1', r.ok && r.mine.ver === 1 && logRows(t).length === 2, r.error || r.why);
+  /* phản hồi trên bị mất: máy khách vẫn nghĩ bản 0, khách đổi ý chọn T3 + T5 rồi gửi */
+  r = await call(t, { action: 'lt_book', tok, rid: rid(), week: '2026-W43', base: 0, picks: [{ date: '2026-10-20', h: 18 }, { date: '2026-10-22', h: 18 }] });
+  ok('Gửi lựa chọn khác với base 0 khi sổ đã bản 1 → ban_cu, không ghi thêm dòng nào', r.ok === false && r.error === 'ban_cu' && logRows(t).length === 2, [r.error, logRows(t).length]);
+  ok('… kèm state mới nhất (phiếu T2 + T4, bản 1) để trang hiện đúng', r.mode === 'ticket' && r.mine.ver === 1 && r.mine.sessions.map(x => x.date).join() === '2026-10-19,2026-10-21', r.mine);
+  r = await call(t, { action: 'lt_book', tok, rid: R1, week: '2026-W43', base: 0, picks: [{ date: '2026-10-19', h: 18 }, { date: '2026-10-21', h: 18 }] });
+  ok('Gửi lại đúng lệnh cũ (cùng mã yêu cầu, base 0) → dup ok (kiểm trùng trước kiểm bản)', r.ok && r.dup === true && logRows(t).length === 2, r.error);
+  r = await call(t, { action: 'lt_book', tok, rid: rid(), week: '2026-W43', base: '1', picks: [{ date: '2026-10-23', h: 18 }] });
+  ok('Thêm buổi với base "1" (chuỗi số) → ok, bản 2', r.ok && r.mine.ver === 2 && logRows(t).length === 3, r.error || r.why);
+  r = await call(t, { action: 'lt_change', tok, rid: rid(), week: '2026-W43', base: 1, from: { date: '2026-10-19', h: 18 }, to: { date: '2026-10-20', h: 18 } });
+  ok('Đổi buổi với base 1 khi sổ đã bản 2 → ban_cu, sổ không đổi', r.error === 'ban_cu' && logRows(t).length === 3 && r.mine.changesLeft === 2, [r.error, logRows(t).length]);
+  r = await call(t, { action: 'lt_change', tok, rid: rid(), week: '2026-W43', base: 2, from: { date: '2026-10-19', h: 18 }, to: { date: '2026-10-20', h: 18 } });
+  ok('Đổi buổi với base 2 → ok, bản 3', r.ok && r.mine.ver === 3 && r.mine.changesLeft === 1, r.error || r.why);
+  r = await call(t, { action: 'lt_change', tok, rid: rid(), week: '2026-W43', base: 'x', from: { date: '2026-10-20', h: 18 }, to: { date: '2026-10-22', h: 18 } });
+  ok('base không phải số → ban_cu (không đoán)', r.error === 'ban_cu', r.error);
+  r = await call(t, { action: 'lt_change', tok, rid: rid(), week: '2026-W43', from: { date: '2026-10-20', h: 18 }, to: { date: '2026-10-22', h: 18 } });
+  ok('Không gửi base (máy khách cũ) → kiểm như trước: ok, bản 4', r.ok && r.mine.ver === 4, r.error || r.why);
+  const t2 = setup(vn('2026-10-21', '08:00'));
+  const s2 = await login(t2, 'duc nam', '0001');
+  r = await call(t2, { action: 'lt_book', tok: s2.tok, rid: rid(), week: '2026-W43', base: 0, picks: [{ date: '2026-10-21', h: 20 }, { date: '2026-10-23', h: 18 }] });
+  ok('Lỗi theo khung (đặt muộn T4 20:00 dưới 24 giờ) → trả kèm date + h để trang gọi đúng tên khung', r.why === 'duoi_24h' && r.date === '2026-10-21' && r.h === 20, [r.why, r.date, r.h]);
+}
+
 {
   const flushes = flushLog.filter(o => o.a === 'flush');
   ok('Nhật ký ghi sau: ' + flushes.filter(o => o.ok).length + ' lần flush, không lần nào lỗi, không cảnh báo', flushes.length > 0 && flushes.every(o => o.ok === true && !o.warn), flushes.filter(o => !o.ok || o.warn));

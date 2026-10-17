@@ -18,6 +18,8 @@ Máy chủ của trang **booking.b0dy.studio**, thay cho Apps Script để mọi
 - **flush** chạy ngầm sau ~150 ms: gom mọi mục đang chờ thành **một** lệnh `spreadsheets.batchUpdate` (tất cả hoặc không). Đổi buổi thì đọc sổ ngay trước khi ghi để sửa đúng dòng (tìm dòng theo mã phiếu + mã KH + ngày + giờ, không tin số dòng cũ).
 - **Không bao giờ ghi trùng.** Mỗi mục mang mã yêu cầu (rid) của trình duyệt. Lần gửi trước không rõ kết quả (đứt mạng, hết giờ, 5xx, DO bị tắt giữa chừng) → lần sau đọc sổ trước, mục nào đã có rid trên sheet thì bỏ qua.
 - Đợi quá 25 s chưa tới lượt kiểm → `he_thong_ban` (như `tryLock` của Apps Script).
+- **Bản phiếu (`base`)**: `lt_book` / `lt_change` gửi kèm bản phiếu trang đang xem (`mine.ver`). Sổ đã lên bản khác → `ban_cu`, không ghi gì (kèm state mới nhất). Chặn trường hợp một lệnh mất phản hồi đã vào sổ rồi khách gửi thêm lựa chọn khác (thành thêm buổi ngoài ý muốn) hoặc một lệnh đổi cũ tới sau. Kiểm trùng `rid` chạy trước nên gửi lại đúng lệnh cũ vẫn ra `dup`. Không gửi `base` thì không kiểm (máy khách cũ). Apps Script (`ltLocked_`) kiểm y hệt.
+- Lỗi theo khung (`khong_hop_le` kèm `why` của một khung cụ thể) trả thêm `date` + `h` để trang gọi đúng tên khung.
 - Bộ đếm tìm tên / sai mã / khoá máy / khoá tên nằm trong storage của DO, cùng ngưỡng với Apps Script.
 - Nhật ký (Observability) chỉ có tên lệnh, mã lỗi, thời gian, số mục — không có body (mã nhớ máy, 4 số cuối), không có tên hay SĐT.
 

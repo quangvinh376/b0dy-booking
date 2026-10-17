@@ -527,3 +527,9 @@ export function snapshotRows(list) {
 export function findPerson(list, key) { for (let i = 0; i < list.length; i++) if (list[i].key === key) return list[i]; return null; }
 export function devOk(d) { return /^[A-Za-z0-9_-]{16,64}$/.test(String(d || '')); }
 export function ridOk(r) { return /^[A-Za-z0-9_-]{8,64}$/.test(String(r || '')); }
+/**
+ * Bản phiếu khách đang xem (base) đã cũ: phiếu trên sổ đã lên bản khác kể từ lúc khách xem → không ghi (ban_cu).
+ * Chặn việc một lệnh mất phản hồi đã vào sổ rồi khách gửi thêm một lựa chọn khác (thành thêm buổi ngoài ý muốn).
+ * Không gửi base (máy khách cũ) → không kiểm, như trước.
+ */
+export function baseStale(base, m) { return base !== undefined && base !== null && base !== '' && Number(base) !== m.ver; }
