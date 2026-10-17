@@ -98,14 +98,13 @@ function ltName_(s) { return ltFold_(s).replace(/[^a-z0-9 ]+/g, ' ').replace(/\s
 function ltWords_(s) { return String(s == null ? '' : s).trim().split(/\s+/).filter(function (x) { return !!x; }); }
 /** "Vũ Đức Nam" → "V. Đức Nam" (họ viết tắt — tên hiện công khai) */
 function ltShort_(name) { var w = ltWords_(name); return w.length < 2 ? w.join(' ') : w[0].charAt(0).toUpperCase() + '. ' + w.slice(1).join(' '); }
-/** Tên để chào: tên đệm + tên ("Đức Nam"); tên đệm Thị/Văn thì chỉ gọi tên ("Hưng", "Hà"). */
+/** Tên để chào: bỏ họ ("Đức Nam", "Gia Bảo Linh"); tên đệm Thị/Văn đứng đầu thì bỏ luôn ("Hưng", "Hà", "Mỹ Ngọc"). */
 function ltCall_(name) {
   var w = ltWords_(name);
   if (w.length < 2) return w.join(' ');
   var rest = w.slice(1);
-  if (rest.length < 2) return rest[0];
-  var mid = ltName_(rest[rest.length - 2]);
-  return (mid === 'thi' || mid === 'van') ? rest[rest.length - 1] : rest.slice(-2).join(' ');
+  while (rest.length > 1 && /^(thi|van)$/.test(ltName_(rest[0]))) rest = rest.slice(1);
+  return rest.join(' ');
 }
 function ltCoach_(c) { return String(c == null ? '' : c).replace(/\s*\(.*\)\s*$/, '').trim(); }
 function ltInitials_(c) { return ltWords_(ltCoach_(c)).map(function (x) { return x.charAt(0).toUpperCase(); }).join(''); }
