@@ -9,7 +9,7 @@
 'use strict';
 
 /* ============================== CẤU HÌNH ============================== */
-var VER = '1.0.5';
+var VER = '1.0.6';
 var API_URL = 'https://b0dy-booking-api.little-bonus-1d87.workers.dev/';
 var API_SLOW = false;                 /* true khi chạy Apps Script (chậm hơn nhiều) → nới thời gian chờ */
 /* chế độ QC (?qc): máy chủ giả chạy ngay trên máy (qc.js, đúng mã của Worker) với dữ liệu giả — không gọi mạng,
@@ -31,7 +31,7 @@ function $$(s, r) { return Array.prototype.slice.call((r || document).querySelec
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
 function pad2(n) { return (n < 10 ? '0' : '') + n; }
 function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
-var MQ_RM = window.matchMedia('(prefers-reduced-motion: reduce)'), MQ_DESK = window.matchMedia('(min-width: 960px)');
+var MQ_RM = window.matchMedia('(prefers-reduced-motion: reduce)'), MQ_DESK = window.matchMedia('(min-width: 960px)'), MQ_TOUCH = window.matchMedia('(pointer: coarse)');
 function rm() { return MQ_RM.matches; }
 function desk() { return MQ_DESK.matches; }
 /* gập dấu đúng luật máy chủ (core.js · fold): bỏ dải U+0300–U+036F, đ → d, chữ thường — để chữ gõ và chữ tô khớp trùng máy chủ */
@@ -942,6 +942,8 @@ VIEWS.verify = function () {
     S.pinShow = grew ? v.length - 1 : -1;
     renderPins();
     if (grew) after(.7, function () { S.pinShow = -1; renderPins(); }, 'pinshow');
+    /* máy cảm ứng: đủ 4 số thì cất bàn phím ảo — bàn phím số iPhone không có phím Enter và che nút "Tiếp tục" ở thanh đáy */
+    if (grew && v.length === 4 && MQ_TOUCH.matches) inp.blur();
   });
   inp.addEventListener('focus', renderPins); inp.addEventListener('blur', renderPins);
   inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); verify(); } });
@@ -1798,7 +1800,13 @@ VIEWS.ticket = function (op) {
       '<button class="btn btn-m btn-toi" type="button" data-a="tkdone"><span>Xong</span></button>';
   }
   return { page: page, floor: fl, mbar: mb, mood: v === 'home' ? 'observe' : 'done', flow: flow, step: step,
-           after: function () { tkFit(); tkPaper(); if (v !== 'home' && !op.instant) bobReact('nod'); if (!op.instant) animateTicket(); tk3dGo(op); } };
+           after: function () {
+             tkFit(); tkPaper(); if (v !== 'home' && !op.instant) bobReact('nod'); if (!op.instant) animateTicket(); tk3dGo(op);
+             /* phông về muộn đổi cao phiếu → đo lại cho vừa màn (mobile) */
+             if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { if (S.view === 'ticket' && !desk()) { tkFit(); tkPaper(); } }, function () {});
+           },
+           /* thanh nút đáy đổi nội dung sau ~100 ms (fade-through) → cao mới của thanh mới là phần đáy thật: đo lại (mobile) */
+           mbarAfter: function () { if (S.view === 'ticket' && !desk()) { tkFit(); tkPaper(); } } };
 }
 function tkSessions() {
   var mv = S.tkVariant === 'changed' && S.moved ? S.moved.to : null;
@@ -1868,10 +1876,43 @@ function animateTicket() {
 }
 /* phiếu desktop 1080×392: thu nhỏ cho vừa khung */
 function tkFit() {
-  var fit = tkQ('#tkfit'); if (!fit || !desk()) return;
+  var fit = tkQ('#tkfit'); if (!fit) return;
+  if (!desk()) { tkFitM(fit); return; }
+  var tkm = tkQ('#tkT'); if (tkm) tkm.classList.remove('cp');
+  fit.classList.remove('sc'); fit.style.removeProperty('--tkh');
   var stage = fit.parentNode, aw = stage.clientWidth, ah = stage.clientHeight - 24;
   var s = Math.min(1, aw / 1110, ah / 420);
   fit.style.setProperty('--tks', Math.max(0.5, s).toFixed(3));
+}
+/* chiều cao khung nhìn NHỎ (thanh công cụ Safari đang hiện): không đổi khi thanh công cụ thu / mở lúc cuộn → phiếu không co giãn theo tay cuộn */
+var SVHP = null;
+function svh() {
+  var ih = window.innerHeight || 0;
+  try {
+    if (!SVHP) {
+      SVHP = document.createElement('div'); var s = SVHP.style;
+      s.position = 'fixed'; s.left = '0'; s.top = '0'; s.width = '0'; s.height = '100vh'; s.height = '100svh'; s.visibility = 'hidden'; s.pointerEvents = 'none';
+      document.body.appendChild(SVHP);
+    }
+    var h = SVHP.offsetHeight; return h > 200 ? (ih ? Math.min(h, ih) : h) : ih;
+  } catch (e) { return ih; }
+}
+/* mobile: cả phiếu dọc nằm gọn trong một màn — từ đỉnh khung phiếu tới mép trên thanh nút đáy, trang không còn cuộn. Không vừa → bớt khoảng thở
+   (.cp, chữ giữ cỡ); vẫn không vừa → thu nhỏ cả phiếu (không dưới 0,8 để chữ còn đọc được; máy rất thấp thì cuộn). Đo theo bố cục
+   (offsetTop, offsetHeight), không theo hình đang biến đổi (vé đang vào màn / đang nghiêng). Phần dưới phiếu = tổng padding đáy các khung
+   chứa (khung phiếu → trang → main, main chừa chỗ thanh nút đáy) */
+function tkFitM(fit) {
+  var tk = tkQ('#tkT'); if (!tk) return;
+  mbarSize();
+  var stage = fit.parentNode, top = parseFloat(getComputedStyle(stage).paddingTop) || 0, tail = 0, el;
+  for (el = stage; el; el = el.offsetParent) top += el.offsetTop;
+  for (el = stage; el && el !== document.body; el = el.parentNode) tail += parseFloat(getComputedStyle(el).paddingBottom) || 0;
+  var avail = svh() - top - tail;
+  tk.classList.remove('cp');
+  var h = fit.offsetHeight;
+  if (avail > 0 && h > avail) { tk.classList.add('cp'); h = fit.offsetHeight; }
+  var k = avail > 0 && h > avail ? Math.max(.8, avail / h) : 1;
+  fit.style.setProperty('--tks', k.toFixed(3)); fit.style.setProperty('--tkh', h + 'px'); fit.classList.toggle('sc', k < 1);
 }
 /* giấy phiếu: răng cưa ở mép ngoài, khuyết tròn + lỗ đục ở đường xé */
 function teeth(x0, y0, x1, y1, amp, step, side) {

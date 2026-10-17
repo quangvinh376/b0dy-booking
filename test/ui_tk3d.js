@@ -136,6 +136,11 @@ async function analyze(a, b, W) {
 /* một phiếu đang hiện bản WebGL: kiểm đủ bộ + lưu ảnh */
 async function checkTicket(page, tag, opt) {
   opt = opt || {};
+  /* vé nghiêng theo con trỏ + lắc gợi ý sau 3,6 s (app.js · TILT) xoay giấy 3D còn vé DOM thì không → cho vé đứng yên trước khi so */
+  await page.mouse.move(2, 2);
+  await page.evaluate(() => { const L = window.__lt, T = L && L.tilt; if (T) { T.touched = true; T.hint = 0; T.hov = null; L.tiltKick(); } });
+  await page.waitForFunction(() => { const T = window.__lt && window.__lt.tilt; return !T || (!T.raf && !T.drag); }, null, { timeout: 15000 });
+  await settle(page);
   const st = await state(page), D = await dbg(page);
   ok(tag + ': bản WebGL đang hiện (canvas trong khung phiếu, vé DOM trong suốt, vẫn role="img" + aria-label)',
     D.shown && D.p >= 1 && st.gl && st.op === 0 && st.inStage && st.canvases === 1 && st.role === 'img' && st.aria > 20 && D.el === st.el, { st, D: { shown: D.shown, p: D.p, el: D.el, err: D.err } });

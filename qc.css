@@ -55,6 +55,9 @@
 .qc-end>.qc-b{flex:1 1 0}
 
 @media (max-width:959.98px){
+  /* Safari iOS 26 lấy màu phần tử cố định / dính sát mép trên (header Giấy) tô vùng thanh trạng thái; nút QC Mực nằm ngay mép trên
+     làm Safari thôi tô → nội dung cuộn lộ ra phía trên header (chỉ ở ?qc). Treo nút ngay dưới header → QC giống hệt bản thường */
+  .qc-tab{top:var(--hdh)}
   .qc-p{top:auto;left:0;width:auto;max-height:80vh;max-height:80dvh;padding:16px 16px calc(24px + var(--sab));border-left:0;border-top:1px solid var(--ke);
         border-radius:var(--r) var(--r) 0 0;gap:20px}
   .qc-tbl{max-height:280px}

@@ -477,8 +477,9 @@ var TK3D = (function () {
     var tp = c.tkp.getBoundingClientRect(), pg = c.page.getBoundingClientRect(), lim = g.v ? Math.max(pg.bottom, c.main.getBoundingClientRect().bottom) : pg.bottom;
     var x0 = Math.max(Math.min.apply(null, xs) - V.pad[0] * K, tp.left - sr.left), x1 = Math.min(Math.max.apply(null, xs) + V.pad[0] * K, tp.right - sr.left);
     var y0 = Math.max(Math.min.apply(null, ys) - V.pad[1] * K, tp.top - sr.top), y1 = Math.min(Math.max.apply(null, ys) + V.pad[2] * K, lim - sr.top);
-    /* bám lưới điểm ảnh thiết bị: 1 điểm canvas = 1 điểm màn hình */
-    x0 = Math.ceil((sr.left + x0) * d - 1e-6) / d - sr.left; y0 = Math.ceil((sr.top + y0) * d - 1e-6) / d - sr.top;
+    /* gốc khung vẽ ở điểm ảnh CSS nguyên (cũng là điểm ảnh thiết bị nguyên ở DPR 1 · 2 · 3): Chromium vẽ phần tử thay thế (canvas) ở vị trí
+       làm tròn theo px CSS — gốc lẻ nửa px (DPR 2, vé dọc gọn) làm giấy 3D lệch nửa px so với vé DOM. Ma trận T bù đúng phần lẻ của vé */
+    x0 = Math.ceil(sr.left + x0 - 1e-6) - sr.left; y0 = Math.ceil(sr.top + y0 - 1e-6) - sr.top;
     var Wd = Math.max(1, Math.floor((x1 - x0) * d + 1e-6)), Hd = Math.max(1, Math.floor((y1 - y0) * d + 1e-6));
     var cs = cv.style; cs.left = x0 + 'px'; cs.top = y0 + 'px'; cs.width = (Wd / d) + 'px'; cs.height = (Hd / d) + 'px';
     if (cv.width !== Wd) cv.width = Wd; if (cv.height !== Hd) cv.height = Hd;

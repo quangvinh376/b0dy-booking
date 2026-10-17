@@ -511,6 +511,9 @@ button.stepn .ic{width:16px;height:16px}
   :root{--hdh:52px}
   .d{display:none!important}
   .hd{position:sticky;top:0;height:var(--hdh);padding:0 16px;grid-template-columns:minmax(0,1fr) auto}
+  /* Safari iOS 26: trang vẽ tràn lên sau thanh trạng thái, header dính dừng ở mép dưới thanh. Safari thường tô vùng thanh bằng màu header;
+     khi không tô (sau điều hướng trong trang — WebKit 305546) chữ cuộn lên lọt vào khe phía trên header. Dải Giấy dính theo header che khe đó */
+  .hd::before{content:"";position:absolute;left:0;right:0;bottom:100%;height:240px;background:var(--giay);pointer-events:none}
   .hd-l{gap:10px}
   .wm{width:50px;height:16px}
   .sig{gap:6px}
@@ -519,12 +522,19 @@ button.stepn .ic{width:16px;height:16px}
   .mbar{position:fixed;left:0;right:0;bottom:0;z-index:30;display:flex;flex-direction:column;gap:10px;padding:12px 16px max(8px, var(--sab));background:var(--giay);border-top:1px solid var(--ke-manh)}
   .mbar:empty{display:none}
   .mbar.mb-ke{border-top-color:var(--ke)}
+  /* iPhone xoay ngang (viewport-fit=cover): chừa tai thỏ / Dynamic Island hai bên. Máy dọc / desktop: inset = 0, không đổi gì */
+  .app{padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
+  .mbar,.sheet{padding-left:max(16px, env(safe-area-inset-left,0px));padding-right:max(16px, env(safe-area-inset-right,0px))}
   .app.has-mbar .main{padding-bottom:var(--mbh,120px)}
-  .mb-sum{display:flex;align-items:center;gap:8px;min-height:12px}
+  /* trang mới trượt vào từ phải 24px (inF): không để trang rộng hơn màn trong lúc chuyển — Safari iOS sẽ cho kéo ngang, Chrome Android thu nhỏ trang.
+     clip (không phải hidden): không tạo khung cuộn, header dính vẫn dính */
+  .main{overflow-x:clip}
+  .mb-sum{display:flex;flex-wrap:wrap;align-items:center;column-gap:8px;row-gap:5px;min-height:12px}   /* danh sách dài (4 buổi, máy hẹp) xuống dòng thứ hai, không tràn */
   .mb-sum .k{font-family:var(--mono);font-size:10px;line-height:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--than);white-space:nowrap}
   .mb-sum .v{font-family:var(--mono);font-size:10px;line-height:12px;letter-spacing:.08em;color:var(--muc);white-space:nowrap}
   .mb-sum .fill{flex:1 1 auto}
-  .mb-sum .r{font-family:var(--mono);font-size:10px;line-height:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muc);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+  .mb-sum .r{font-family:var(--mono);font-size:10px;line-height:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muc);min-width:0;max-width:100%;margin-left:auto;text-align:right}
+  .mb-sum .r .ln>span{white-space:normal}
   .mb-note{font-family:var(--mono);font-size:10px;line-height:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--than);text-align:center}
   .mbar .btn{width:100%}
   .mb-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
@@ -588,10 +598,19 @@ button.stepn .ic{width:16px;height:16px}
   .lg-m .sw{width:12px;height:12px}
   .lg-m .sw.k-tap svg{width:8px;height:8px}
 
-  .tkp{padding:20px 16px 16px}
-  .tk-stage{min-height:0;padding:12px 0 8px;align-items:flex-start}
+  .tkp{padding:20px 16px 0}
+  .tk-stage{min-height:0;padding:12px 0 8px;align-items:flex-start}   /* 8 px đáy: chỗ cho góc phiếu xoay / nghiêng, không sinh cuộn */
+  /* vừa màn ở cỡ thật (k = 1): không transform, y như 1.0.5. Chỉ khi phải thu (.sc, app.js · tkFitM): thu quanh tâm rồi kéo lên giữ mép trên,
+     bù phần bố cục thừa bằng margin âm */
   .tk-fit{transform:none;width:100%}
   .tk-fit.tilt{transform:perspective(1150px) rotateX(var(--tkp,0deg)) rotateY(var(--tky,0deg))}
+  .tk-fit.sc{transform:translateY(calc((var(--tks) - 1) * var(--tkh) / 2)) scale(var(--tks));margin-bottom:calc((var(--tks) - 1) * var(--tkh))}
+  .tk-fit.sc.tilt{transform:perspective(1150px) translateY(calc((var(--tks) - 1) * var(--tkh) / 2)) rotateX(var(--tkp,0deg)) rotateY(var(--tky,0deg)) scale(var(--tks))}
+}
+
+/* máy rất hẹp (< 360 px: iPhone SE đời 1, Android 320): giờ trong ô đang chọn vẫn đủ 5 ký tự, không bị cắt */
+@media (max-width:359.98px){
+  .c.sel,.c.moving,.c.mine.tm{font-size:9px;line-height:11px;letter-spacing:.02em}
 }
 
 /* mobile: phiếu dọc */
@@ -626,6 +645,12 @@ button.stepn .ic{width:16px;height:16px}
 .tkm-stub .bc{width:100%;height:40px}
 .tkm-stub .lbl{font-size:9px;line-height:11px;letter-spacing:.06em}
 .tkm.in .bc{animation:bcin .7s .25s var(--eo) both}
+/* gọn (app.js · tkFitM, khi phiếu không vừa một màn): bớt khoảng thở, giữ nguyên cỡ chữ thường */
+.tkm.cp .tkm-main{gap:12px;padding:18px 18px 16px}
+.tkm.cp .tk-big .num{font-size:60px;line-height:56px}
+.tkm.cp .wk7 .mc{height:24px}
+.tkm.cp .tkm-stub{gap:10px;padding:14px 18px 16px}
+.tkm.cp .tkm-stub .bc{height:30px}
 
 /* =====================================================================
    DESKTOP · ≥ 960 px
