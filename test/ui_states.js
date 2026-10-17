@@ -59,7 +59,35 @@ async function E01() {
     ok('E01 ' + k + ': đồng hồ đếm 07:19:5x → 06:00 CN', /^07:1[89]:\d\d$/.test(cd), cd);
     const sig = await page.textContent(k === 'd' ? '#sigD' : '#sigM');
     ok('E01 ' + k + ': header "CHƯA MỞ … 43", chấm rỗng', /chưa mở/i.test(sig) && /43/.test(sig) && await page.evaluate(() => document.querySelector('#sig').classList.contains('off')), sig);
+    /* Figma E01 (17/10): không dãy bước · nút "Đặt hẹn nhắc lịch" (desktop dưới đồng hồ L56, mobile thanh đáy M48 rộng hết, kẻ 10 %) ·
+       đồng hồ mỗi ký tự .57em (khoảng chữ −3 %) */
+    const g = await page.evaluate(() => {
+      const vis = el => !!el && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden';
+      const btns = Array.from(document.querySelectorAll('[data-a="remind"]')).filter(vis);
+      const b = btns[0], r = b && b.getBoundingClientRect(), mb = document.querySelector('#mbar');
+      const dg = document.querySelector('#cdv .dg'), fs = parseFloat(getComputedStyle(document.querySelector('#cdv')).fontSize);
+      return { steps: document.querySelectorAll('#steps .step').length, n: btns.length, txt: b && b.textContent.trim(), inBar: !!b && mb.contains(b),
+               w: r && Math.round(r.width), h: r && Math.round(r.height), vw: innerWidth, ke: mb.classList.contains('mb-ke'),
+               line: getComputedStyle(mb).borderTopColor, dgw: dg && +(dg.getBoundingClientRect().width / fs).toFixed(3) };
+    });
+    ok('E01 ' + k + ': header không còn dãy bước', g.steps === 0, g);
+    ok('E01 ' + k + ': đúng một nút "Đặt hẹn nhắc lịch" đang hiện', g.n === 1 && g.txt === 'Đặt hẹn nhắc lịch', g);
+    if (k === 'd') ok('E01 d: nút dưới đồng hồ, cao 56, không ở thanh đáy', !g.inBar && g.h === 56, g);
+    else ok('E01 m: nút ở thanh đáy, cao 48, rộng hết màn trừ lề 16, kẻ trên 10 %', g.inBar && g.h === 48 && g.w === g.vw - 32 && g.ke && /0\.1\)$/.test(g.line), g);
+    ok('E01 ' + k + ': đồng hồ mỗi ký tự rộng .57em', g.dgw === 0.57, g);
     await shot(page, 'E01-' + k, 1200);
+    await close(page);
+  }
+  /* 06:00 CN: E01 → Tìm tên — dãy bước hiện lại, thanh đáy mobile hết kẻ 10 % */
+  for (const [k, o] of [['d', DESK], ['m', MOB]]) {
+    const t = backend(vn('2026-10-18', '06:00') - 3000);
+    const page = await open(t, o, 'E01open' + k);
+    await page.waitForSelector('.pg-closed');
+    t.clock.now = vn('2026-10-18', '06:00') + 1000;
+    await page.waitForSelector('.pg-find', { timeout: 15000 });
+    await sleep(900);
+    const g = await page.evaluate(() => ({ steps: document.querySelectorAll('#steps .step').length, ke: document.querySelector('#mbar').classList.contains('mb-ke') }));
+    ok('E01 ' + k + ' → 06:00 mở: sang Tìm tên, dãy bước 4 mục hiện lại, thanh đáy bỏ kẻ 10 %', g.steps === 4 && !g.ke, g);
     await close(page);
   }
 }

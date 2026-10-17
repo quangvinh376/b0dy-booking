@@ -9,7 +9,7 @@
 'use strict';
 
 /* ============================== CẤU HÌNH ============================== */
-var VER = '1.0.2';
+var VER = '1.0.3';
 var API_URL = 'https://b0dy-booking-api.little-bonus-1d87.workers.dev/';
 var API_SLOW = false;                 /* true khi chạy Apps Script (chậm hơn nhiều) → nới thời gian chờ */
 var T_READ = API_SLOW ? 30000 : 9000, T_WRITE = API_SLOW ? 50000 : 25000;
@@ -373,7 +373,8 @@ function setSig(on, d, m) {
   line($('#sigD'), d, 1); line($('#sigM'), m, 1);
 }
 function setSteps(flow, cur, back) {
-  var list = flow === 'chg' ? FLOW_CHG : flow === 'add' ? FLOW_ADD : FLOW_BOOK, el = $('#steps');
+  /* flow 'none': màn đứng ngoài luồng (E01 Chưa mở đặt) — header không có dãy bước */
+  var list = flow === 'none' ? [] : flow === 'chg' ? FLOW_CHG : flow === 'add' ? FLOW_ADD : FLOW_BOOK, el = $('#steps');
   var key = flow + ':' + cur + ':' + (back ? 1 : 0);
   if (HD.steps === key) return;
   var prev = HD.steps; HD.steps = key;
@@ -473,6 +474,7 @@ function go(view, dir, op) {
   show(r.page, dir || 'fwd', op.instant);
   setFloor(r.floor || '', r.floorAfter, op.instant);
   setMbar(r.mbar || '', r.mbarAfter, op.instant);
+  $('#mbar').classList.toggle('mb-ke', !!r.mbarKe);   /* E01: kẻ trên thanh đáy 10 % (các thanh khác 8 %) */
   headerFor();
   setSteps(r.flow || 'book', r.step == null ? -1 : r.step, !!r.back);
   bobMood(r.mood || 'observe');
@@ -545,10 +547,12 @@ VIEWS.closed = function () {
   if (st && st.mode === 'closed' && w.phase !== 'before' && anyOpen(w, now())) reason = closedReason(st);
   var title = reason ? reason.title : 'Chưa tới giờ đặt.';
   var subD = reason ? reason.body : 'Lịch tuần sau mở lúc 06:00 · ' + sunTxt + '.', subM = reason ? reason.body : 'Mở lúc 06:00 · ' + sunTxt + '.';
+  /* nút nhắc: desktop nằm dưới đồng hồ (L56), mobile nằm ở thanh đáy rộng hết màn (M48) — Figma E01 */
+  var remind = function (cls) { return '<button class="btn btn-phu' + cls + '" type="button" data-a="remind">' + ico('cal') + '<span>Đặt hẹn nhắc lịch</span></button>'; };
   var page = pageEl('pg-closed', '<div class="ctr st"><div class="col">' +
     '<div class="ttl-row rs"><div class="ttl"><h1 class="h56" tabindex="-1">' + esc(title) + '</h1><p class="b16"><span class="d">' + esc(subD) + '</span><span class="m">' + esc(subM) + '</span></p></div><div class="bob-slot m"></div></div>' +
     '<div class="cd rs r1"><span class="lbl">Còn lại · giờ : phút : giây</span><div class="cd-v" id="cdv" aria-live="off"></div></div>' +
-    '<div class="rs r2"><button class="btn btn-phu" type="button" data-a="remind">' + ico('cal') + '<span>Thêm vào lịch</span></button></div>' +
+    '<div class="rs r2 d">' + remind('') + '</div>' +
     (st ? '<div class="rs r3"><button class="btn btn-chu cs" type="button" data-a="notyou"><span class="bt">Không phải bạn?</span></button></div>' : '') +
     '</div></div>');
   var cdv = page.querySelector('#cdv'), zeroAt = 0;
@@ -571,7 +575,8 @@ VIEWS.closed = function () {
     zeroAt = 0;
     CDT = setTimeout(tickCd, 1000 - (now() % 1000) + 10);
   }
-  return { page: page, mood: 'sleep', step: -1, after: function () { clearTimeout(CDT); cdv._s = null; tickCd(); } };
+  return { page: page, mbar: remind(' btn-m'), mbarKe: true, mood: 'sleep', flow: 'none', step: -1,
+           after: function () { clearTimeout(CDT); cdv._s = null; tickCd(); } };
 };
 function closedReason(st) {
   var me = st.me, w = st.week, last = w.days[w.days.length - 1];

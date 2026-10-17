@@ -13,8 +13,14 @@ const { vn } = R.H;
   t.delayFor = b => (b.action === 'lt_book' ? 1500 : 0);
   await R.tap(page, '#cta');
   await R.sleep(300);
-  await page.locator('#pkList [data-a="unpick"][data-d="2026-10-23"]').click();   /* member removes Fri while "Đang gửi…" */
-  await page.waitForFunction(() => /Gửi lại/.test(document.querySelector('#cta').textContent) && !document.querySelector('#cta').disabled);
+  /* member tries to remove Fri while "Đang gửi…": × is disabled during sending (pointer-events none), so the click lands right
+     after the failure. Picks then differ from the failed request → CTA is a NEW request ("Đặt lịch 2 buổi"), not "Gửi lại". */
+  await page.locator('#pkList [data-a="unpick"][data-d="2026-10-23"]').click();
+  await page.waitForFunction(() => !document.body.classList.contains('is-sending') && !document.querySelector('#cta').disabled &&
+    window.__lt.S.picks.length === 2 && !!window.__lt.S.pending);
+  await R.sleep(600);   /* CTA đổi chữ bằng cross-fade */
+  const cta = await page.evaluate(() => document.querySelector('#cta').textContent.trim());
+  R.ok('H31: after removing a pick the CTA is a new booking, not "Gửi lại"', /Đặt lịch 2 buổi/.test(cta) && !/Gửi lại/.test(cta), cta);
   const ui = await page.evaluate(() => ({ picks: window.__lt.S.picks.map(p => p.date.slice(8) + '@' + p.h), pend: window.__lt.S.pending.body.picks.map(p => p.date.slice(8) + '@' + p.h), mb: document.querySelector('.grp-h .v').textContent }));
   R.info('UI vs pending after failure', ui);
   t.fail = null; t.delayFor = null;
