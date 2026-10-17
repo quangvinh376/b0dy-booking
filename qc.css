@@ -1,0 +1,64 @@
+/* =====================================================================
+   B0DY · Đặt lịch tập tuần — CHẾ ĐỘ QC (chỉ nạp khi có ?qc, xem qc.js)
+   Nút "QC · Dữ liệu giả" ở mép trên + bảng điều khiển. Cùng token với app.css: Giấy / Mực, một độ đậm 500,
+   kẻ mảnh 10 %, bo tối đa 4, không Acid (bảng QC không có nút chốt nào).
+   ===================================================================== */
+.qc-tab{position:fixed;top:0;left:50%;z-index:60;transform:translateX(-50%);height:18px;padding:0 10px;display:flex;align-items:center;
+  background:var(--muc);color:var(--giay);border-radius:0 0 var(--r) var(--r);font-family:var(--mono);font-size:10px;line-height:12px;
+  letter-spacing:.08em;text-transform:uppercase;white-space:nowrap;transition:background-color var(--hov)}
+.qc-tab:hover{background:var(--than)}
+.qc-tab[aria-expanded="true"]{background:var(--than)}
+
+.qc-p{position:fixed;top:0;right:0;bottom:0;z-index:61;width:400px;max-width:100%;display:flex;flex-direction:column;gap:24px;
+  padding:20px 20px 32px;overflow-y:auto;overscroll-behavior:contain;background:var(--giay);border-left:1px solid var(--ke);color:var(--muc)}
+.qc-h{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.qc-t{font-size:22px;line-height:26px;letter-spacing:-.015em;font-weight:500}
+.qc-x{width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:var(--r);transition:background-color var(--hov)}
+.qc-x:hover{background:var(--ke-manh)}
+.qc-s{font-size:14px;line-height:19px;color:var(--than);margin-top:-12px}
+.qc-sec{display:flex;flex-direction:column;gap:10px;padding-top:16px;border-top:1px solid var(--ke)}
+.qc-k,.qc-meta,.qc-ph{font-family:var(--mono);font-size:10px;line-height:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--than);font-weight:500}
+.qc-now{display:flex;flex-direction:column;gap:6px}
+.qc-tm{font-family:var(--mono);font-size:20px;line-height:24px;font-variant-numeric:tabular-nums}
+.qc-note{font-size:12px;line-height:16px;color:var(--da)}
+.qc-note:empty{display:none}
+.qc-list{display:flex;flex-direction:column;gap:6px}
+.qc-row{display:flex;gap:8px}
+.qc-row>.qc-b{flex:1 1 0}
+.qc-wrap{flex-wrap:wrap}
+.qc-wrap>.qc-b{flex:1 1 auto}
+
+.qc-b,.qc-sc{border-radius:var(--r);box-shadow:inset 0 0 0 1px var(--ke);background:var(--giay);color:var(--muc);transition:background-color var(--hov),color var(--hov),box-shadow var(--hov)}
+.qc-b{height:36px;padding:0 12px;font-size:14px;line-height:17px;white-space:nowrap}
+.qc-sc{display:flex;flex-direction:column;align-items:flex-start;gap:3px;padding:9px 12px;text-align:left}
+.qc-a{font-size:14px;line-height:17px}
+.qc-z{font-size:12px;line-height:15px;color:var(--da);transition:color var(--hov)}
+.qc-b:hover,.qc-sc:hover{box-shadow:inset 0 0 0 1px var(--muc)}
+.qc-b[aria-pressed="true"],.qc-sc[aria-pressed="true"]{background:var(--muc);color:var(--giay);box-shadow:none}
+.qc-sc[aria-pressed="true"] .qc-z{color:var(--tro)}
+
+.qc-ppl{list-style:none;display:flex;flex-direction:column}
+.qc-ppl li{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:12px;row-gap:2px;padding:8px 0;border-bottom:1px solid var(--ke-manh)}
+.qc-ppl li:last-child{border-bottom:0}
+.qc-nm{font-size:14px;line-height:17px}
+.qc-cd{font-family:var(--mono);font-size:14px;line-height:17px;font-variant-numeric:tabular-nums}
+.qc-ds{grid-column:1/-1;font-size:12px;line-height:15px;color:var(--da)}
+
+.qc-tbl{max-height:360px;overflow:auto;overscroll-behavior:contain;border-radius:var(--r);box-shadow:inset 0 0 0 1px var(--ke)}
+.qc-tbl table{border-collapse:collapse;min-width:100%;font-family:var(--mono);font-size:10px;line-height:13px;font-variant-numeric:tabular-nums}
+.qc-tbl th,.qc-tbl td{padding:6px 8px;text-align:left;white-space:nowrap;border-bottom:1px solid var(--ke-manh);font-weight:500}
+.qc-tbl th{position:sticky;top:0;background:var(--giay2);color:var(--than);letter-spacing:.06em;text-transform:uppercase}
+.qc-tbl tr:last-child td{border-bottom:0}
+.qc-tbl tr.qc-mv td{color:var(--tro)}
+.qc-tbl .qc-note{padding:10px 12px}
+.qc-end{display:flex;gap:8px;padding-top:16px;border-top:1px solid var(--ke)}
+.qc-end>.qc-b{flex:1 1 0}
+
+@media (max-width:959.98px){
+  .qc-p{top:auto;left:0;width:auto;max-height:80vh;max-height:80dvh;padding:16px 16px calc(24px + var(--sab));border-left:0;border-top:1px solid var(--ke);
+        border-radius:var(--r) var(--r) 0 0;gap:20px}
+  .qc-tbl{max-height:280px}
+}
+@media (prefers-reduced-motion:reduce){
+  .qc-tab,.qc-x,.qc-b,.qc-sc,.qc-z{transition:none}
+}

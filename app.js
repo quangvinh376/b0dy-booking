@@ -9,9 +9,12 @@
 'use strict';
 
 /* ============================== CẤU HÌNH ============================== */
-var VER = '1.0.3';
+var VER = '1.0.4';
 var API_URL = 'https://b0dy-booking-api.little-bonus-1d87.workers.dev/';
 var API_SLOW = false;                 /* true khi chạy Apps Script (chậm hơn nhiều) → nới thời gian chờ */
+/* chế độ QC (?qc): máy chủ giả chạy ngay trên máy (qc.js, đúng mã của Worker) với dữ liệu giả — không gọi mạng,
+   bộ nhớ máy dùng tiền tố 'qc:' nên không bao giờ đọc / ghi mã nhớ máy hay lịch đã lưu của trang thật */
+var QC = /[?&]qc(=|&|$)/.test(location.search);
 var T_READ = API_SLOW ? 30000 : 9000, T_WRITE = API_SLOW ? 50000 : 25000;
 
 var SLOTS = [6, 7, 8, 9, 10, 11, 14, 15, 16, 17, 18, 19, 20];
@@ -38,10 +41,11 @@ var SEQ = 0;
 
 /* bộ nhớ máy — Safari riêng tư có thể ném lỗi: mọi truy cập bọc try/catch */
 function store(kind) {
+  var P = QC ? 'qc:' : '';
   return {
-    get: function (k) { try { return window[kind].getItem(k); } catch (e) { return null; } },
-    set: function (k, v) { try { window[kind].setItem(k, v); return true; } catch (e) { return false; } },
-    del: function (k) { try { window[kind].removeItem(k); } catch (e) { /* bỏ qua */ } }
+    get: function (k) { try { return window[kind].getItem(P + k); } catch (e) { return null; } },
+    set: function (k, v) { try { window[kind].setItem(P + k, v); return true; } catch (e) { return false; } },
+    del: function (k) { try { window[kind].removeItem(P + k); } catch (e) { /* bỏ qua */ } }
   };
 }
 var LS = store('localStorage'), SS = store('sessionStorage');
@@ -309,8 +313,9 @@ function call(action, body, tmo) {
   var timer = setTimeout(function () { if (ctrl) ctrl.abort(); }, tmo || T_READ);
   busy(1);
   var payload = JSON.stringify(Object.assign({ action: action, dev: S.dev }, body || {}));
-  return fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: payload, credentials: 'omit', cache: 'no-store',
-                          redirect: 'follow', referrerPolicy: 'no-referrer', signal: ctrl ? ctrl.signal : undefined })
+  var init = { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: payload, credentials: 'omit', cache: 'no-store',
+               redirect: 'follow', referrerPolicy: 'no-referrer', signal: ctrl ? ctrl.signal : undefined };
+  return (QC ? window.QCB.fetch(API_URL, init) : fetch(API_URL, init))
     .then(function (res) { if (!res.ok) throw new NetErr('http'); return res.json().catch(function () { throw new NetErr('parse'); }); })
     .then(function (j) {
       var t1 = Date.now();
@@ -2122,7 +2127,7 @@ function refresh(quiet) {
 function boot() {
   S.dev = devId();
   SKEW = +LS.get('lt_skew') || 0;
-  if (Math.abs(SKEW) > 7 * DAY) SKEW = 0;
+  if (!QC && Math.abs(SKEW) > 7 * DAY) SKEW = 0;      /* QC: đồng hồ giả có thể lệch giờ thật bao nhiêu cũng được */
   var hd = $('#hd'); var b = document.createElement('i'); b.className = 'busy'; b.id = 'busy'; hd.appendChild(b);
   bobInit();
   clockTick();
@@ -2152,7 +2157,25 @@ function boot() {
   setInterval(function () { if (S.view === 'ticket' && S.st && PNGC.key !== pngKey()) makePng().catch(function () {}); }, 4000);
 }
 window.__lt = { S: S, ver: VER, code128B: code128B, why: function (d, h, l) { return why(d, h, l); }, weekCtx: weekCtx };
-boot();
+/* QC: nạp máy chủ giả (qc.js — module) + bảng QC rồi mới khởi động; đặt đồng hồ trang theo đồng hồ giả trước khi vẽ màn đầu.
+   Không nạp được thì báo lỗi, KHÔNG bao giờ lui về máy chủ thật. */
+function qcStart() {
+  var done = false;
+  function fail() {
+    if (done) return; done = true;
+    $('#main').innerHTML = '<div class="ctr st"><div class="col"><div class="ttl"><h1 class="h56">Không mở được chế độ QC.</h1><p class="b16">Tải lại trang để thử lại.</p></div></div></div>';
+  }
+  var css = document.createElement('link'); css.rel = 'stylesheet'; css.href = 'qc.css?v=' + VER; document.head.appendChild(css);
+  var s = document.createElement('script'); s.type = 'module'; s.src = 'qc.js?v=' + VER;
+  s.onerror = fail;
+  s.onload = function () {
+    var q = window.QCB;
+    if (!q || !q.ready) { fail(); return; }
+    q.ready.then(function (r) { if (done) return; done = true; LS.set('lt_skew', String(Math.round(r.skew))); boot(); }, fail);
+  };
+  document.head.appendChild(s);
+}
+if (QC) qcStart(); else boot();
 /* mở lại trang tức thì: service worker giữ sẵn tệp tĩnh (sw.js) — đăng ký sau khi trang đã tải xong, không tranh băng thông */
 (function () {
   if (!('serviceWorker' in navigator) || !window.isSecureContext) return;
