@@ -98,16 +98,15 @@ export function fold(s) {
 export function hdr(s) { return fold(s).replace(/\s+/g, ' ').trim(); }
 export function nameKey(s) { return fold(s).replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim(); }
 export function words(s) { return String(s == null ? '' : s).trim().split(/\s+/).filter(x => !!x); }
-/** "Vũ Đức Nam" → "V. Đức Nam" (họ viết tắt — tên hiện công khai) */
+/** "Hoàng Đức Nam" → "H. Đức Nam" (họ viết tắt — tên hiện công khai) */
 export function short(name) { const w = words(name); return w.length < 2 ? w.join(' ') : w[0].charAt(0).toUpperCase() + '. ' + w.slice(1).join(' '); }
-/** Tên để chào: tên đệm + tên ("Đức Nam"); tên đệm Thị/Văn thì chỉ gọi tên ("Hưng", "Hà"). */
+/** Tên để chào: bỏ họ ("Đức Nam", "Gia Bảo Linh"); tên đệm Thị/Văn đứng đầu thì bỏ luôn ("Hưng", "Hà", "Mỹ Ngọc"). */
 export function callName(name) {
   const w = words(name);
   if (w.length < 2) return w.join(' ');
-  const rest = w.slice(1);
-  if (rest.length < 2) return rest[0];
-  const mid = nameKey(rest[rest.length - 2]);
-  return (mid === 'thi' || mid === 'van') ? rest[rest.length - 1] : rest.slice(-2).join(' ');
+  let rest = w.slice(1);
+  while (rest.length > 1 && /^(thi|van)$/.test(nameKey(rest[0]))) rest = rest.slice(1);
+  return rest.join(' ');
 }
 export function coachName(c) { return String(c == null ? '' : c).replace(/\s*\(.*\)\s*$/, '').trim(); }
 export function initials(c) { return words(coachName(c)).map(x => x.charAt(0).toUpperCase()).join(''); }

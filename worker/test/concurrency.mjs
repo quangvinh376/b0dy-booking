@@ -1,9 +1,9 @@
-/* Test 2 · ĐỒNG THỜI + LỖI GHI + TỐC ĐỘ (Worker, Google giả có độ trễ ngẫu nhiên)
-   · 30 lượt đặt cùng lúc tranh 4 chỗ → đúng 4 thành công, 26 het_cho, không dòng trùng, tất cả hoặc không.
+/* Test 2 · ĐỒNG THỜI + TỐC ĐỘ (Worker ghi sau qua nhật ký, Google giả có độ trễ)
+   · 30 lượt đặt cùng lúc tranh 4 chỗ → đúng 4 thành công, 26 het_cho, không dòng trùng, ghi bằng 1–2 lệnh batchUpdate.
    · Cùng mã yêu cầu gửi 2 lần cùng lúc → 1 lần ghi, lần kia dup.
-   · Lỗi ghi: đã ghi rồi mới đứt mạng / đứt trước khi ghi / Google 500 → không bao giờ ghi trùng, gửi lại an toàn.
+   · Hai lượt đổi cùng một buổi cùng lúc → đúng một lượt thành công, sổ nhất quán.
    · Đọc xen giữa lúc ghi: không bao giờ thấy state cũ sau khi lượt ghi đã trả lời.
-   · Tốc độ: đọc ấm không gọi Google; ghi = 1 lượt đọc sổ + 1 lượt ghi.
+   · Tốc độ (Google 300 ms/lượt): đọc ấm 0 lượt gọi Google; đặt / đổi trả lời < 50 ms; sổ có dòng sau ~0,5–1 s.
    Chạy: node test/concurrency.mjs */
 import { createRequire } from 'module';
 import { BookingCore } from '../src/booking.js';
@@ -21,6 +21,7 @@ const d = iso => dateIn(LA, iso);
 const vn = (iso, hm) => dateIn(VN, iso, hm).getTime();
 const SA = fakeServiceAccount();
 const N = 30;
+const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 function files() {
   const H = ['', '#', 'Tên', 'Gói', 'Số buổi', 'Loại', 'Đơn giá buổi', 'Coach', 'SĐT', 'Người bán gói', 'Ngày ký', 'Ghi chú', 'Đã tập', 'Còn lại', 'Trạng thái', 'Ngày bắt đầu', 'Ngày kết thúc', 'Ngày hết hạn', 'Mã KH'];
@@ -39,11 +40,15 @@ function files() {
   const out = { 'Sổ đặt lịch': [['', '— SỔ ĐẶT LỊCH'], [], [], [''].concat(head)], '_dữ liệu': [['', 4], ['', ''], [], []] };
   return { BA: new Spreadsheet('BA', LA, ba), OUT: new Spreadsheet('OUT', 'Asia/Saigon', out) };
 }
-function setup(nowMs, delay) {
-  const clock = { now: nowMs }, f = files();
+/** opts: đè cấu hình DO. Mặc định giữ đúng cấu hình chạy thật (gom ghi 150 ms). */
+function setup(nowMs, delay, opts) {
+  const clock = { now: nowMs }, f = files(), logs = [];
   const fg = new FakeGoogle(f, { publicKey: SA.publicKey, delay: delay || (() => 5 + Math.random() * 35) });
-  const wk = new BookingCore({ storage: new FakeStorage(), env: { BA_ID: 'BA', OUT_ID: 'OUT', SA_JSON: SA.saJson }, fetch: fg.fetch, now: () => clock.now, opts: { RECONCILE_MS: 1 } });
-  return { clock, f, fg, wk, log: f.OUT.getSheetByName('Sổ đặt lịch') };
+  const storage = new FakeStorage();
+  const wk = new BookingCore({ storage, env: { BA_ID: 'BA', OUT_ID: 'OUT', SA_JSON: SA.saJson }, fetch: fg.fetch, now: () => clock.now,
+                               opts: Object.assign({ BACKOFF: [5, 10, 20, 40] }, opts || {}), log: o => logs.push(o) });
+  storage.onAlarm = () => wk.alarm();
+  return { clock, f, fg, wk, storage, logs, log: f.OUT.getSheetByName('Sổ đặt lịch') };
 }
 const devOf = i => 'devCONCURRENCY' + String(i).padStart(6, '0');
 let ridN = 0; const rid = () => 'ridc' + String(++ridN).padStart(8, '0');
@@ -59,6 +64,8 @@ async function loginAll(t) {
   }
   return toks;
 }
+/** Đợi tới khi điều kiện trên sổ thật đúng (đo thời gian sổ "bắt kịp"). */
+async function until(cond, maxMs) { const t0 = Date.now(); while (!cond()) { if (Date.now() - t0 > maxMs) return -1; await sleep(2); } return Date.now() - t0; }
 
 console.log('\n== A. 30 lượt đặt cùng lúc tranh 4 chỗ (T4 21.10 08:00) ==');
 {
@@ -72,78 +79,42 @@ console.log('\n== A. 30 lượt đặt cùng lúc tranh 4 chỗ (T4 21.10 08:00)
   const t0 = Date.now();
   const res = await Promise.all(reqs.map(r => t.wk.api(r)));
   const ms = Date.now() - t0;
+  const wAtReply = t.fg.calls.batchUpdate - before.batchUpdate;
   await t.wk.idle();
   const okN = res.filter(r => r.ok).length, full = res.filter(r => r.error === 'het_cho');
   ok('Đúng 4 lượt thành công, 26 lượt het_cho', okN === 4 && full.length === 26, res.map(r => r.ok ? 'ok' : r.error + '/' + (r.why || '')));
   ok('het_cho chỉ ra đúng khung đầy (T4 08:00), không kèm khung còn chỗ', full.every(r => r.full.length === 1 && r.full[0].date === '2026-10-21' && r.full[0].h === 8));
+  ok('Cả 30 lượt trả lời trước khi có lệnh ghi Google nào (' + ms + ' ms) — không lượt nào đợi Google', wAtReply === 0, wAtReply);
   const R = rows(t);
   ok('Sổ có đúng 8 dòng (4 khách × 2 buổi) — lượt hỏng không để lại dòng nào', R.length === 8, R.length);
   ok('T4 08:00 có đúng 4 người', R.filter(r => r[4] === '2026-10-21' && r[6] === '08:00').length === 4);
-  ok('Không mã yêu cầu nào lặp quá 2 dòng (mỗi lượt 2 buổi)', Object.values(R.reduce((m, r) => (m[r[15]] = (m[r[15]] || 0) + 1, m), {})).every(n => n === 2));
+  ok('Mỗi mã yêu cầu đúng 2 dòng', Object.values(R.reduce((m, r) => (m[r[15]] = (m[r[15]] || 0) + 1, m), {})).every(n => n === 2));
   const w = t.fg.calls.batchUpdate - before.batchUpdate;
-  ok('Gom lô: ' + w + ' lệnh ghi cho 30 lượt (ít hơn 30)', w >= 1 && w < 30, w);
-  console.log('        30 lượt đặt đồng thời xong trong ' + ms + ' ms (Google giả trễ 5–40 ms/lượt)');
+  ok('Gom lô: ' + w + ' lệnh batchUpdate cho 30 lượt (1–2)', w >= 1 && w <= 2, w);
+  console.log('        30 lượt đặt đồng thời trả lời xong trong ' + ms + ' ms; sổ nhận đủ sau ' + w + ' lệnh ghi');
   const st = res.find(r => r.ok);
   ok('Lượt thành công trả state đã có phiếu (mode ticket, 2 buổi)', st.mode === 'ticket' && st.mine.sessions.length === 2, st.mode);
   const tk = res.filter(r => r.ok).map(r => r.taken['2026-10-21|8']);
   ok('… mỗi lượt thành công thấy state sau lô của nó (T4 08:00: tăng dần tới 4)', Math.max.apply(null, tk) === 4 && tk.every(n => n >= 1 && n <= 4), tk);
   const loser = res.find(r => r.error === 'het_cho');
   ok('Lượt thua vẫn nhận state mới (mode book, taken = 4) để chọn lại', loser.mode === 'book' && loser.taken['2026-10-21|8'] === 4);
+  ok('Nhật ký đã trống (mọi mục đã lên sheet), storage không còn khoá j:', t.wk.jPending.length === 0 && t.storage.keys('j:').length === 0);
 }
 
 console.log('\n== B. Cùng mã yêu cầu gửi 2 lần cùng lúc ==');
 {
   const t = setup(vn('2026-10-18', '06:00'));
   const toks = await loginAll(t);
+  await t.wk.idle();
+  const w0 = t.fg.calls.batchUpdate;
   const r0 = { action: 'lt_book', dev: devOf(0), tok: toks[0], rid: rid(), week: '2026-W43', picks: [{ date: '2026-10-19', h: 7 }, { date: '2026-10-21', h: 7 }] };
   const [a, b] = await Promise.all([t.wk.api(structuredClone(r0)), t.wk.api(structuredClone(r0))]);
   await t.wk.idle();
   ok('Cả hai trả ok, đúng một lượt có dup', a.ok && b.ok && ((a.dup === true) !== (b.dup === true)), [a.dup, b.dup]);
-  ok('Sổ chỉ có 2 dòng', rows(t).length === 2, rows(t).length);
+  ok('Sổ chỉ có 2 dòng, đúng 1 lệnh ghi', rows(t).length === 2 && t.fg.calls.batchUpdate - w0 === 1, [rows(t).length, t.fg.calls.batchUpdate - w0]);
   const c = await t.wk.api(structuredClone(r0));
-  ok('Gửi lại lần 3 (sau đó) → dup, không thêm dòng', c.ok && c.dup && rows(t).length === 2);
-}
-
-console.log('\n== C. Lỗi khi ghi: không bao giờ ghi trùng ==');
-{
-  const t = setup(vn('2026-10-18', '06:00'));
-  const toks = await loginAll(t);
-  /* C1: Google đã ghi rồi mạng mới đứt */
-  t.fg.failWrite = 'after';
-  const r1 = { action: 'lt_book', dev: devOf(1), tok: toks[1], rid: rid(), week: '2026-W43', picks: [{ date: '2026-10-19', h: 9 }, { date: '2026-10-20', h: 9 }] };
-  let r = await t.wk.api(structuredClone(r1));
   await t.wk.idle();
-  ok('C1 đã ghi nhưng đứt mạng → đọc lại sổ thấy mã → trả ok như thường', r.ok && !r.dup && r.mode === 'ticket', r.error || r.mode);
-  ok('C1 sổ có đúng 2 dòng', rows(t).filter(x => x[15] === r1.rid).length === 2);
-  r = await t.wk.api(structuredClone(r1));
-  ok('C1 trình duyệt gửi lại → dup, vẫn 2 dòng', r.ok && r.dup && rows(t).filter(x => x[15] === r1.rid).length === 2);
-  /* C2: đứt mạng trước khi Google nhận */
-  t.fg.failWrite = 'before';
-  const r2 = { action: 'lt_book', dev: devOf(2), tok: toks[2], rid: rid(), week: '2026-W43', picks: [{ date: '2026-10-19', h: 10 }, { date: '2026-10-20', h: 10 }] };
-  r = await t.wk.api(structuredClone(r2));
-  await t.wk.idle();
-  ok('C2 chưa ghi → he_thong_ban (gửi lại an toàn), sổ không có dòng nào', r.ok === false && r.error === 'he_thong_ban' && rows(t).filter(x => x[15] === r2.rid).length === 0, r);
-  r = await t.wk.api(structuredClone(r2));
-  await t.wk.idle();
-  ok('C2 gửi lại cùng mã → ok, đúng 2 dòng', r.ok && !r.dup && rows(t).filter(x => x[15] === r2.rid).length === 2, r.error);
-  /* C3: Google trả 500 */
-  t.fg.failWrite = 'status500';
-  const r3 = { action: 'lt_book', dev: devOf(3), tok: toks[3], rid: rid(), week: '2026-W43', picks: [{ date: '2026-10-19', h: 11 }, { date: '2026-10-20', h: 11 }] };
-  r = await t.wk.api(structuredClone(r3));
-  await t.wk.idle();
-  ok('C3 Google 500 → he_thong_ban, không dòng', r.error === 'he_thong_ban' && rows(t).filter(x => x[15] === r3.rid).length === 0, r);
-  r = await t.wk.api(structuredClone(r3));
-  ok('C3 gửi lại → ok', r.ok, r.error);
-  /* C4: đổi buổi bị đứt mạng sau khi ghi */
-  t.clock.now = vn('2026-10-19', '07:00');
-  t.fg.failWrite = 'after';
-  const c4 = { action: 'lt_change', dev: devOf(1), tok: toks[1], rid: rid(), week: '2026-W43', from: { date: '2026-10-20', h: 9 }, to: { date: '2026-10-22', h: 9 } };
-  r = await t.wk.api(structuredClone(c4));
-  await t.wk.idle();
-  const mv = rows(t).filter(x => x[16] === 'B101DY');
-  ok('C4 đổi buổi đứt mạng sau khi ghi → ok; sổ: 1 Đã đổi + 1 dòng Đổi, không trùng', r.ok && mv.filter(x => x[11] === 'Đã đổi').length === 1 && mv.filter(x => x[12] === 'Đổi').length === 1 && mv.length === 3, mv.map(x => x[4] + ' ' + x[11] + ' ' + x[12]));
-  r = await t.wk.api(structuredClone(c4));
-  ok('C4 gửi lại → dup, sổ không đổi', r.ok && r.dup && rows(t).filter(x => x[16] === 'B101DY').length === 3);
+  ok('Gửi lại lần 3 (sau đó) → dup, không thêm dòng, không ghi thêm', c.ok && c.dup && rows(t).length === 2 && t.fg.calls.batchUpdate - w0 === 1);
 }
 
 console.log('\n== D. Hai lượt đổi cùng một buổi cùng lúc ==');
@@ -172,10 +143,12 @@ console.log('\n== E. Đọc xen giữa lúc ghi không bao giờ thấy state c�
     jobs.push(t.wk.api({ action: 'lt_boot', dev: devOf(i), tok: toks[i] }));
   }
   const out = await Promise.all(jobs);
-  await t.wk.idle();
   const booked = out.filter((r, k) => k % 2 === 0 && r.ok).length;
+  const mid = await Promise.all(toks.slice(10).map((tok, k) => t.wk.api({ action: 'lt_boot', dev: devOf(10 + k), tok })));
+  ok('Mở lại ngay sau khi đặt (sổ Google có thể chưa có dòng) vẫn thấy phiếu', booked === 20 && mid.every(r => r.mode === 'ticket' && r.mine.sessions.length === 2), [booked, mid.map(r => r.mode).join(',')]);
+  await t.wk.idle();
   const after = await Promise.all(toks.slice(10).map((tok, k) => t.wk.api({ action: 'lt_boot', dev: devOf(10 + k), tok })));
-  ok('Mọi lượt đặt thành công (20/20) và sau đó mọi lượt mở lại đều thấy phiếu', booked === 20 && after.every(r => r.mode === 'ticket' && r.mine.sessions.length === 2), [booked, after.map(r => r.mode).join(',')]);
+  ok('Mọi lượt đặt thành công (20/20) và sau khi ghi xong mọi lượt mở lại đều thấy phiếu', after.every(r => r.mode === 'ticket' && r.mine.sessions.length === 2), after.map(r => r.mode).join(','));
   ok('Bộ nhớ sổ của DO khớp sổ thật (40 dòng)', t.wk.log.rows.length === 40 && rows(t).length === 40, [t.wk.log.rows.length, rows(t).length]);
 }
 
@@ -197,16 +170,38 @@ console.log('\n== F. Tốc độ (Google giả trễ 300 ms/lượt như mạng 
   ok('Đọc ấm không gọi Google lần nào', JSON.stringify(t.fg.calls) === c0, [c0, JSON.stringify(t.fg.calls)]);
   ok('Đọc ấm < 20 ms trong máy (không tính mạng tới Cloudflare)', Object.values(times).every(x => x < 20), times);
   console.log('        lượt đầu khi DO vừa thức (đọc Google): ' + cold + ' ms · đọc ấm: ' + JSON.stringify(times));
-  t.wk.cfg.WRITE_LOG_FRESH = 50;                       /* người dùng chọn lịch lâu hơn 3 s → lượt ghi luôn đọc sổ mới */
-  await new Promise(r => setTimeout(r, 80));
-  const g0 = Object.assign({}, t.fg.calls);
-  t0 = Date.now();
-  r = await t.wk.api({ action: 'lt_book', dev: devOf(0), tok: v.tok, rid: rid(), week: '2026-W43', picks: [{ date: '2026-10-19', h: 6 }, { date: '2026-10-21', h: 6 }] });
-  const wms = Date.now() - t0;
-  ok('Đặt lịch: ' + (t.fg.calls.get - g0.get) + ' lượt đọc song song (sổ + TRIAL) + ' + (t.fg.calls.batchUpdate - g0.batchUpdate) + ' lượt ghi = ' + wms + ' ms (Google 300 ms/lượt → 2 nhịp mạng)', r.ok && t.fg.calls.batchUpdate - g0.batchUpdate === 1 && t.fg.calls.get - g0.get <= 2 && wms < 800, [r.error, t.fg.calls, g0]);
-  t0 = Date.now();
-  const r2 = await t.wk.api({ action: 'lt_book', dev: devOf(1), tok: (await (async () => { const f1 = await t.wk.api({ action: 'lt_find', q: 'binh ax', dev: devOf(1) }); return (await t.wk.api({ action: 'lt_verify', id: f1.results[0].id, pin: '0101', remember: true, dev: devOf(1) })).tok; })()), rid: rid(), week: '2026-W43', picks: [{ date: '2026-10-19', h: 7 }, { date: '2026-10-21', h: 7 }] });
-  ok('Lượt đặt kế tiếp của khách khác → ok', r2.ok, r2.error);
+
+  /* ĐẶT: trả lời từ bộ nhớ + nhật ký; Google ghi sau */
+  const w0 = t.fg.calls.batchUpdate;
+  t0 = performance.now();
+  r = await t.wk.api({ action: 'lt_book', dev: devOf(0), tok: v.tok, rid: rid(), week: '2026-W43', picks: [{ date: '2026-10-19', h: 6 }, { date: '2026-10-21', h: 6 }, { date: '2026-10-23', h: 6 }] });
+  const bookMs = performance.now() - t0, tb = Date.now();
+  ok('lt_book trả lời ' + bookMs.toFixed(1) + ' ms < 50 ms (Google 300 ms/lượt — không lượt gọi nào trên đường trả lời)', r.ok && r.mode === 'ticket' && bookMs < 50 && t.fg.calls.batchUpdate === w0, [r.error, bookMs]);
+  const bookSync = await until(() => rows(t).length === 3, 5000);
+  ok('… sổ Google có đủ 3 dòng sau ' + bookSync + ' ms (gom 150 ms + 1 lệnh ghi, không cần đọc sổ)', bookSync > 0 && bookSync < 1000 && t.fg.calls.batchUpdate === w0 + 1, bookSync);
+  await t.wk.idle();
+
+  /* ĐỔI: cũng trả lời từ bộ nhớ; lúc ghi mới đọc sổ (lấy số dòng thật của buổi cũ) */
+  const g1 = t.fg.calls.get, w1 = t.fg.calls.batchUpdate;
+  t0 = performance.now();
+  r = await t.wk.api({ action: 'lt_change', dev: devOf(0), tok: v.tok, rid: rid(), week: '2026-W43', from: { date: '2026-10-21', h: 6 }, to: { date: '2026-10-22', h: 7 } });
+  const chMs = performance.now() - t0;
+  ok('lt_change trả lời ' + chMs.toFixed(1) + ' ms < 50 ms', r.ok && r.mine.changesLeft === 1 && chMs < 50 && t.fg.calls.batchUpdate === w1, [r.error, r.why, chMs]);
+  const chSync = await until(() => rows(t).some(x => x[11] === 'Đã đổi') && rows(t).length === 4, 5000);
+  ok('… sổ Google có dòng Đã đổi + dòng Đổi sau ' + chSync + ' ms (gom 150 ms + đọc sổ + 1 lệnh ghi)', chSync > 0 && chSync < 1200 && t.fg.calls.batchUpdate === w1 + 1, chSync);
+  await t.wk.idle();
+  ok('… lần ghi đổi buổi đọc sổ đúng một lần', t.fg.calls.get - g1 >= 1, t.fg.calls.get - g1);
+
+  /* lượt đặt kế tiếp của khách khác */
+  const f1 = await t.wk.api({ action: 'lt_find', q: 'binh ax', dev: devOf(1) });
+  const tok1 = (await t.wk.api({ action: 'lt_verify', id: f1.results[0].id, pin: '0101', remember: true, dev: devOf(1) })).tok;
+  t0 = performance.now();
+  const r2 = await t.wk.api({ action: 'lt_book', dev: devOf(1), tok: tok1, rid: rid(), week: '2026-W43', picks: [{ date: '2026-10-19', h: 7 }, { date: '2026-10-21', h: 7 }] });
+  const ms2 = performance.now() - t0;
+  ok('Lượt đặt kế tiếp của khách khác → ok, ' + ms2.toFixed(1) + ' ms', r2.ok && ms2 < 50, r2.error);
+  await t.wk.idle();
+  ok('Sổ cuối: 6 dòng, nhật ký trống, không lỗi flush', rows(t).length === 6 && t.wk.jPending.length === 0 && t.logs.filter(o => o.a === 'flush' && !o.ok && !o.warn).length === 0, [rows(t).length, t.wk.jPending.length]);
+  console.log('        đặt: ' + bookMs.toFixed(1) + ' ms (sổ +' + bookSync + ' ms) · đổi: ' + chMs.toFixed(1) + ' ms (sổ +' + chSync + ' ms)');
 }
 
 console.log('\n' + pass + ' PASS, ' + fail + ' FAIL');

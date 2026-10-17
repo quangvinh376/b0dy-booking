@@ -1,7 +1,8 @@
 /* Test 1 · PARITY: mọi kịch bản của test/gas_lt.js chạy song song trên LichTuan.gs (Apps Script giả) và Worker
    (Durable Object + Sheets API giả) — cùng dữ liệu bịa, cùng đồng hồ, cùng LT_SECRET.
    Mỗi lượt gọi: JSON hai bên phải giống hệt (so sau khi sắp khoá); sổ "Sổ đặt lịch" và "_dữ liệu" hai bên phải giống
-   từng ô. Các phép kiểm hành vi của gas_lt.js chạy lại trên kết quả của Worker.
+   từng ô — so SAU KHI nhật ký ghi sau đã flush lên sheet (idle). Các phép kiểm hành vi của gas_lt.js chạy lại trên
+   kết quả của Worker. Khác biệt duy nhất được phép: lt_ping của Worker có thêm 4 trường tình trạng nhật ký.
    Chạy: node test/parity.mjs */
 import { createRequire } from 'module';
 import * as C from '../src/core.js';
@@ -42,7 +43,7 @@ function baSheets() {
   const members = [
     ['', '— MEMBERS'], ['', 'test'], [], [], H,
     m('901', 'Hoàng Đức Nam', '72 buổi', '1:1', 'Quyết Hán', '0900000001', 20, '2026-07-01', '2027-01-01', 'B901DY'),
-    m('902', 'Nguyễn Ngọc Nam', '48 buổi', '1:2', 'Quyết Hán', '0900000002', 12, '2026-07-01', '2027-01-01', 'B902DY'),
+    m('902', 'Thử Ngọc Nam', '48 buổi', '1:2', 'Quyết Hán', '0900000002', 12, '2026-07-01', '2027-01-01', 'B902DY'),
     m('903A', 'Trần Thị Mỹ Linh', '24 buổi', '1:2', 'Hiền Mai (giai đoạn 1)', '0900000003', 0, '2026-08-01', '21/10/26', 'B903DY'),
     m('903B', 'Trần Thị Mỹ Linh', '24 buổi', '1:2', 'Hiền Mai', '', 5, '2026-09-01', '21/10/26', 'B903DY'),
     m('904', 'Lê Gia Phong', '12 buổi', '1:1', 'Khải Phan', '0900000004', 0, '2026-08-01', '2026-10-11', 'B904DY'),
@@ -60,7 +61,7 @@ function baSheets() {
   const LH = ['', '#', 'Ngày', 'Thứ', 'Khung giờ', 'Coach', 'Mã coach', 'Học viên', 'Mã HV', 'Loại', 'Khung', 'Trạng thái', '_h', '_tuần', 'Ký điện tử', '_mrow'];
   const log = [['', '— SESSION LOG'], ['', 'test'], [], LH,
     ['', '0001', d('2026-10-19'), 'T2', '', 'Quyết Hán', '', 'Hoàng Đức Nam', '901', '1:1', '', 'Đã tập', '', '', 'app 06:02 · ký: Quyết Hán', 1],
-    ['', '0002', d('2026-10-19'), 'T2', '', 'Quyết Hán', '', 'Nguyễn Ngọc Nam', '902', '1:2', '', 'Vắng', '', '', '', 2]];
+    ['', '0002', d('2026-10-19'), 'T2', '', 'Quyết Hán', '', 'Thử Ngọc Nam', '902', '1:2', '', 'Vắng', '', '', '', 2]];
   const TH = ['', '#', 'Ngày hẹn', 'Giờ hẹn', 'Họ & tên / Username', 'Số điện thoại', 'Ghi chú (không bắt buộc)', 'Trạng thái', 'Coach tiếp nhận'];
   const trial = [['', '— TRIAL'], ['', 'test'], [], TH,
     ['', '01', d('2026-10-20'), '18:00', 'Khách tập thử', '0911111111', '', 'Chờ xác nhận', ''],
@@ -89,17 +90,26 @@ function setup(nowMs, opts) {
   const env = makeEnv(files, clock, Object.assign({}, opts, { props: Object.assign({ BA_ID: 'BA', LT_OUT_ID: 'OUT', LT_SECRET: secret }, opts.props || {}) }));
   const wfiles = { BA: new Spreadsheet('BA', LA, baSheets()), OUT: new Spreadsheet('OUT', 'Asia/Saigon', outSheets()) };
   const fg = new FakeGoogle(wfiles, { publicKey: SA.publicKey });
-  const wk = new BookingCore({ storage: new FakeStorage(), env: { BA_ID: 'BA', OUT_ID: 'OUT', SA_JSON: SA.saJson, LT_SECRET: secret },
-                               fetch: fg.fetch, now: () => clock.now, opts: { RECONCILE_MS: 1 } });
+  const storage = new FakeStorage();
+  const wk = new BookingCore({ storage, env: { BA_ID: 'BA', OUT_ID: 'OUT', SA_JSON: SA.saJson, LT_SECRET: secret },
+                               fetch: fg.fetch, now: () => clock.now, opts: { FLUSH_MS: 1, BACKOFF: [5, 10, 20] }, log: o => { flushLog.push(o); } });
+  storage.onAlarm = () => wk.alarm();
   if (opts.lockBusy) { wk.cfg.LOCK_WAIT = 30; wk.testHold = new Promise(r => setTimeout(r, 150)); }
   return { env, clock, files, wfiles, fg, wk, log: files.OUT.getSheetByName('Sổ đặt lịch'), wlog: wfiles.OUT.getSheetByName('Sổ đặt lịch') };
 }
 const DEV = 'devAAAAAAAAAAAAAAAAAAAA', DEV2 = 'devBBBBBBBBBBBBBBBBBBBB';
+const flushLog = [];
+const PING_EXTRA = ['pending', 'oldestMs', 'lastFlushAt', 'lastError'];
 async function call(t, body) {
   const b = Object.assign({ dev: DEV }, body);
   const g = JSON.parse(JSON.stringify(t.env.ltDoPost_(structuredClone(b))));
   const w = JSON.parse(JSON.stringify(await t.wk.api(structuredClone(b))));
   await t.wk.idle();
+  if (b.action === 'lt_ping') {
+    ok('lt_ping của Worker có thêm tình trạng nhật ký (' + PING_EXTRA.join(', ') + '), không có dữ liệu cá nhân',
+       PING_EXTRA.every(k => k in w) && typeof w.pending === 'number' && typeof w.lastError === 'string', w);
+    PING_EXTRA.forEach(k => { delete w[k]; });
+  }
   const dd = firstDiff(g, w);
   if (dd) { diff++; console.log('  DIFF  ' + b.action + ' ' + dd.slice(0, 600)); } else same++;
   return w;
@@ -148,9 +158,9 @@ console.log('\n== 2. Tên · đọc MEMBERS · gộp gói ==');
 {
   const t = setup(vn('2026-10-18', '07:00'));
   const e = t.env;
-  const names = ['Hoàng Đức Nam', 'Đỗ Văn Hưng', 'Trần Thị Mỹ Linh', 'Lê Thị Hà', 'Nguyễn Quang Vinh', 'Vũ Sao Mai', 'An', '  Bùi   Thị  Ánh  Dương ', 'Ðặng Ðức Ðạt'];
+  const names = ['Hoàng Đức Nam', 'Đỗ Văn Hưng', 'Trần Thị Mỹ Linh', 'Thử Thị Hà', 'Thử Quang Minh', 'Mẫu Sao Băng', 'An', '  Bùi   Thị  Ánh  Dương ', 'Ðặng Ðức Ðạt'];
   ok('Tên ngắn / tên chào / fold giống Apps Script (9 tên, có Đ kiểu Ð)', names.every(n => e.ltShort_(n) === C.short(n) && e.ltCall_(n) === C.callName(n) && e.ltName_(n) === C.nameKey(n) && e.ltFold_(n) === C.fold(n)));
-  ok('Tên ngắn và tên chào', C.short('Hoàng Đức Nam') === 'H. Đức Nam' && C.callName('Hoàng Đức Nam') === 'Đức Nam' && C.callName('Đỗ Văn Hưng') === 'Hưng' && C.callName('Trần Thị Mỹ Linh') === 'Mỹ Linh' && C.callName('Lê Thị Hà') === 'Hà');
+  ok('Tên ngắn và tên chào', C.short('Hoàng Đức Nam') === 'H. Đức Nam' && C.callName('Hoàng Đức Nam') === 'Đức Nam' && C.callName('Đỗ Văn Hưng') === 'Hưng' && C.callName('Trần Thị Mỹ Linh') === 'Mỹ Linh' && C.callName('Thử Thị Hà') === 'Hà' && C.callName('Trần Gia Bảo Linh') === 'Gia Bảo Linh' && C.callName('Nguyễn Thị Mỹ Ngọc') === 'Mỹ Ngọc');
   ok('Bỏ hậu tố coach · viết tắt coach', C.coachName('Hiền Mai (giai đoạn 1)') === 'Hiền Mai' && C.initials('Quyết Hán') === 'QH');
   const gasP = e.ltPersons_(e.ltMemberRows_(), '2026-10-18');
   await t.wk.loadBA();
@@ -414,6 +424,11 @@ console.log('\n== 10. Chưa mở đặt · khoá ghi · ảnh chụp danh sách 
   ok('Mã phiên giả → het_phien', r.error === 'het_phien', r);
   r = await call(t2, { action: 'lt_book', tok: s2.tok, rid: 'x', week: '2026-W43', picks: [] });
   ok('Mã yêu cầu không hợp lệ → khong_hop_le/rid', r.why === 'rid', r);
+}
+
+{
+  const flushes = flushLog.filter(o => o.a === 'flush');
+  ok('Nhật ký ghi sau: ' + flushes.filter(o => o.ok).length + ' lần flush, không lần nào lỗi, không cảnh báo', flushes.length > 0 && flushes.every(o => o.ok === true && !o.warn), flushes.filter(o => !o.ok || o.warn));
 }
 
 console.log('\nParity: ' + same + ' lượt/sổ giống hệt, ' + diff + ' lệch');

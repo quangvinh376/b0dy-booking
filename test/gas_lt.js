@@ -19,7 +19,7 @@ function baSheets() {
   const members = [
     ['', '— MEMBERS'], ['', 'test'], [], [], H,
     m('901', 'Hoàng Đức Nam', '72 buổi', '1:1', 'Quyết Hán', '0900000001', 20, '2026-07-01', '2027-01-01', 'B901DY'),
-    m('902', 'Nguyễn Ngọc Nam', '48 buổi', '1:2', 'Quyết Hán', '0900000002', 12, '2026-07-01', '2027-01-01', 'B902DY'),
+    m('902', 'Ninh Ngọc Nam', '48 buổi', '1:2', 'Quyết Hán', '0900000002', 12, '2026-07-01', '2027-01-01', 'B902DY'),
     m('903A', 'Trần Thị Mỹ Linh', '24 buổi', '1:2', 'Hiền Mai (giai đoạn 1)', '0900000003', 0, '2026-08-01', '21/10/26', 'B903DY'),
     m('903B', 'Trần Thị Mỹ Linh', '24 buổi', '1:2', 'Hiền Mai', '', 5, '2026-09-01', '21/10/26', 'B903DY'),
     m('904', 'Lê Gia Phong', '12 buổi', '1:1', 'Khải Phan', '0900000004', 0, '2026-08-01', '2026-10-11', 'B904DY'),
@@ -37,7 +37,7 @@ function baSheets() {
   const LH = ['', '#', 'Ngày', 'Thứ', 'Khung giờ', 'Coach', 'Mã coach', 'Học viên', 'Mã HV', 'Loại', 'Khung', 'Trạng thái', '_h', '_tuần', 'Ký điện tử', '_mrow'];
   const log = [['', '— SESSION LOG'], ['', 'test'], [], LH,
     ['', '0001', d('2026-10-19'), 'T2', '', 'Quyết Hán', '', 'Hoàng Đức Nam', '901', '1:1', '', 'Đã tập', '', '', 'app 06:02 · ký: Quyết Hán', 1],
-    ['', '0002', d('2026-10-19'), 'T2', '', 'Quyết Hán', '', 'Nguyễn Ngọc Nam', '902', '1:2', '', 'Vắng', '', '', '', 2]];
+    ['', '0002', d('2026-10-19'), 'T2', '', 'Quyết Hán', '', 'Ninh Ngọc Nam', '902', '1:2', '', 'Vắng', '', '', '', 2]];
   const TH = ['', '#', 'Ngày hẹn', 'Giờ hẹn', 'Họ & tên / Username', 'Số điện thoại', 'Ghi chú (không bắt buộc)', 'Trạng thái', 'Coach tiếp nhận'];
   const trial = [['', '— TRIAL'], ['', 'test'], [], TH,
     ['', '01', d('2026-10-20'), '18:00', 'Khách tập thử', '0911111111', '', 'Chờ xác nhận', ''],
@@ -97,7 +97,7 @@ console.log('\n== 2. Tên · đọc MEMBERS · gộp gói ==');
 {
   const t = setup(vn('2026-10-18', '07:00'));
   const e = t.env;
-  ok('Tên ngắn và tên chào', e.ltShort_('Hoàng Đức Nam') === 'H. Đức Nam' && e.ltCall_('Hoàng Đức Nam') === 'Đức Nam' && e.ltCall_('Đỗ Văn Hưng') === 'Hưng' && e.ltCall_('Trần Thị Mỹ Linh') === 'Mỹ Linh' && e.ltCall_('Lê Thị Hà') === 'Hà');
+  ok('Tên ngắn và tên chào', e.ltShort_('Hoàng Đức Nam') === 'H. Đức Nam' && e.ltCall_('Hoàng Đức Nam') === 'Đức Nam' && e.ltCall_('Đỗ Văn Hưng') === 'Hưng' && e.ltCall_('Trần Thị Mỹ Linh') === 'Mỹ Linh' && e.ltCall_('Lò Thị Hà') === 'Hà');
   ok('Bỏ hậu tố coach · viết tắt coach', e.ltCoach_('Hiền Mai (giai đoạn 1)') === 'Hiền Mai' && e.ltInitials_('Quyết Hán') === 'QH');
   const persons = e.ltPersons_(e.ltMemberRows_(), '2026-10-18');
   const keys = persons.map(p => p.key);

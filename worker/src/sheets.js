@@ -3,8 +3,8 @@
  *
  * Luật gọi mạng (đã trả giá ở app check-in / coach):
  *  · Đọc: hết giờ 8 s, lỗi mạng / 429 / 5xx thử lại MỘT lần.
- *  · Ghi: hết giờ 20 s, KHÔNG BAO GIỜ tự thử lại. Lỗi mạng / 5xx = "không rõ đã ghi chưa" (ambiguous) →
- *    nơi gọi phải đọc lại sổ, tìm mã yêu cầu rồi mới trả lời.
+ *  · Ghi: hết giờ 20 s, KHÔNG BAO GIỜ tự thử lại. Lỗi mạng / hết giờ / 5xx = "không rõ đã ghi chưa" (ambiguous) →
+ *    nơi gọi (flush của nhật ký) phải đọc lại sổ, tìm mã yêu cầu rồi mới gửi lại.
  *  · 401 = mã truy cập hết hạn → lấy mã mới và gửi lại một lần (Google từ chối trước khi xử lý nên an toàn).
  */
 import { b64urlBytes, b64urlStr } from './crypto.js';
@@ -52,9 +52,11 @@ export class Sheets {
     return this.sa;
   }
 
+  /** fetch có hạn giờ. Hết giờ → lỗi mang cờ timeout (lượt GHI hết giờ: Google có thể vẫn đang xử lý). */
   async fetchT(url, init, ms) {
     const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), ms);
     try { this.calls++; return await this.fetch(url, Object.assign({}, init, { signal: ctl.signal })); }
+    catch (e) { if (ctl.signal.aborted) { const x = new Error('het_gio'); x.timeout = true; throw x; } throw e; }
     finally { clearTimeout(t); }
   }
 
@@ -93,9 +95,10 @@ export class Sheets {
         res = await this.fetchT(url, { method: method, headers: { authorization: 'Bearer ' + tok, 'content-type': 'application/json' },
                                         body: body === undefined ? undefined : JSON.stringify(body) }, write ? this.writeMs : this.readMs);
       } catch (e) {
-        if (write) throw new GoogleError('google_mang', 0, true);
+        const name = e && e.timeout ? 'google_het_gio' : 'google_mang';
+        if (write) { const g = new GoogleError(name, 0, true); g.timeout = !!(e && e.timeout); throw g; }
         if (attempt === 0) continue;
-        throw new GoogleError('google_mang', 0, false);
+        throw new GoogleError(name, 0, false);
       }
       if (res.ok) return await res.json();
       const st = res.status;

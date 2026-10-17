@@ -41,7 +41,7 @@ const env = makeEnv(gfiles, clock, { props: { BA_ID: 'BA', LT_OUT_ID: 'OUT', LT_
 const wSheets = JSON.parse(JSON.stringify(fx));          /* Worker: ô {$d}/{$t} → serial / phần lẻ (FakeGoogle đổi) */
 const wfiles = { BA: new Spreadsheet('BA', LA, wSheets), OUT: new Spreadsheet('OUT', 'Asia/Saigon', outSheets()) };
 const fg = new FakeGoogle(wfiles, { publicKey: SA.publicKey });
-const wk = new BookingCore({ storage: new FakeStorage(), env: { BA_ID: 'BA', OUT_ID: 'OUT', SA_JSON: SA.saJson, LT_SECRET: SECRET }, fetch: fg.fetch, now: () => clock.now, opts: { RECONCILE_MS: 1 } });
+const wk = new BookingCore({ storage: new FakeStorage(), env: { BA_ID: 'BA', OUT_ID: 'OUT', SA_JSON: SA.saJson, LT_SECRET: SECRET }, fetch: fg.fetch, now: () => clock.now, opts: { FLUSH_MS: 1 } });
 
 console.log('\n== Đọc file BA thật: Worker (Sheets API) so với Apps Script ==');
 const ctx = C.weekCtx(NOW);

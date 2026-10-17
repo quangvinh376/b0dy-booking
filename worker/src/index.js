@@ -3,7 +3,8 @@
  *
  * Worker chỉ làm cửa: CORS + đọc body, rồi gọi Durable Object "Booking" (một bản duy nhất, đặt ở châu Á – Thái Bình Dương)
  * qua RPC. Toàn bộ nghiệp vụ nằm trong booking.js / core.js (giống hệt backend/LichTuan.gs).
- * Cron mỗi phút gọi tick() để dữ liệu luôn ấm (06:00 Chủ Nhật không ai phải chờ đọc Google).
+ * Cron mỗi phút gọi tick() để dữ liệu luôn ấm (06:00 Chủ Nhật không ai phải chờ đọc Google) và ghi nốt nhật ký.
+ * alarm() của DO: thử lại việc ghi nhật ký lên Google Sheets (kể cả khi DO vừa bị dọn khỏi RAM).
  */
 import { DurableObject } from 'cloudflare:workers';
 import { BookingCore } from './booking.js';
@@ -17,6 +18,7 @@ export class Booking extends DurableObject {
   }
   async api(p) { return this.core.handle(p); }
   async tick() { return this.core.tick(); }
+  async alarm() { await this.core.alarm(); }
 }
 
 function stub(env) {

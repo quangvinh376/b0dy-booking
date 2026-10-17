@@ -53,8 +53,13 @@ export class FakeGoogle {
     this.n = 0;
     this.calls = { token: 0, meta: 0, get: 0, batchUpdate: 0, values: 0, clear: 0 };
     this.delay = opts.delay || null;          // (kind) => ms
-    this.failWrite = null;                    // 'before' | 'after' | 'status500' (một lần)
+    this.failWrite = null;                    // một lần: 'before' | 'after' | 'status500' | 'timeout' (Google ghi muộn) | 'timeout_drop'
+    this.writeStatus = 0;                     // mọi lệnh ghi trả mã này cho tới khi đặt lại 0 (vd 403: file chỉ share quyền xem)
+    this.hangMs = 200;                        // 'timeout*': Google giữ lệnh ghi bấy lâu (máy khách bỏ đợi trước đó)
     this.failRead = 0;                        // số lần lỗi mạng tiếp theo cho lượt đọc
+    this.staleReads = false;                  // true: lượt đọc chụp dữ liệu lúc NHẬN yêu cầu rồi mới trễ (đọc chậm, dữ liệu cũ)
+    this.down = false;                        // true: Google sập — mọi lượt gọi Sheets lỗi mạng
+    this.updates = [];                        // mỗi lệnh batchUpdate đã áp dụng: số request trong lệnh
     this.ids = new Map();
     let id = 100;
     Object.values(files).forEach(ss => ss.getSheets().forEach(sh => { this.ids.set(sh, id++); }));
@@ -63,10 +68,22 @@ export class FakeGoogle {
   sheetById(ss, sid) { return ss.getSheets().find(sh => this.ids.get(sh) === sid) || null; }
   sheetByTitle(ss, title) { return ss.getSheets().find(sh => sh.getName() === title) || null; }
 
+  /** Như fetch thật: signal abort → ném AbortError ngay, nhưng phía "Google" vẫn xử lý tiếp (lệnh ghi có thể tới muộn). */
   async fetch(url, init) {
     init = init || {};
+    const sig = init.signal;
+    if (sig && sig.aborted) throw abortError();
+    const work = this.handle(url, init);
+    if (!sig) return work;
+    work.catch(() => {});
+    return new Promise((resolve, reject) => {
+      const on = () => reject(abortError());
+      sig.addEventListener('abort', on, { once: true });
+      work.then(v => { sig.removeEventListener('abort', on); resolve(v); }, e => { sig.removeEventListener('abort', on); reject(e); });
+    });
+  }
+  async handle(url, init) {
     const u = new URL(url), method = init.method || 'GET';
-    if (init.signal && init.signal.aborted) throw new Error('aborted');
     if (u.host === 'oauth2.googleapis.com') return this.token(String(init.body || ''));
     if (u.host !== 'sheets.googleapis.com') throw new TypeError('fetch failed: host ' + u.host);
     const auth = (init.headers && (init.headers.authorization || init.headers.Authorization)) || '';
@@ -77,27 +94,41 @@ export class FakeGoogle {
     const tail = m[2], body = init.body ? JSON.parse(init.body) : null;
     const kind = tail === '' ? 'meta' : tail === '/values:batchGet' ? 'get' : tail === ':batchUpdate' ? 'batchUpdate' : tail === '/values:batchUpdate' ? 'values' : tail === '/values:batchClear' ? 'clear' : 'other';
     this.calls[kind] = (this.calls[kind] || 0) + 1;
-    if (this.delay) await sleep(this.delay(kind));
     const write = kind === 'batchUpdate' || kind === 'values' || kind === 'clear';
+    if (this.down) throw new TypeError('fetch failed (Google sập)');
+    if (method === 'GET' && kind === 'get' && this.staleReads && !(this.failRead > 0)) {
+      const out = this.getValues(ss, u);       /* chụp lúc nhận yêu cầu */
+      if (this.delay) await sleep(this.delay(kind));
+      return out;
+    }
+    if (this.delay) await sleep(this.delay(kind));
     if (!write && this.failRead > 0) { this.failRead--; throw new TypeError('fetch failed (read)'); }
+    if (write && this.writeStatus) return json({ error: { code: this.writeStatus, message: 'test: lỗi ghi cố định' } }, this.writeStatus);
     if (write && this.failWrite) {
       const mode = this.failWrite; this.failWrite = null;
       if (mode === 'before') throw new TypeError('fetch failed (write, chưa ghi)');
       if (mode === 'status500') return json({ error: { code: 500 } }, 500);
       if (mode === 'after') { this.apply(ss, kind, body); throw new TypeError('fetch failed (write, ĐÃ ghi)'); }
+      if (mode === 'timeout') { await sleep(this.hangMs); this.apply(ss, kind, body); return json({ ok: true }); }
+      if (mode === 'timeout_drop') { await sleep(this.hangMs); return json({ error: { code: 503 } }, 503); }
     }
     try {
       if (method === 'GET' && kind === 'meta') return json({ sheets: ss.getSheets().map(sh => ({ properties: { sheetId: this.ids.get(sh), title: sh.getName() } })) });
-      if (method === 'GET' && kind === 'get') {
-        const ranges = u.searchParams.getAll('ranges'), major = u.searchParams.get('majorDimension') || 'ROWS';
-        if (u.searchParams.get('valueRenderOption') !== 'UNFORMATTED_VALUE' || u.searchParams.get('dateTimeRenderOption') !== 'SERIAL_NUMBER') return json({ error: { code: 400, message: 'test: render option' } }, 400);
-        return json({ valueRanges: ranges.map(r => ({ range: r, majorDimension: major, values: this.read(ss, r, major) })) });
-      }
+      if (method === 'GET' && kind === 'get') return this.getValues(ss, u);
       if (method === 'POST' && write) { this.apply(ss, kind, body); return json({ ok: true }); }
     } catch (e) {
       return json({ error: { code: e.status || 500, message: e.message } }, e.status || 500);
     }
     return json({ error: { code: 400, message: 'test: không hỗ trợ ' + tail } }, 400);
+  }
+  getValues(ss, u) {
+    try {
+      const ranges = u.searchParams.getAll('ranges'), major = u.searchParams.get('majorDimension') || 'ROWS';
+      if (u.searchParams.get('valueRenderOption') !== 'UNFORMATTED_VALUE' || u.searchParams.get('dateTimeRenderOption') !== 'SERIAL_NUMBER') return json({ error: { code: 400, message: 'test: render option' } }, 400);
+      return json({ valueRanges: ranges.map(r => ({ range: r, majorDimension: major, values: this.read(ss, r, major) })) });
+    } catch (e) {
+      return json({ error: { code: e.status || 500, message: e.message } }, e.status || 500);
+    }
   }
 
   token(body) {
@@ -139,6 +170,7 @@ export class FakeGoogle {
         const x = q.appendCells || (q.updateCells && q.updateCells.start);
         if (!x || !this.sheetById(ss, x.sheetId)) throw Object.assign(new Error('bad request'), { status: 400 });
       });
+      this.updates.push(reqs.length);
       reqs.forEach(q => {
         if (q.appendCells) {
           const sh = this.sheetById(ss, q.appendCells.sheetId);
@@ -176,17 +208,42 @@ function cellVal(cd) {
   return '';
 }
 function json(obj, status) { return new Response(JSON.stringify(obj), { status: status || 200, headers: { 'content-type': 'application/json' } }); }
+function abortError() { return new DOMException('This operation was aborted', 'AbortError'); }
 
-/** Storage giả (giống API KV của DurableObjectStorage: get(key|keys) / put / delete(key|keys) / list({prefix})). */
+/**
+ * Storage giả (giống API KV của DurableObjectStorage: get(key|keys) / put(key, v) | put({k: v…}) nguyên khối /
+ * delete(key|keys) / list({prefix}) + alarm: setAlarm / getAlarm / deleteAlarm — onAlarm() được gọi khi tới giờ).
+ */
 export class FakeStorage {
-  constructor() { this.m = new Map(); this.writes = 0; }
+  constructor() { this.m = new Map(); this.writes = 0; this.failJournal = 0; this.alarmAt = 0; this.alarmT = null; this.onAlarm = null; }
   async get(k) {
     if (Array.isArray(k)) { const out = new Map(); k.forEach(x => { if (this.m.has(x)) out.set(x, structuredClone(this.m.get(x))); }); return out; }
     return this.m.has(k) ? structuredClone(this.m.get(k)) : undefined;
   }
-  async put(k, v) { this.writes++; this.m.set(k, structuredClone(v)); }
+  async put(k, v) {
+    if (k && typeof k === 'object') {
+      const keys = Object.keys(k);
+      if (this.failJournal > 0 && keys.some(x => x.startsWith('j:'))) { this.failJournal--; throw new Error('storage lỗi (test)'); }
+      const vals = keys.map(x => structuredClone(k[x]));
+      keys.forEach((x, i) => this.m.set(x, vals[i]));
+      this.writes++;
+      return;
+    }
+    this.writes++; this.m.set(k, structuredClone(v));
+  }
   async delete(k) { if (Array.isArray(k)) { let n = 0; k.forEach(x => { if (this.m.delete(x)) n++; }); return n; } return this.m.delete(k); }
   async list(o) { const out = new Map(); [...this.m.keys()].sort().forEach(k => { if (!o || !o.prefix || k.startsWith(o.prefix)) out.set(k, structuredClone(this.m.get(k))); }); return out; }
+  keys(prefix) { return [...this.m.keys()].filter(k => k.startsWith(prefix)).sort(); }
+  async getAlarm() { return this.alarmAt || null; }
+  async setAlarm(t) {
+    this.alarmAt = t;
+    if (this.alarmT) clearTimeout(this.alarmT);
+    this.alarmT = null;
+    if (this.onAlarm) this.alarmT = setTimeout(() => { this.alarmT = null; this.alarmAt = 0; this.onAlarm(); }, Math.max(0, t - Date.now()));
+  }
+  async deleteAlarm() { this.alarmAt = 0; if (this.alarmT) clearTimeout(this.alarmT); this.alarmT = null; }
+  /** Test: "DO bị dọn khỏi RAM" — alarm vẫn còn trong storage nhưng không gọi bản DO cũ nữa. */
+  detach() { if (this.alarmT) clearTimeout(this.alarmT); this.alarmT = null; this.onAlarm = null; }
 }
 
 /** Service account giả: cặp khoá RSA thật (để kiểm chữ ký JWT), không phải khoá của ai. */
