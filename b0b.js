@@ -119,21 +119,21 @@ void main(){
   }
   vec2 q = vec2(p.x / (R * uBreath.x), (p.y - uTy) / (R * uBreath.y));
   float r2 = dot(q, q);
+  vec3 N = normalize(vec3(q, sqrt(max(0.0, 1.0 - min(r2, 1.0)))));
+  vec3 Lc = uMinv * N;
+  vec2 dl = Lc.xy * R;
+  /* mắt tính ở luồng ĐỒNG NHẤT (mọi điểm ảnh): cover() dùng fwidth — fwidth trong nhánh if không đồng nhất là không xác định,
+     GPU thật trả rác ở các ô 2×2 vắt qua biên nhánh → chấm trắng dọc khung quanh mắt (SwiftShader không lộ). Khung chỉ còn là mặt nạ. */
+  float rg0; float dt0; float rg1; float dt1;
+  eye(dl, uEA[0], uEB[0], uEC[0], uED[0], rg0, dt0);
+  eye(dl, uEA[1], uEB[1], uEC[1], uED[1], rg1, dt1);
+  float em = smoothstep(0.0, 0.05, Lc.z) * step(abs(dl.x), 82.0) * step(abs(dl.y + 10.0), 64.0);
   vec3 col = vec3(0.0); float a = 0.0;
   if (r2 < 1.21) {
     a = clamp((1.0 - sqrt(r2)) * R * min(uBreath.x, uBreath.y) / uView.z + 0.5, 0.0, 1.0);
-    vec3 N = normalize(vec3(q, sqrt(max(0.0, 1.0 - min(r2, 1.0)))));
-    vec3 Lc = uMinv * N;
-    vec2 dl = Lc.xy * R;
-    float front = smoothstep(0.0, 0.05, Lc.z);
     vec3 base = uBody;
-    if (abs(dl.x) < 82.0 && abs(dl.y + 10.0) < 64.0) {
-      float rg; float dt;
-      eye(dl, uEA[0], uEB[0], uEC[0], uED[0], rg, dt);
-      base = mix(base, uPaint, rg * front); base = mix(base, uDot, dt * front);
-      eye(dl, uEA[1], uEB[1], uEC[1], uED[1], rg, dt);
-      base = mix(base, uPaint, rg * front); base = mix(base, uDot, dt * front);
-    }
+    base = mix(base, uPaint, rg0 * em); base = mix(base, uDot, dt0 * em);
+    base = mix(base, uPaint, rg1 * em); base = mix(base, uDot, dt1 * em);
     col = shade(base, N);
   }
   vec3 outc = col * a + vec3(0.0392) * sa * (1.0 - a);
