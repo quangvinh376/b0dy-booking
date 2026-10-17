@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>B0B · demo linh vật</title>
+<style>
+  @font-face{font-family:'JetBrains Mono';src:url('../fonts/JetBrainsMono-Medium.woff2') format('woff2');font-weight:500;font-style:normal;font-display:block}
+  @font-face{font-family:'SVN-Switzer';src:url('../fonts/SVN-Switzer-Medium.woff2') format('woff2');font-weight:500;font-style:normal;font-display:block}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:#FAFAFA;color:#0A0A0A;font:500 14px/17px 'SVN-Switzer',-apple-system,sans-serif}
+  main{padding:40px 48px 80px}
+  h1{font-size:32px;line-height:38px;letter-spacing:-.02em;margin-bottom:8px}
+  .lbl{font:500 10px/12px 'JetBrains Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:#4A4A4A}
+  .grid{display:grid;grid-template-columns:repeat(6,160px);gap:24px 16px;margin-top:40px}
+  .cell{display:flex;flex-direction:column;align-items:center;gap:56px;padding-top:70px}
+  .h100{width:100px;height:100px}
+  .h56{width:56px;height:56px}
+  .live{display:flex;align-items:flex-end;gap:56px;margin-top:96px;padding-top:80px}
+  .live .h100{margin-bottom:20px}
+  .btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:32px}
+  button{font:500 14px/17px 'SVN-Switzer',sans-serif;height:40px;padding:0 18px;border:1px solid #0A0A0A;border-radius:4px;background:#FAFAFA;color:#0A0A0A;cursor:pointer}
+  button[aria-pressed="true"]{background:#0A0A0A;color:#FAFAFA}
+  #cmp{display:flex;gap:120px 24px;margin-top:120px;flex-wrap:wrap}
+  .pair{display:flex;gap:8px;align-items:center}
+  .pair .h128,.pair img{width:128px;height:128px;display:block}
+</style>
+</head>
+<body>
+<main>
+  <h1>B0B · linh vật</h1>
+  <p class="lbl">Renderer v02 · 6 tâm trạng · 100 px và 56 px trên Giấy</p>
+  <div class="grid" id="grid"></div>
+  <div class="live">
+    <div><div class="h100" id="live100"></div></div>
+    <div><div class="h56" id="live56"></div></div>
+  </div>
+  <div class="btns" id="btns"></div>
+  <div class="btns">
+    <button type="button" id="nod">Gật</button>
+    <button type="button" id="blink">Chớp</button>
+    <button type="button" id="glance">Liếc</button>
+  </div>
+  <div id="cmp"></div>
+</main>
+<script src="../b0b.js"></script>
+<script>
+(function () {
+  'use strict';
+  var base = '../img/';
+  var grid = document.getElementById('grid');
+  var names = { observe: 'Quan sát', greet: 'Chào', done: 'Xong', doubt: 'Nghi', sleep: 'Ngủ', alert: 'Cảnh báo' };
+  window.DEMO = { cells: {}, live: [] };
+  if (!/[?&]lite\b/.test(location.search)) B0B.moods.forEach(function (m) {
+    var c = document.createElement('div'); c.className = 'cell'; c.id = 'cell-' + m;
+    var a = document.createElement('div'); a.className = 'h100';
+    var b = document.createElement('div'); b.className = 'h56';
+    var t = document.createElement('p'); t.className = 'lbl'; t.textContent = names[m];
+    c.appendChild(a); c.appendChild(b); c.appendChild(t); grid.appendChild(c);
+    window.DEMO.cells[m] = [B0B.mount(a, { mood: m, imgBase: base }), B0B.mount(b, { mood: m, imgBase: base })];
+  });
+  var L1 = B0B.mount(document.getElementById('live100'), { imgBase: base });
+  var L2 = B0B.mount(document.getElementById('live56'), { imgBase: base, markSide: 'left' });
+  window.DEMO.live = [L1, L2];
+  var btns = document.getElementById('btns');
+  B0B.moods.forEach(function (m) {
+    var x = document.createElement('button'); x.type = 'button'; x.textContent = names[m]; x.dataset.mood = m;
+    x.setAttribute('aria-pressed', String(m === 'observe'));
+    x.addEventListener('click', function () {
+      L1.mood(m); L2.mood(m);
+      Array.prototype.forEach.call(btns.children, function (b) { b.setAttribute('aria-pressed', String(b.dataset.mood === m)); });
+    });
+    btns.appendChild(x);
+  });
+  document.getElementById('nod').addEventListener('click', function () { L1.react('nod'); L2.react('nod'); });
+  document.getElementById('blink').addEventListener('click', function () { L1.react('blink'); L2.react('blink'); });
+  document.getElementById('glance').addEventListener('click', function (e) { L1.react('glance'); L2.react('glance'); });
+  /* so với ảnh tham chiếu (không bóng sàn): dùng bởi test/b0b_check.js */
+  window.DEMO.compare = function (moods) {
+    var cmp = document.getElementById('cmp'), out = {};
+    var ref = { observe: 'quan-sat', greet: 'chao', doubt: 'nghi', sleep: 'ngu' };
+    moods.forEach(function (m) {
+      var p = document.createElement('div'); p.className = 'pair'; p.id = 'pair-' + m;
+      var h = document.createElement('div'); h.className = 'h128'; h.id = 'live-' + m;
+      var i = document.createElement('img'); i.src = base + 'b0b-' + ref[m] + '.webp'; i.alt = ''; i.id = 'ref-' + m;
+      p.appendChild(h); p.appendChild(i); cmp.appendChild(p);
+      out[m] = B0B.mount(h, { mood: m, imgBase: base, floor: false, track: false });
+    });
+    return out;
+  };
+})();
+</script>
+</body>
+</html>

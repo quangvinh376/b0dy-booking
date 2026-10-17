@@ -1,0 +1,13 @@
+{
+  "name": "b0dy-booking-api",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node test/run_all.mjs",
+    "deploy": "wrangler deploy",
+    "check": "wrangler deploy --dry-run --outdir dist"
+  },
+  "devDependencies": {
+    "wrangler": "^4"
+  }
+}

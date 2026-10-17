@@ -1,0 +1,22 @@
+// B0DY Booking API — Cloudflare Worker + Durable Object (SQLite)
+// Deploy: xem README.md. Secret bắt buộc: SA_JSON (service account Google). Tuỳ chọn: LT_SECRET.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "b0dy-booking-api",
+  "main": "src/index.js",
+  "compatibility_date": "2026-09-15",
+  "workers_dev": true,
+  "observability": { "enabled": true },
+  "durable_objects": {
+    "bindings": [{ "name": "BOOK", "class_name": "Booking" }]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["Booking"] }
+  ],
+  "triggers": { "crons": ["* * * * *"] },
+  "vars": {
+    "BA_ID": "1QCsIqBHYqqyVYohs9syWt3jT8_wb1JQRbWZp6YF1V14",
+    "OUT_ID": "16Ccj-W5aigVzC3mSKM8YUFkW--jPV4Sva0hspdDcq30",
+    "ALLOW_ORIGINS": "https://booking.b0dy.studio"
+  }
+}

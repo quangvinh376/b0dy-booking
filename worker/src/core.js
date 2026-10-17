@@ -1,0 +1,530 @@
+/**
+ * B0DY — Lịch tập tuần · LÕI NGHIỆP VỤ (hàm thuần, không I/O)
+ *
+ * Bản chép 1:1 phần lõi của backend/LichTuan.gs (Apps Script) sang module ES cho Worker.
+ * Mọi luật (tuần, 24 giờ, 2–4 buổi, 1 buổi/ngày, đổi 2 lần, sức chứa, tên, mã nhớ máy…) phải GIỐNG HỆT
+ * bản Apps Script: hai máy chủ dùng chung sổ "Sổ đặt lịch" và cùng một hợp đồng API.
+ * Sửa luật ở đây thì sửa luôn LichTuan.gs (và ngược lại) — test/parity.mjs bắt mọi chỗ lệch.
+ *
+ * Khác biệt duy nhất so với Apps Script nằm ở cách ĐỌC Ô: Sheets API trả ngày là số serial
+ * (UNFORMATTED_VALUE + SERIAL_NUMBER) thay vì đối tượng Date; giờ là phần lẻ của ngày.
+ */
+
+/* Ký tự đặc biệt dựng bằng mã số để bản nguồn không chứa escape \u (công cụ ghi file hay giải mã nhầm). */
+const MARKS_RE = new RegExp('[' + String.fromCharCode(0x300) + '-' + String.fromCharCode(0x36f) + ']', 'g');
+const DD_RE = new RegExp('[' + String.fromCharCode(0x111) + String.fromCharCode(0x110) + ']', 'g');
+export const GEAR = String.fromCharCode(0x2699);
+
+export const LT = {
+  OFF: 7 * 3600e3,                                   // giờ Việt Nam, không có giờ mùa hè
+  SLOTS: [6, 7, 8, 9, 10, 11, 14, 15, 16, 17, 18, 19, 20], // 12:00–14:00 coach nghỉ trưa
+  NDAYS: 6,                                          // T2..T7 · Chủ Nhật phòng nghỉ
+  OPEN_H: 6,                                         // lịch tuần sau mở lúc 06:00 Chủ Nhật
+  LEAD: 24 * 3600e3,                                 // đặt muộn và đổi lịch: khung cách hiện tại ≥ 24 giờ
+  MIN: 2, MAX: 4, CHANGES: 2,
+  CAP: 4,                                            // dự phòng khi ⚙️ 2 không có "Sức chứa tối đa / khung"
+  REMEMBER: 60 * 864e5, SESSION: 12 * 3600e3,        // nhớ máy 60 ngày · không nhớ thì 12 giờ
+  FAILS: 5, LOCK_S: 15 * 60, MEMBER_FAILS: 20,       // sai 5 lần → khoá máy 15 phút · sai 20 lần/giờ trên một tên → khoá tên
+  FIND_MAX: 60,                                      // lượt tìm tên / máy / 10 phút
+  LOG: 'Sổ đặt lịch', DATA: '_dữ liệu',
+  ON: 'Đã đặt', MOVED: 'Đã đổi',
+  LOG_HEAD: ['Mã phiếu', 'Bản', 'Tuần', 'Ngày', 'Thứ', 'Giờ', 'Hội viên', 'Tên ngắn', 'Coach', 'Loại',
+             'Trạng thái', 'Thao tác', 'Ghi chú', 'Lúc ghi', 'Mã yêu cầu', 'Mã KH', '_hiển thị'],
+  LOG_COL: 2, LOG_HEAD_ROW: 4,
+  DOW: ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7']
+};
+
+/* ================================================================== */
+/* Thời gian — mọi phép tính theo giờ Việt Nam (UTC+7)                 */
+/* ================================================================== */
+
+export function lt2(n) { return (n < 10 ? '0' : '') + n; }
+export function parts(ms) {
+  const d = new Date(ms + LT.OFF);
+  return { y: d.getUTCFullYear(), m: d.getUTCMonth() + 1, d: d.getUTCDate(), hh: d.getUTCHours(),
+           mi: d.getUTCMinutes(), ss: d.getUTCSeconds(), dow: d.getUTCDay() };
+}
+export function isoP(p) { return p.y + '-' + lt2(p.m) + '-' + lt2(p.d); }
+export function isoOf(ms) { return isoP(parts(ms)); }
+export function dayMs(iso) { const a = String(iso).split('-'); return Date.UTC(+a[0], +a[1] - 1, +a[2]) - LT.OFF; }
+export function addDays(iso, n) { return isoOf(dayMs(iso) + n * 864e5); }
+export function slotMs(iso, h) { return dayMs(iso) + h * 3600e3; }
+export function dowOf(iso) { return parts(dayMs(iso)).dow; }
+export function validIso(s) { return /^\d{4}-\d{2}-\d{2}$/.test(String(s)) && isoOf(dayMs(s)) === s; }
+export function stamp(ms) { const p = parts(ms); return isoP(p) + ' ' + lt2(p.hh) + ':' + lt2(p.mi) + ':' + lt2(p.ss); }
+export function ddMm(iso) { const a = String(iso).split('-'); return a[2] + '.' + a[1]; }
+export function hm(h) { return lt2(h) + ':00'; }
+
+/** Tuần ISO-8601: tuần chứa Thứ Năm quyết định năm. 19.10.2026 → {year: 2026, week: 43} */
+export function isoWeek(iso) {
+  const a = String(iso).split('-'), t = new Date(Date.UTC(+a[0], +a[1] - 1, +a[2]));
+  const day = t.getUTCDay() || 7;
+  t.setUTCDate(t.getUTCDate() + 4 - day);
+  const y0 = Date.UTC(t.getUTCFullYear(), 0, 1);
+  return { year: t.getUTCFullYear(), week: Math.ceil(((t.getTime() - y0) / 864e5 + 1) / 7) };
+}
+export function weekKey(monIso) { const w = isoWeek(monIso); return w.year + '-W' + lt2(w.week); }
+
+/**
+ * Tuần đang nhận đặt:
+ *  · Chủ Nhật từ 06:00 → tuần sau (phase 'open', không cần báo trước).
+ *  · T2–T7 → tuần này (phase 'late', khung phải cách hiện tại ≥ 24 giờ).
+ *  · Chủ Nhật trước 06:00 → tuần vừa qua (phase 'before', hiện đếm ngược tới 06:00).
+ */
+export function weekCtx(now) {
+  const p = parts(now), today = isoP(p);
+  let mon, phase;
+  if (p.dow === 0) {
+    if (p.hh >= LT.OPEN_H) { mon = addDays(today, 1); phase = 'open'; } else { mon = addDays(today, -6); phase = 'before'; }
+  } else { mon = addDays(today, 1 - p.dow); phase = 'late'; }
+  const days = [];
+  for (let i = 0; i < LT.NDAYS; i++) days.push(addDays(mon, i));
+  const sun = p.dow === 0 ? today : addDays(today, 7 - p.dow);
+  let next = slotMs(sun, LT.OPEN_H);
+  if (next <= now) next = slotMs(addDays(sun, 7), LT.OPEN_H);
+  const nextMon = isoOf(next + 864e5), w = isoWeek(mon);
+  return { now: now, today: today, mon: mon, days: days, key: weekKey(mon), no: w.week, phase: phase,
+           lead: now >= dayMs(mon) ? LT.LEAD : 0, nextOpen: next, nextKey: weekKey(nextMon), nextNo: isoWeek(nextMon).week };
+}
+
+/* ================================================================== */
+/* Chuẩn hoá chữ và tên                                                */
+/* ================================================================== */
+
+/** bỏ dấu, đ → d, chữ thường (đúng dải U+0300–U+036F như Apps Script) */
+export function fold(s) {
+  return String(s == null ? '' : s).normalize('NFD').replace(MARKS_RE, '').replace(DD_RE, 'd').toLowerCase();
+}
+export function hdr(s) { return fold(s).replace(/\s+/g, ' ').trim(); }
+export function nameKey(s) { return fold(s).replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim(); }
+export function words(s) { return String(s == null ? '' : s).trim().split(/\s+/).filter(x => !!x); }
+/** "Vũ Đức Nam" → "V. Đức Nam" (họ viết tắt — tên hiện công khai) */
+export function short(name) { const w = words(name); return w.length < 2 ? w.join(' ') : w[0].charAt(0).toUpperCase() + '. ' + w.slice(1).join(' '); }
+/** Tên để chào: tên đệm + tên ("Đức Nam"); tên đệm Thị/Văn thì chỉ gọi tên ("Hưng", "Hà"). */
+export function callName(name) {
+  const w = words(name);
+  if (w.length < 2) return w.join(' ');
+  const rest = w.slice(1);
+  if (rest.length < 2) return rest[0];
+  const mid = nameKey(rest[rest.length - 2]);
+  return (mid === 'thi' || mid === 'van') ? rest[rest.length - 1] : rest.slice(-2).join(' ');
+}
+export function coachName(c) { return String(c == null ? '' : c).replace(/\s*\(.*\)\s*$/, '').trim(); }
+export function initials(c) { return words(coachName(c)).map(x => x.charAt(0).toUpperCase()).join(''); }
+export function pkgLabel(pkg, total) { const m = String(pkg == null ? '' : pkg).match(/\d+/), n = m ? +m[0] : (+total || 0); return n > 0 ? n + 'B' : ''; }
+export function digits(v) { return String(v == null ? '' : v).replace(/\D+/g, ''); }
+
+/** Gõ tên đệm + tên là ra: các chữ đã gõ phải khớp phần CUỐI của họ tên (bỏ dấu), chữ cuối được gõ dở. */
+export function match(q, nameTokens) {
+  const L = q.length;
+  if (L < 2 || L > nameTokens.length) return false;
+  const off = nameTokens.length - L;
+  for (let i = 0; i < L; i++) {
+    const a = q[i], b = nameTokens[off + i];
+    if (i < L - 1 ? a !== b : b.indexOf(a) !== 0) return false;
+  }
+  return true;
+}
+
+/* ================================================================== */
+/* Đọc ô từ Sheets API (UNFORMATTED_VALUE + SERIAL_NUMBER)             */
+/* ================================================================== */
+
+/** Số serial của Sheets (ngày 0 = 30/12/1899) có nằm trong khoảng ngày hợp lý không (1954–2119). */
+export function isSerial(v) { return typeof v === 'number' && isFinite(v) && v > 20000 && v < 80000; }
+/** Serial → "yyyy-MM-dd" theo lịch của file (serial không mang múi giờ nên không bị lệch ngày). */
+export function serialIso(n) {
+  const d = new Date(Math.round((Math.floor(n) - 25569) * 864e5));
+  return d.getUTCFullYear() + '-' + lt2(d.getUTCMonth() + 1) + '-' + lt2(d.getUTCDate());
+}
+/** Ô ngày → "yyyy-MM-dd". Serial: ngày như đang hiện trên sheet. Chữ: dd/mm/yy kiểu Việt (vn=true)
+    hoặc M/d/yyyy kiểu Mỹ (vn=false, SESSION LOG); số đầu > 12 thì tự đảo. */
+export function cellIso(v, vn) {
+  if (v === '' || v == null) return '';
+  if (isSerial(v)) return serialIso(v);
+  const s = String(v).trim();
+  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return validIso(m[0]) ? m[0] : '';
+  m = s.match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2}|\d{4})$/);
+  if (!m) return '';
+  const a = +m[1], b = +m[2], y = m[3].length === 2 ? 2000 + +m[3] : +m[3];
+  let d = vn ? a : b, mo = vn ? b : a;
+  if (mo > 12 && d <= 12) { const t = d; d = mo; mo = t; }
+  const iso = y + '-' + lt2(mo) + '-' + lt2(d);
+  return validIso(iso) ? iso : '';
+}
+/** Ô là giá trị giờ / ngày-giờ (Apps Script thấy là Date): phần lẻ trong ngày (0 ≤ v < 1) hoặc serial ngày-giờ. */
+function isTimeCell(v) { return typeof v === 'number' && isFinite(v) && ((v >= 0 && v < 1) || isSerial(v)); }
+/** Phần giờ của serial → "HH:mm" (như Utilities.formatDate(…, 'HH:mm') với Date của ô). */
+function serialHm(v) {
+  const mins = Math.round((v - Math.floor(v)) * 1440) % 1440;
+  return lt2(Math.floor(mins / 60)) + ':' + lt2(mins % 60);
+}
+/** Ô giờ → số giờ (8) nếu là giờ chẵn; "08:00" | "8h00" | phần lẻ của ngày (0,333… = 08:00) */
+export function cellHour(v) {
+  if (v === '' || v == null) return -1;
+  const s = isTimeCell(v) ? serialHm(v) : String(v).trim();
+  const m = s.match(/^(\d{1,2})[:hH](\d{2})/);
+  return m && +m[2] === 0 ? +m[1] : -1;
+}
+/** Ô của sổ (cột Giờ): chữ "18:00" như Apps Script ghi; nếu ai gõ tay thành giá trị giờ thì đổi lại "HH:mm". */
+export function cellHm(v) {
+  return isTimeCell(v) ? serialHm(v) : String(v == null ? '' : v).trim();
+}
+function cell(row, c) { if (!row || c < 0) return ''; const v = row[c]; return v == null ? '' : v; }
+
+/* ================================================================== */
+/* Đọc file BA (đầu vào là mảng hàng như Sheets API trả về, hàng có thể ngắn) */
+/* ================================================================== */
+
+export function headRow(vals, need) {
+  for (let r = 0; r < vals.length; r++) {
+    const h = (vals[r] || []).map(hdr);
+    let ok = true;
+    for (let i = 0; i < need.length; i++) if (h.indexOf(need[i]) < 0) { ok = false; break; }
+    if (ok) return { r: r, h: h };
+  }
+  return null;
+}
+
+/** MEMBERS (cả tab, từ A1) → mọi dòng có tên. Dò cột theo TIÊU ĐỀ trong 12 hàng đầu. */
+export function memberRows(vals) {
+  const hd = headRow(vals.slice(0, 12), ['ten', 'coach', 'con lai']);
+  if (!hd) throw new Error('khong_thay_cot_MEMBERS');
+  const H = hd.h;
+  function col() { for (let i = 0; i < arguments.length; i++) { const k = H.indexOf(arguments[i]); if (k >= 0) return k; } return -1; }
+  const c = { name: col('ten'), pkg: col('goi'), total: col('so buoi'), kind: col('loai'), coach: col('coach'),
+              phone: col('sdt', 'so dien thoai', 'dien thoai'), left: col('con lai'), start: col('ngay bat dau'),
+              exp: col('ngay het han'), code: col('ma kh') };
+  const out = [];
+  for (let r = hd.r + 1; r < vals.length; r++) {
+    const x = vals[r] || [], g = k => cell(x, c[k]);
+    const name = String(g('name') || '').replace(/\s+/g, ' ').trim();
+    if (!name) continue;
+    out.push({ name: name, pkg: String(g('pkg') || '').trim(), total: +g('total') || 0,
+               kind: String(g('kind') || '').trim(), coach: coachName(g('coach')), phone: digits(g('phone')),
+               left: Number(g('left')) || 0, start: cellIso(g('start'), true),
+               exp: cellIso(g('exp'), true), code: String(g('code') || '').trim() });
+  }
+  return out;
+}
+
+/**
+ * Gộp các dòng còn hiệu lực thành hội viên (giống ltPersons_): khoá = Mã KH; số buổi còn = tổng;
+ * hết hạn = xa nhất; bắt đầu = sớm nhất; gói/loại/coach theo dòng bắt đầu muộn nhất nhưng ≤ hôm nay.
+ */
+export function persons(rows, today) {
+  const byKey = {}, order = [], phoneOf = {};
+  rows.forEach(r => {
+    const k = r.code || ('#' + nameKey(r.name));
+    if (r.phone && !phoneOf[k]) phoneOf[k] = r.phone;
+    if (!(r.left > 0) || (r.exp && r.exp < today)) return;
+    if (!byKey[k]) { byKey[k] = []; order.push(k); }
+    byKey[k].push(r);
+  });
+  return order.map(k => {
+    const g = byKey[k];
+    let pick = null, left = 0, exp = '', noExp = false, start = '';
+    g.forEach(r => {
+      left += r.left;
+      if (!r.exp) noExp = true; else if (r.exp > exp) exp = r.exp;
+      if (r.start && (!start || r.start < start)) start = r.start;
+      const ok = !r.start || r.start <= today;
+      if (!pick) pick = r;
+      else {
+        const pOk = !pick.start || pick.start <= today;
+        if (ok && (!pOk || (r.start || '') >= (pick.start || ''))) pick = r;
+        else if (!ok && !pOk && (r.start || '') < (pick.start || '')) pick = r;
+      }
+    });
+    return { key: k, name: pick.name, toks: nameKey(pick.name).split(' '), short: short(pick.name), call: callName(pick.name),
+             coach: pick.coach, kind: pick.kind || '1:1', pkg: pkgLabel(pick.pkg, pick.total), left: left,
+             exp: noExp ? '' : exp, start: start, phone: phoneOf[k] || '', code: pick.code || '' };
+  });
+}
+
+/** SESSION LOG: vị trí 3 cột cần đọc (ngày, học viên, trạng thái) từ 10 hàng đầu. */
+export function marksLayout(top) {
+  const lastC = Math.min(26, top.reduce((m, r) => Math.max(m, (r || []).length), 0));
+  const hd = headRow(top.map(r => (r || []).slice(0, lastC)), ['ngay', 'hoc vien', 'trang thai']);
+  if (!hd) return null;
+  return { first: hd.r + 2, cD: hd.h.indexOf('ngay'), cN: hd.h.indexOf('hoc vien'), cS: hd.h.indexOf('trang thai') };
+}
+/** SESSION LOG → điểm danh của tuần: {"Họ tên|yyyy-MM-dd": "done" | "absent"}. cols = [ngày[], tên[], trạng thái[]] */
+export function marksFrom(cols, days) {
+  const out = {}, inWeek = {};
+  days.forEach(d => { inWeek[d] = 1; });
+  const D = cols[0] || [], N = cols[1] || [], S = cols[2] || [];
+  const n = Math.max(D.length, N.length, S.length);
+  for (let i = 0; i < n; i++) {
+    const iso = cellIso(D[i] == null ? '' : D[i], false);
+    if (!inWeek[iso]) continue;
+    const name = String(N[i] || '').replace(/\s+/g, ' ').trim(), st = nameKey(S[i] == null ? '' : S[i]);
+    if (!name) continue;
+    const k = name + '|' + iso;
+    if (st === 'da tap') out[k] = 'done';
+    else if (st === 'vang' && out[k] !== 'done') out[k] = 'absent';
+  }
+  return out;
+}
+
+/** TRIAL (cả tab, tối đa 30 cột) → số khách tập thử chiếm chỗ mỗi khung trong tuần (dòng Huỷ / Loại không tính). */
+export function trialsFrom(vals, days) {
+  const out = {};
+  const v = vals.map(r => (r || []).slice(0, 30));
+  if (v.length < 2) return out;
+  const hd = headRow(v.slice(0, 10), ['trang thai']);
+  if (!hd) return out;
+  let cD = -1, cT = -1;
+  hd.h.forEach((x, i) => {
+    if (cD < 0 && x.indexOf('ngay hen') >= 0) cD = i;
+    if (cT < 0 && x.indexOf('gio hen') >= 0) cT = i;
+  });
+  const cS = hd.h.indexOf('trang thai');
+  if (cD < 0 || cT < 0) return out;
+  const inWeek = {};
+  days.forEach(d => { inWeek[d] = 1; });
+  for (let i = hd.r + 1; i < v.length; i++) {
+    const row = v[i];
+    const iso = cellIso(cell(row, cD), true);
+    if (!inWeek[iso]) continue;
+    if (/huy|\bloai\b/.test(nameKey(cell(row, cS)))) continue;
+    const h = cellHour(cell(row, cT));
+    if (LT.SLOTS.indexOf(h) < 0) continue;
+    out[iso + '|' + h] = (out[iso + '|' + h] || 0) + 1;
+  }
+  return out;
+}
+
+/** B0B ▸ khối "LÝ DO ĐÓNG CỬA | NGÀY" (150 hàng × 30 cột đầu) → {yyyy-MM-dd: lý do}. */
+export function closuresFrom(vals) {
+  const out = {};
+  const v = vals.slice(0, 150).map(r => (r || []).slice(0, 30));
+  for (let r = 0; r < v.length; r++) {
+    const h = v[r].map(hdr);
+    let q = -1;
+    for (let c = 0; c < h.length; c++) if (h[c].indexOf('ly do dong') === 0) { q = c; break; }
+    if (q < 0) continue;
+    let dc = -1;
+    for (let c2 = q + 1; c2 < h.length; c2++) if (h[c2] === 'ngay') { dc = c2; break; }
+    if (dc < 0) dc = q + 1;
+    for (let r2 = r + 1; r2 < v.length; r2++) {
+      const iso = cellIso(cell(v[r2], dc), true);
+      if (iso) out[iso] = String(cell(v[r2], q) || '').trim();
+    }
+    break;
+  }
+  return out;
+}
+
+/** Tên tab cấu hình: có bánh răng ⚙ và kết thúc bằng "2" (bỏ khoảng trắng) — giống ltCap_. */
+export function isCfgTab(title) { const n = String(title).replace(/\s+/g, ''); return n.indexOf(GEAR) >= 0 && /2$/.test(n); }
+/** ⚙️ 2 ▸ "Sức chứa tối đa / khung" (60 hàng × 8 cột đầu) */
+export function capFrom(vals) {
+  if (!vals) return LT.CAP;
+  const v = vals.slice(0, 60).map(r => (r || []).slice(0, 8));
+  for (let r = 0; r < v.length; r++) {
+    for (let c = 0; c < v[r].length; c++) {
+      if (hdr(v[r][c]).indexOf('suc chua') !== 0) continue;
+      for (let c2 = c + 1; c2 < v[r].length; c2++) {
+        const x = cell(v[r], c2), n = Number(x);
+        if (x !== '' && n > 0 && n < 50) return Math.floor(n);
+      }
+    }
+  }
+  return LT.CAP;
+}
+
+/* ================================================================== */
+/* Sổ đặt lịch                                                          */
+/* ================================================================== */
+
+/** Hàng tiêu đề (B4:R4) phải đúng 17 cột LOG_HEAD (so sau khi chuẩn hoá NFC). */
+export function logHeadOk(head) {
+  for (let i = 0; i < LT.LOG_HEAD.length; i++) if (String(cell(head, i)).trim().normalize('NFC') !== LT.LOG_HEAD[i].normalize('NFC')) return false;
+  return true;
+}
+/** vals = các hàng từ B5 trở xuống (17 cột B..R). first = số hàng của vals[0] trên sheet. */
+export function logRows(vals, first) {
+  const out = [];
+  for (let i = 0; i < vals.length; i++) {
+    const x = vals[i] || [], code = String(cell(x, 0)).trim();
+    if (!code) continue;
+    const h = cellHm(cell(x, 5));
+    out.push({ row: first + i, code: code, ver: Number(cell(x, 1)) || 1, week: String(cell(x, 2)).trim(), date: cellIso(cell(x, 3), true),
+               h: /^\d{1,2}:00$/.test(h) ? parseInt(h, 10) : -1, name: String(cell(x, 6)).trim(), st: String(cell(x, 10)).trim().normalize('NFC'),
+               act: String(cell(x, 11)).trim().normalize('NFC'), note: String(cell(x, 12)).trim().normalize('NFC'),
+               rid: String(cell(x, 14)).trim(), kh: String(cell(x, 15)).trim() });
+  }
+  return out;
+}
+/** Một dòng sổ mới — đúng thứ tự 17 cột như ltLogRow_. */
+export function logRow(code, ver, week, x, me, act, note, stampStr, rid) {
+  return [code, ver, week, x.date, LT.DOW[dowOf(x.date)], hm(x.h), me.name, me.short, me.coach, me.kind,
+          LT.ON, act, note, stampStr, rid, me.key, me.short + ' · ' + initials(me.coach)];
+}
+/** Dòng sổ dạng đã đọc (để cập nhật bộ nhớ đệm ngay sau khi ghi). */
+export function logRowParsed(arr, row) {
+  return logRows([arr], row)[0];
+}
+/** Nhãn buổi trong ghi chú: "T6 23.10 · 19:00" */
+export function slotLabel(x) { return LT.DOW[dowOf(x.date)] + ' ' + ddMm(x.date) + ' · ' + hm(x.h); }
+
+/* ================================================================== */
+/* Lõi nghiệp vụ                                                        */
+/* ================================================================== */
+
+/** Phiếu của hội viên trong tuần: các dòng "Đã đặt" + số lần đổi + bản phiếu + vết đổi (từ → sang, theo thứ tự ghi). */
+export function mine(rows, person, ctx) {
+  const code = person.key + '-W' + lt2(ctx.no), list = [], moves = [];
+  let ver = 0, changes = 0;
+  rows.forEach(r => {
+    if (r.week !== ctx.key || r.kh !== person.key) return;
+    if (r.ver > ver) ver = r.ver;
+    if (r.act === 'Đổi') {
+      changes++;
+      const from = fromNote(r.note, ctx);
+      if (from && r.date && r.h >= 0) moves.push({ from: from, to: { date: r.date, h: r.h } });
+    }
+    if (r.st === LT.ON && r.date && r.h >= 0) list.push({ date: r.date, h: r.h, row: r.row, note: r.note || '' });
+  });
+  list.sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : a.h - b.h);
+  return { code: code, ver: ver, changes: changes, sessions: list, moves: moves };
+}
+/** "Đổi từ T6 23.10 · 19:00 …" → {date: ngày trong tuần có dd.mm đó, h: 19}; không đọc được → null. */
+export function fromNote(note, ctx) {
+  const m = String(note || '').match(/Đổi từ\s+\S+\s+(\d{2})\.(\d{2})\s*·\s*(\d{1,2}):00/);
+  if (!m) return null;
+  for (let i = 0; i < ctx.days.length; i++) if (ddMm(ctx.days[i]) === m[1] + '.' + m[2]) return { date: ctx.days[i], h: +m[3] };
+  return null;
+}
+/** Số người đã chiếm mỗi khung: hội viên "Đã đặt" + khách tập thử. */
+export function taken(rows, ctx, trials) {
+  const t = {};
+  rows.forEach(r => { if (r.week === ctx.key && r.st === LT.ON && r.h >= 0) t[r.date + '|' + r.h] = (t[r.date + '|' + r.h] || 0) + 1; });
+  for (const k in trials) t[k] = (t[k] || 0) + trials[k];
+  return t;
+}
+export function envOf(ctx, rows, trials, closed, cap) { return { closed: closed, cap: cap, taken: taken(rows, ctx, trials) }; }
+
+/** Vì sao hội viên không đặt được khung này ('' = đặt được). lead: số ms phải báo trước. */
+export function why(ctx, person, env, iso, h, lead) {
+  if (ctx.days.indexOf(iso) < 0) return 'ngoai_tuan';
+  if (LT.SLOTS.indexOf(h) < 0) return 'gio';
+  if (env.closed[iso] !== undefined) return 'nghi';
+  if (person.start && iso < person.start) return 'chua_bat_dau';
+  if (person.exp && iso > person.exp) return 'het_han';
+  const t = slotMs(iso, h);
+  if (t <= ctx.now) return 'qua';
+  if (lead && t - ctx.now < lead) return 'duoi_24h';
+  if ((env.taken[iso + '|' + h] || 0) >= env.cap) return 'day';
+  return '';
+}
+export function openDays(ctx, person, env, lead, skip) {
+  return ctx.days.filter(d => {
+    if (skip && skip[d]) return false;
+    for (let i = 0; i < LT.SLOTS.length; i++) if (!why(ctx, person, env, d, LT.SLOTS[i], lead)) return true;
+    return false;
+  });
+}
+/** Giới hạn số buổi: đặt mới thì [min, max]; đã có phiếu thì thêm tối đa addMax. */
+export function limits(ctx, person, env, m) {
+  const used = {};
+  let upcoming = 0;
+  m.sessions.forEach(s => { used[s.date] = 1; if (slotMs(s.date, s.h) > ctx.now) upcoming++; });
+  const free = openDays(ctx, person, env, ctx.lead, used).length;
+  if (!m.sessions.length) {
+    const max = Math.min(LT.MAX, person.left, free);
+    return { min: Math.min(LT.MIN, max), max: max, add: 0, free: free };
+  }
+  return { min: 0, max: 0, add: Math.max(0, Math.min(LT.MAX - m.sessions.length, person.left - upcoming, free)), free: free };
+}
+
+/** Kiểm tra lượt đặt (đặt mới hoặc thêm buổi). picks: [{date, h}]. Trả {ok} hoặc {error, why, full}. */
+export function checkBook(ctx, person, env, m, picks) {
+  if (!Array.isArray(picks) || !picks.length || picks.length > LT.MAX) return { error: 'khong_hop_le', why: 'so_buoi' };
+  const lim = limits(ctx, person, env, m), seen = {}, full = [];
+  m.sessions.forEach(s => { seen[s.date] = 1; });
+  for (let i = 0; i < picks.length; i++) {
+    const p = picks[i];
+    if (!p || !validIso(p.date) || LT.SLOTS.indexOf(p.h) < 0) return { error: 'khong_hop_le', why: 'khung' };
+    if (seen[p.date]) return { error: 'khong_hop_le', why: 'mot_ngay_mot_buoi' };
+    seen[p.date] = 1;
+    const w = why(ctx, person, env, p.date, p.h, ctx.lead);
+    if (w === 'day') full.push({ date: p.date, h: p.h });
+    else if (w) return { error: 'khong_hop_le', why: w, date: p.date, h: p.h };
+  }
+  if (m.sessions.length) {
+    if (picks.length > lim.add) return { error: 'khong_hop_le', why: 'qua_so_buoi' };
+  } else {
+    if (picks.length > lim.max) return { error: 'khong_hop_le', why: 'qua_so_buoi' };
+    if (picks.length < lim.min) return { error: 'khong_hop_le', why: 'it_hon_toi_thieu' };
+  }
+  if (full.length) return { error: 'het_cho', full: full };
+  return { ok: true };
+}
+/** Kiểm tra đổi buổi: từ buổi `from` sang khung `to` (ngày khác, cùng tuần, cả hai cách hiện tại ≥ 24 giờ). */
+export function checkChange(ctx, person, env, m, from, to) {
+  if (m.changes >= LT.CHANGES) return { error: 'het_luot_doi' };
+  if (!from || !to || !validIso(from.date) || !validIso(to.date) || LT.SLOTS.indexOf(to.h) < 0) return { error: 'khong_hop_le', why: 'khung' };
+  let cur = null;
+  m.sessions.forEach(s => { if (s.date === from.date && s.h === from.h) cur = s; });
+  if (!cur) return { error: 'khong_hop_le', why: 'khong_co_buoi' };
+  if (slotMs(cur.date, cur.h) - ctx.now < LT.LEAD) return { error: 'khong_hop_le', why: 'buoi_duoi_24h' };
+  if (to.date === from.date) return { error: 'khong_hop_le', why: 'cung_ngay' };
+  for (let i = 0; i < m.sessions.length; i++) if (m.sessions[i].date === to.date) return { error: 'khong_hop_le', why: 'mot_ngay_mot_buoi' };
+  const w = why(ctx, person, env, to.date, to.h, LT.LEAD);
+  if (w === 'day') return { error: 'het_cho', full: [{ date: to.date, h: to.h }] };
+  if (w) return { error: 'khong_hop_le', why: w };
+  return { ok: true, cur: cur };
+}
+
+/** Còn khung nào đặt được tuần này không (bỏ qua chỗ trống) — dùng cho màn chưa mở. */
+export function anyOpen(ctx, closed) {
+  for (let i = 0; i < ctx.days.length; i++) {
+    if (closed[ctx.days[i]] !== undefined) continue;
+    for (let j = 0; j < LT.SLOTS.length; j++) {
+      const t = slotMs(ctx.days[i], LT.SLOTS[j]);
+      if (t > ctx.now && (!ctx.lead || t - ctx.now >= ctx.lead)) return true;
+    }
+  }
+  return false;
+}
+
+/** Gói thông tin trả cho trình duyệt (không có SĐT, không có tên người khác). */
+export function stateOf(ctx, person, env, m, marks) {
+  const lim = limits(ctx, person, env, m), closed = {}, tk = {};
+  ctx.days.forEach(d => {
+    if (env.closed[d] !== undefined) closed[d] = env.closed[d] || 'Phòng nghỉ';
+    LT.SLOTS.forEach(h => { const n = env.taken[d + '|' + h] || 0; if (n) tk[d + '|' + h] = n; });
+  });
+  const sessions = m.sessions.map(s => {
+    const past = slotMs(s.date, s.h) <= ctx.now, mk = s.date <= ctx.today ? marks[person.name + '|' + s.date] : undefined;   /* điểm danh chỉ tính tới hôm nay */
+    return { date: s.date, h: s.h, st: mk === 'done' ? 'done' : mk === 'absent' ? 'absent' : past ? 'past' : 'on' };
+  });
+  const mode = sessions.length ? 'ticket' : (lim.max > 0 ? 'book' : 'closed');
+  return {
+    ok: true, auth: true, now: ctx.now, mode: mode,
+    week: { key: ctx.key, no: ctx.no, mon: ctx.mon, days: ctx.days, phase: ctx.phase, lead: ctx.lead > 0,
+            nextOpen: ctx.nextOpen, nextNo: ctx.nextNo, closed: closed },
+    cap: env.cap, taken: tk, slots: LT.SLOTS,
+    me: { short: person.short, call: person.call, coach: person.coach, kind: person.kind, pkg: person.pkg,
+          left: person.left, exp: person.exp, start: person.start },
+    mine: { code: m.code, ver: m.ver, changes: m.changes, changesLeft: Math.max(0, LT.CHANGES - m.changes), sessions: sessions,
+            moves: (m.moves || []).map(x => ({ from: { date: x.from.date, h: x.from.h }, to: { date: x.to.date, h: x.to.h } })) },
+    limits: { min: lim.min, max: lim.max, add: lim.add }
+  };
+}
+/** Màn công khai (chưa xác minh): thông tin tuần để hiện tìm tên hoặc đếm ngược. */
+export function publicOf(ctx, why, closed) {
+  return { ok: true, auth: false, why: why, now: ctx.now, open: anyOpen(ctx, closed),
+           week: { key: ctx.key, no: ctx.no, mon: ctx.mon, days: ctx.days, phase: ctx.phase, lead: ctx.lead > 0, nextOpen: ctx.nextOpen, nextNo: ctx.nextNo } };
+}
+/** Ảnh chụp danh sách hội viên cho tab _dữ liệu (giống ltSnapshot_). */
+export function snapshotRows(list) {
+  return list.slice().sort((a, b) => a.name.localeCompare(b.name, 'vi'))
+    .map(p => [p.name, p.short, p.coach, p.left, p.exp, p.key, p.short + ' · ' + initials(p.coach)].map(String));
+}
+export function findPerson(list, key) { for (let i = 0; i < list.length; i++) if (list[i].key === key) return list[i]; return null; }
+export function devOk(d) { return /^[A-Za-z0-9_-]{16,64}$/.test(String(d || '')); }
+export function ridOk(r) { return /^[A-Za-z0-9_-]{8,64}$/.test(String(r || '')); }
