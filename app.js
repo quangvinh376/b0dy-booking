@@ -9,7 +9,7 @@
 'use strict';
 
 /* ============================== CẤU HÌNH ============================== */
-var VER = '1.0.6';
+var VER = '1.0.7';
 var API_URL = 'https://b0dy-booking-api.little-bonus-1d87.workers.dev/';
 var API_SLOW = false;                 /* true khi chạy Apps Script (chậm hơn nhiều) → nới thời gian chờ */
 /* chế độ QC (?qc): máy chủ giả chạy ngay trên máy (qc.js, đúng mã của Worker) với dữ liệu giả — không gọi mạng,
@@ -616,6 +616,7 @@ function mbarSize() { var b = $('#mbar'); $('#app').style.setProperty('--mbh', (
 function go(view, dir, op) {
   op = op || {};
   closeSheet(true); closeDrawer(true);
+  if (op.morph && view === 'ticket' && S.view === 'ticket' && S.page && S.page.isConnected) { morphTicket(op); return; }
   var prev = S.view; S.view = view;
   var r = VIEWS[view](op);
   show(r.page, dir || 'fwd', op.instant);
@@ -629,6 +630,53 @@ function go(view, dir, op) {
   if (op.push && history.pushState) history.pushState({ v: view }, '');
   /* tiêu điểm vào màn mới (ô nhập nếu có, không thì tiêu đề) — không để rơi về <body> */
   if (prev !== view) { var f = r.page.querySelector('[data-focus]') || r.page.querySelector('h1[tabindex]'); if (f && !op.noFocus) { try { f.focus({ preventScroll: true }); } catch (e) { f.focus(); } } }
+}
+/* phiếu → phiếu CÙNG một tờ (Xong: "Đã đặt / thêm / đổi lịch" → "Lịch tập tuần"): tờ phiếu đứng yên — không trượt trang, không diễn lại
+   vé vào, giấy 3D giữ nguyên dáng (cùng phần tử, cùng canvas). Chỉ chữ chào đổi kiểu fade-through như thanh nút đáy / sàn (tắt 100 ms →
+   vào 220 ms, trồi 8 px). Khối chào đổi cao (2 dòng phụ → 1) thì phiếu trượt êm tới chỗ mới: dịch khung phiếu bằng translate (đo của tk3d
+   lấy theo khung phiếu nên không lệch), giữ nguyên cỡ phiếu trừ khi không còn vừa màn */
+function morphTicket(op) {
+  var page = S.page, r = VIEWS.ticket(op), tx = page.querySelector('.hello-tx'), ntx = r.page.querySelector('.hello-tx');
+  var st = page.querySelector('.tk-stage'), fit = page.querySelector('#tkfit');
+  /* vé nào khác nội dung (desktop: bỏ "· MỚI" của phiếu đã đổi) thì thay riêng vé đó tại chỗ; là vé đang hiện → bản 3D gắn lại ngay ở
+     dáng cuối (đường làm mới ngầm: không thả lỏng lại). Vé dọc mobile không đổi → giữ nguyên phần tử */
+  var any = false, cur = false;
+  ['W', 'T'].forEach(function (k) {
+    var el = page.querySelector('#tk' + k), nel = r.page.querySelector('#tk' + k);
+    if (!el || !nel || page['_tk' + k] === r.page['_tk' + k]) return;
+    el.parentNode.replaceChild(nel, el); page['_tk' + k] = r.page['_tk' + k]; any = true;
+    if (k === (desk() ? 'W' : 'T')) cur = true;
+  });
+  if (any) { tkFit(true); tkPaper(); }
+  if (cur) tk3dGo({ instant: true });
+  setFloor(r.floor || '', r.floorAfter);
+  setMbar(r.mbar || '', function () { if (S.view === 'ticket' && S.page === page) { tkFit(true); tkPaper(); } });
+  $('#mbar').classList.toggle('mb-ke', !!r.mbarKe);
+  headerFor();
+  setSteps(r.flow || 'book', r.step == null ? -1 : r.step, !!r.back);
+  bobMood(r.mood || 'observe');
+  if (op.push && history.pushState) history.pushState({ v: 'ticket' }, '');
+  if (!tx || !ntx) return;
+  var html = ntx.innerHTML;
+  function swap() {
+    var y0 = fit ? fit.getBoundingClientRect().top : 0;
+    tx.innerHTML = html;
+    tkFit(true);
+    var h1 = tx.querySelector('h1'); if (h1) try { h1.focus({ preventScroll: true }); } catch (e) { h1.focus(); }
+    var dy = fit ? y0 - fit.getBoundingClientRect().top : 0;
+    if (!st || Math.abs(dy) < .5 || rm()) { tkPaper(); return; }
+    st.style.transform = 'translateY(' + dy.toFixed(2) + 'px)';
+    tw({ key: 'tkslide', from: dy, to: 0, dur: .36, ease: EO, set: function (v) { st.style.transform = 'translateY(' + v.toFixed(2) + 'px)'; },
+         done: function () { st.style.transform = ''; tkPaper(); } });
+  }
+  if (rm()) { swap(); return; }
+  twKill('hello');
+  tw({ key: 'hello', from: 1, to: 0, dur: .1, ease: LIN, set: function (v) { tx.style.opacity = v; }, done: function () {
+    if (S.page !== page) return;
+    swap();
+    tw({ key: 'hello', from: 0, to: 1, dur: .22, ease: EO, set: function (v) { tx.style.opacity = v; tx.style.transform = 'translateY(' + ((1 - v) * 8).toFixed(2) + 'px)'; },
+         done: function () { tx.style.opacity = ''; tx.style.transform = ''; } });
+  } });
 }
 window.addEventListener('popstate', function () {
   if (S.view === 'verify' || S.view === 'lock') { go('find', 'back'); return; }
@@ -1372,7 +1420,7 @@ VIEWS.book = function () {
     '</div><div class="side-act d rs r3"><button class="btn btn-tat" type="button" id="cta" data-a="book" disabled><span class="wd"><span>Đặt lịch</span></span>' + ico('right') + '</button>' + rulesHTML() + '</div></div>' +
     '<div class="wkw rs r1">' + gridHTML() + '<div class="lg-m m">' + legendHTML(add ? 'add-m' : 'book-m') + '</div></div>' +
   '</div>');
-  var mb = '<div class="mb-sum"><span class="k">Đã chọn</span><span class="v" id="mbN">' + lnHTML('0 / 0') + '</span><span class="fill"></span><span class="r" id="mbL">' + lnHTML('') + '</span></div>' +
+  var mb = mbWeekHTML() + '<p class="sr" id="mbL"></p>' +
     '<button class="btn btn-m btn-tat" type="button" id="ctaM" data-a="book" disabled><span class="wd"><span>Đặt lịch</span></span>' + ico('right') + '</button><p class="mb-note" id="mbNote">' + lnHTML(MRULE) + '</p>';
   return { page: page, mbar: mb, mood: 'observe', step: add ? 1 : 2, flow: add ? 'add' : 'book', back: add,
            floorAfter: function () { updateBook(true); }, mbarAfter: function () { updateBook(true); }, after: function () { updateBook(true); } };
@@ -1409,6 +1457,27 @@ function legendHTML(kind) {
     var x = it[k]; return '<span class="lgi"><i class="sw ' + x[0] + '">' + (k === 'tap' || k === 'mtap' ? '<svg viewBox="0 0 10 10"><path d="M1.5 5.2L4 7.6L8.6 2.6"/></svg>' : esc(x[1])) + '</i>' + esc(x[2]) + '</span>';
   }).join('') + (cls ? '</div>' : '');
 }
+/* thanh đáy mobile · TUẦN CỦA BẠN: 7 ô thẳng hàng 7 cột ngày của bảng giờ ngay phía trên (cột giờ 22 px · khe 3 px như .wk), cùng ngôn ngữ ô
+   với bảng: ngày chưa có buổi in thứ (T2…), buổi đang chọn = ô Mực có giờ, buổi đã đặt = viền Mực, buổi đang đổi = viền đứt, đã tập = Giấy 2.
+   Mỗi ngày tối đa 1 buổi (luật) → một ô một ngày, 4 buổi hay 6 ngày vẫn vừa một dòng ở mọi cỡ máy. Cột giờ: đếm đã chọn / tối đa */
+function mbWeekHTML() {
+  var w = S.st.week, h = '<div class="mb-wk" id="mbW" aria-hidden="true"><span class="g"></span>';
+  w.days.forEach(function (d) { h += '<span class="dc" data-d="' + esc(d) + '">' + DOW[dowOf(d)] + '</span>'; });
+  return h + '<span class="dc cn">CN</span></div>';
+}
+function mbWeek(map, count, say, first) {
+  var wk = $('#mbW'); if (!wk) return;
+  var w = S.st.week, me = S.st.me, today = isoOf(now()), g = wk.querySelector('.g');
+  if (g.textContent !== count) g.textContent = count;
+  $$('.dc[data-d]', wk).forEach(function (c) {
+    var d = c.getAttribute('data-d'), s = map[d], off = d < today || (w.closed && w.closed[d] !== undefined) || (me.exp && d > me.exp) || (me.start && d < me.start);
+    var cls = 'dc' + (s ? ' t ' + s.k : off ? ' off' : ''), tx = s ? s.t : DOW[dowOf(d)];
+    if (c.className.replace(' pop', '') === cls && c.textContent === tx) return;
+    c.className = cls; c.textContent = tx;
+    if (!first && !rm()) { void c.offsetWidth; c.classList.add('pop'); clearTimeout(c._pt); c._pt = setTimeout(function () { c.classList.remove('pop'); }, 260); }
+  });
+  var l = $('#mbL'); if (l && l.textContent !== say) l.textContent = say;
+}
 function updateBook(first) {
   if (S.view !== 'book' || !S.st) return;
   var st = S.st, add = S.addMode, max = maxPicks(), min = minPicks(), n = S.picks.length;
@@ -1427,8 +1496,10 @@ function updateBook(first) {
   /* đếm + tóm tắt */
   var shown = add ? st.mine.sessions.length + n : n, of = add ? st.mine.sessions.length + max : max;
   var lnN = S.page.querySelector('.grp-h .v .ln'); line(lnN, shown + ' / ' + of, first ? 0 : 1, first);
-  line($('#mbN .ln'), shown + ' / ' + of, 1, first);
-  line($('#mbL .ln'), S.picks.slice().sort(byDate).map(function (p) { return dShort(p.date).split(' ')[0] + ' ' + hm(p.h); }).join(' · '), 1, first);
+  var wk = {};
+  if (add) st.mine.sessions.forEach(function (s) { wk[s.date] = { k: s.st === 'on' ? 'mine' : 'done', t: hm(s.h) }; });
+  S.picks.forEach(function (p) { wk[p.date] = { k: 'sel', t: hm(p.h) }; });
+  mbWeek(wk, shown + '/' + of, 'Đã chọn ' + shown + ' / ' + of + (n ? ': ' + S.picks.slice().sort(byDate).map(function (p) { return DOWF[dowOf(p.date)] + ' ' + hm(p.h); }).join(', ') : ''), first);
   /* nút chốt */
   var note = noticeForErr(bookNotice() || {});
   /* "Gửi lại" chỉ khi lựa chọn trên màn đúng y lệnh đã gửi (sửa lựa chọn → là lệnh mới) */
@@ -1636,7 +1707,7 @@ VIEWS.change = function () {
     '</div><div class="side-act d rs r3">' + (no ? '' : '<button class="btn btn-tat" type="button" id="cta" data-a="chgo" disabled><span class="wd"><span>Xác nhận đổi</span></span>' + ico('right') + '</button>') + rulesHTML() + '</div></div>' +
     '<div class="wkw rs r1">' + gridHTML() + '<div class="lg-m m">' + legendHTML(no ? 'nochg-m' : 'chg-m') + '</div></div>' +
   '</div>');
-  var mb = '<div class="mb-sum"><span class="k">' + (no ? 'Đã đổi ' + esc(st.mine.changes) + ' / 2' : 'Đổi buổi') + '</span><span class="fill"></span><span class="r" id="mbL">' + lnHTML('') + '</span></div>' +
+  var mb = mbWeekHTML() + '<p class="sr" id="mbL"></p>' +
     (no ? '' : '<button class="btn btn-m btn-tat" type="button" id="ctaM" data-a="chgo" disabled><span class="wd"><span>Xác nhận đổi</span></span>' + ico('right') + '</button><p class="mb-note">' + esc(MRULE) + '</p>');
   return { page: page, mbar: mb, mood: no ? 'doubt' : 'observe', step: 1, flow: 'chg', back: true,
            floorAfter: function () { updateChange(true); }, mbarAfter: function () { updateChange(true); }, after: function () { updateChange(true); } };
@@ -1674,12 +1745,17 @@ function updateChange(first) {
   var resend = !!(S.notice && noticeForErr(S.notice).resend && S.pending && S.pending.action === 'lt_change' && sameSlot(S.pending.body.from, from) && sameSlot(S.pending.body.to, to));
   var ok = !!(from && to) || resend;
   ctaSet(['#cta', '#ctaM'], resend ? 'Gửi lại' : 'Xác nhận đổi', ok, S.sending);
-  var mbl = $('#mbL .ln');
-  if (mbl) {
-    var txt = no || !can.length ? upcoming().map(trailOf).filter(Boolean).join(' · ') || upcoming().map(function (s) { return dShort(s.date) + ' · ' + hm(s.h); }).join(' · ')
-      : from ? dShort(from.date) + ' · ' + hm(from.h) + (to ? ' → ' + dShort(to.date) + ' · ' + hm(to.h) : '') : '';
-    line(mbl, txt, 1, first);
-  }
+  /* thanh đáy mobile: dải tuần (buổi của bạn viền Mực · buổi đang đổi viền đứt · ô mới Mực). Hết lượt / không còn buổi đổi được:
+     thêm dòng chú thích vết đổi (T4 18:00 → T5 19:00 → T7 18:00) — lúc đó không có nút chốt, thanh còn chỗ */
+  var wk = {}, locked = no || !can.length;
+  st.mine.sessions.forEach(function (s) { wk[s.date] = { k: s.st === 'on' ? 'mine' : 'done', t: hm(s.h) }; });
+  if (from) wk[from.date] = { k: 'moving', t: hm(from.h) };
+  if (to) wk[to.date] = { k: 'sel', t: hm(to.h) };
+  var tr = locked ? upcoming().map(trailOf).filter(Boolean).join(' · ') : '';
+  var cap = locked ? (no ? 'Đã đổi ' + st.mine.changes + ' / 2' : 'Không còn buổi đổi được') + (tr ? ' · ' + tr : '')
+    : from ? 'Đổi ' + DOWF[dowOf(from.date)] + ' ' + hm(from.h) + (to ? ' sang ' + DOWF[dowOf(to.date)] + ' ' + hm(to.h) : '') : 'Chọn buổi cần đổi';
+  mbWeek(wk, '', cap, first);
+  var mbl = $('#mbL'); if (mbl) mbl.className = locked ? 'mb-cap' : 'sr';
   /* thông báo */
   var n = S.notice ? noticeForErr(S.notice) : null;
   if (!n && (no || !can.length)) {
@@ -1775,11 +1851,13 @@ VIEWS.ticket = function (op) {
     else if (st.limits.add > 0) sub = 'Không còn buổi sắp tới · thêm được tối đa ' + st.limits.add + ' buổi';
     else { var p = parts(w.nextOpen); sub = 'Tuần ' + w.no + ' đã xong · tuần ' + w.nextNo + ' mở đặt 06:00 CN ' + pad2(p.d) + '.' + pad2(p.m); }
   }
+  var tkW = ticketWide(v), tkT = ticketTall(v);
   var subM2 = v === 'changed' && S.moved ? 'Bản ' + (mine.ver - 1) + ' hết hiệu lực · buổi mới ' + dShort(S.moved.to.date).split(' ')[0] + ' ' + hm(+S.moved.to.h) : sub2;
   var page = pageEl('pg-tk', '<div class="tkp st">' +
     '<div class="tkp-top">' + helloHTML({ title: title, sub: sub, notYou: true }).replace('</p>', '</p>' + (sub2 ? '<p class="sub2 d">' + esc(sub2) + '</p>' : '') + (subM2 ? '<p class="sub2 m">' + esc(subM2) + '</p>' : '')) + '</div>' +
-    '<div class="tk-stage"><div class="tk-fit" id="tkfit">' + ticketWide(v) + ticketTall(v) + '</div></div>' +
+    '<div class="tk-stage"><div class="tk-fit" id="tkfit">' + tkW + tkT + '</div></div>' +
   '</div>');
+  page._tkW = tkW; page._tkT = tkT;   /* để "Xong" (phiếu → phiếu) biết vé nào thật sự khác */
   var calLbl = v === 'home' || v === 'booked' ? 'Thêm vào lịch' : 'Cập nhật lịch';
   /* thêm buổi theo đúng máy chủ (limits.add), kể cả khi các buổi đã đặt đều đã qua */
   var canAdd = st.limits.add > 0, canChg = up.length > 0;
@@ -1875,14 +1953,15 @@ function animateTicket() {
   setTimeout(function () { tk.classList.remove('in'); $$('.mc', tk).forEach(function (c) { c.style.animationDelay = ''; }); }, 1600);
 }
 /* phiếu desktop 1080×392: thu nhỏ cho vừa khung */
-function tkFit() {
+function tkFit(keep) {
   var fit = tkQ('#tkfit'); if (!fit) return;
-  if (!desk()) { tkFitM(fit); return; }
+  if (!desk()) { tkFitM(fit, keep); return; }
   var tkm = tkQ('#tkT'); if (tkm) tkm.classList.remove('cp');
   fit.classList.remove('sc'); fit.style.removeProperty('--tkh');
   var stage = fit.parentNode, aw = stage.clientWidth, ah = stage.clientHeight - 24;
-  var s = Math.min(1, aw / 1110, ah / 420);
-  fit.style.setProperty('--tks', Math.max(0.5, s).toFixed(3));
+  var s = Math.max(0.5, Math.min(1, aw / 1110, ah / 420)), cur = parseFloat(fit.style.getPropertyValue('--tks'));
+  if (keep && cur > 0 && cur <= s) return;   /* phiếu → phiếu: cỡ đang có vẫn vừa → giữ, không co giãn */
+  fit.style.setProperty('--tks', s.toFixed(3));
 }
 /* chiều cao khung nhìn NHỎ (thanh công cụ Safari đang hiện): không đổi khi thanh công cụ thu / mở lúc cuộn → phiếu không co giãn theo tay cuộn */
 var SVHP = null;
@@ -1901,13 +1980,15 @@ function svh() {
    (.cp, chữ giữ cỡ); vẫn không vừa → thu nhỏ cả phiếu (không dưới 0,8 để chữ còn đọc được; máy rất thấp thì cuộn). Đo theo bố cục
    (offsetTop, offsetHeight), không theo hình đang biến đổi (vé đang vào màn / đang nghiêng). Phần dưới phiếu = tổng padding đáy các khung
    chứa (khung phiếu → trang → main, main chừa chỗ thanh nút đáy) */
-function tkFitM(fit) {
+function tkFitM(fit, keep) {
   var tk = tkQ('#tkT'); if (!tk) return;
   mbarSize();
   var stage = fit.parentNode, top = parseFloat(getComputedStyle(stage).paddingTop) || 0, tail = 0, el;
   for (el = stage; el; el = el.offsetParent) top += el.offsetTop;
   for (el = stage; el && el !== document.body; el = el.parentNode) tail += parseFloat(getComputedStyle(el).paddingBottom) || 0;
-  var avail = svh() - top - tail;
+  var avail = svh() - top - tail, cur = parseFloat(fit.style.getPropertyValue('--tks'));
+  /* phiếu → phiếu: cỡ đang có (gọn / thu) vẫn vừa → giữ nguyên, không co giãn giữa chừng */
+  if (keep && cur > 0 && (avail <= 0 || fit.offsetHeight * cur <= avail + .5)) return;
   tk.classList.remove('cp');
   var h = fit.offsetHeight;
   if (avail > 0 && h > avail) { tk.classList.add('cp'); h = fit.offsetHeight; }
@@ -1997,7 +2078,7 @@ function tiltBind() {
   st._tilt = 1;
   /* cùng phiếu được vẽ lại (làm mới ngầm ~2 phút / quay lại tab) → giữ góc đang có rồi lò xo về, không lắc gợi ý lại;
      phiếu khác (đặt / đổi / thêm xong, về phiếu chính) → bắt đầu lại từ dáng nghỉ */
-  var T = TILT, key = S.st && S.st.mine ? (S.tkVariant || '') + ':' + S.st.mine.ver : '', same = !!key && key === T.key;
+  var T = TILT, key = S.st && S.st.mine ? (S.st.mine.code || '') + ':' + S.st.mine.ver : '', same = !!key && key === T.key;
   tiltStop(); T.st = st; T.key = key; T.drag = null; T.mode = '';
   if (!same) { T.hov = null; T.y = T.p = T.vy = T.vp = T.l = T.vl = T.fx = T.ty = T.tp = T.tl = 0; T.touched = false; T.hint = 0; }
   /* vuốt dọc vẫn cuộn trang; giữ được chụm hai ngón phóng to (trình duyệt không hiểu pinch-zoom thì chỉ pan-y) */
@@ -2459,7 +2540,7 @@ var ACT = {
   chgo: function () { submitChange(); },
   unto: function () { if (S.sending) return; S.chg.to = null; if (S.notice) S.notice = null; updateChange(); },
   png: savePng, ics: icsTicket, remind: icsRemind,
-  tkdone: function () { S.moved = null; bobMood('observe'); go('ticket', 'fwd', { variant: 'home' }); },
+  tkdone: function () { S.moved = null; bobMood('observe'); go('ticket', 'fwd', { variant: 'home', morph: true }); },
   goadd: function () { S.addMode = true; S.picks = []; S.gone = []; S.notice = null; go('book', 'fwd', { push: true }); },
   gochg: function () { S.chg = { from: null, to: null }; S.notice = null; go('change', 'fwd', { push: true }); },
   'back-ticket': function () { if (S.sending) return; if (S.view === 'change' || (S.view === 'book' && S.addMode)) leaveToTicket(); },

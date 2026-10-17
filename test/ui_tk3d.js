@@ -199,7 +199,9 @@ async function deskFlow() {
   await page.evaluate(() => { if (window.__lt && window.__lt.S) window.__lt.S.lastFetch = 0; document.dispatchEvent(new Event('visibilitychange')); });
   await sleep(2500);
   const b1 = await dbg(page), s1 = await state(page);
-  ok('Làm mới ngầm khi đang hiện 3D → vẫn dáng 3D, không thả lỏng lại, không vẽ chữ lại (' + (b1.frames - b0.frames) + ' khung)', b1.shown && b1.p === 1 && s1.gl && b1.builds === b0.builds && b1.frames - b0.frames <= 2, { b0: b0.frames, b1: b1.frames, builds: [b0.builds, b1.builds], s1 });
+  /* gắn lại ở dáng cuối = 1 khung + vòng nghiêng (TILT) dừng sau 1–2 khung tuỳ nhịp máy (bản 1.0.6 cũng 2 hoặc 3, đo 18/10);
+     thả lỏng lại sẽ là cả chục khung, vẽ chữ lại thì builds tăng */
+  ok('Làm mới ngầm khi đang hiện 3D → vẫn dáng 3D, không thả lỏng lại, không vẽ chữ lại (' + (b1.frames - b0.frames) + ' khung)', b1.shown && b1.p === 1 && s1.gl && b1.builds === b0.builds && b1.frames - b0.frames <= 3, { b0: b0.frames, b1: b1.frames, builds: [b0.builds, b1.builds], s1 });
 
   /* phiếu → phiếu (Xong → lịch tuần): trang cũ rời màn với khung cuối, trang mới dựng lại */
   await tap(page, '[data-a="tkdone"]');

@@ -524,17 +524,25 @@ button.stepn .ic{width:16px;height:16px}
   .mbar.mb-ke{border-top-color:var(--ke)}
   /* iPhone xoay ngang (viewport-fit=cover): chừa tai thỏ / Dynamic Island hai bên. Máy dọc / desktop: inset = 0, không đổi gì */
   .app{padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
-  .mbar,.sheet{padding-left:max(16px, env(safe-area-inset-left,0px));padding-right:max(16px, env(safe-area-inset-right,0px))}
+  .mbar,.sheet{padding-left:calc(16px + env(safe-area-inset-left,0px));padding-right:calc(16px + env(safe-area-inset-right,0px))}   /* thẳng cột bảng giờ (.app chừa inset + .bk 16 px) */
   .app.has-mbar .main{padding-bottom:var(--mbh,120px)}
   /* trang mới trượt vào từ phải 24px (inF): không để trang rộng hơn màn trong lúc chuyển — Safari iOS sẽ cho kéo ngang, Chrome Android thu nhỏ trang.
      clip (không phải hidden): không tạo khung cuộn, header dính vẫn dính */
   .main{overflow-x:clip}
-  .mb-sum{display:flex;flex-wrap:wrap;align-items:center;column-gap:8px;row-gap:5px;min-height:12px}   /* danh sách dài (4 buổi, máy hẹp) xuống dòng thứ hai, không tràn */
-  .mb-sum .k{font-family:var(--mono);font-size:10px;line-height:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--than);white-space:nowrap}
-  .mb-sum .v{font-family:var(--mono);font-size:10px;line-height:12px;letter-spacing:.08em;color:var(--muc);white-space:nowrap}
-  .mb-sum .fill{flex:1 1 auto}
-  .mb-sum .r{font-family:var(--mono);font-size:10px;line-height:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muc);min-width:0;max-width:100%;margin-left:auto;text-align:right}
-  .mb-sum .r .ln>span{white-space:normal}
+  /* tuần của bạn (app.js · mbWeek): thẳng cột bảng giờ phía trên — cột giờ 22 px + 7 cột ngày, khe 3 px (như .wk mobile), cùng kiểu ô với bảng */
+  .mb-wk{display:grid;grid-template-columns:22px repeat(7,minmax(0,1fr));column-gap:3px;height:22px}
+  .mb-wk .g{align-self:center;font-family:var(--mono);font-size:9px;line-height:11px;letter-spacing:.06em;color:var(--than);white-space:nowrap}
+  .mb-wk .dc{position:relative;display:flex;align-items:center;justify-content:center;min-width:0;border-radius:var(--r);
+             font-family:var(--mono);font-size:9px;line-height:11px;letter-spacing:.06em;color:var(--than);white-space:nowrap}
+  .mb-wk .dc.off{color:var(--tro)}
+  .mb-wk .dc.cn{background:var(--giay2);color:var(--tro)}
+  .mb-wk .dc.t{font-size:10px;line-height:12px;letter-spacing:.08em;color:var(--muc)}
+  .mb-wk .dc.sel{background:var(--muc);color:var(--giay)}
+  .mb-wk .dc.mine{box-shadow:inset 0 0 0 1px var(--muc)}
+  .mb-wk .dc.moving::after{content:'';position:absolute;inset:0;border:1px dashed var(--muc);border-radius:inherit}
+  .mb-wk .dc.done{background:var(--giay2);color:var(--da)}
+  .mb-wk .dc.pop{animation:pop .22s var(--eo) both}
+  .mb-cap{font-family:var(--mono);font-size:10px;line-height:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--than)}
   .mb-note{font-family:var(--mono);font-size:10px;line-height:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--than);text-align:center}
   .mbar .btn{width:100%}
   .mb-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
@@ -610,7 +618,7 @@ button.stepn .ic{width:16px;height:16px}
 
 /* máy rất hẹp (< 360 px: iPhone SE đời 1, Android 320): giờ trong ô đang chọn vẫn đủ 5 ký tự, không bị cắt */
 @media (max-width:359.98px){
-  .c.sel,.c.moving,.c.mine.tm{font-size:9px;line-height:11px;letter-spacing:.02em}
+  .c.sel,.c.moving,.c.mine.tm,.mb-wk .dc.t{font-size:9px;line-height:11px;letter-spacing:.02em}
 }
 
 /* mobile: phiếu dọc */
