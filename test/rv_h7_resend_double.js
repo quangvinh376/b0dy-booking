@@ -1,0 +1,35 @@
+'use strict';
+/* H7: double tap on "Gửi lại" in the mobile sheet -> sendPending() twice (no S.sending guard; closing sheet still clickable) */
+const R = require('./rv_common');
+const { vn } = R.H;
+(async () => {
+  await R.start();
+  const t = R.H.backend(vn('2026-10-18', '20:15'));
+  const page = await R.open2(t, R.MOB, 'H7');
+  await R.login(page, 'duc nam', '0001', false);
+  await page.waitForSelector('.pg-book');
+  await R.cell(page, '2026-10-19', 18); await R.cell(page, '2026-10-21', 18);
+  await R.tap(page, '#ctaM'); await page.waitForSelector('.pg-tk'); await R.sleep(400);
+  await R.tap(page, '[data-a="tkdone"]'); await page.waitForSelector(R.vis('[data-a="goadd"]')); await R.sleep(500);
+  await R.tap(page, '[data-a="goadd"]'); await page.waitForSelector('.pg-book');
+  await R.cell(page, '2026-10-23', 19);
+  t.fail = b => (b.action === 'lt_book' ? 'net' : null);
+  await R.tap(page, '#ctaM');
+  await page.waitForFunction(() => /Gửi lại/.test(document.querySelector('#ctaM').textContent));
+  t.fail = null;
+  t.delayFor = b => (b.action === 'lt_book' ? 300 : 0);
+  await R.tap(page, '.mnt'); await page.waitForSelector('#sheet.on [data-a="resend"]'); await R.sleep(450);
+  const n0 = t.calls.filter(a => a === 'lt_book').length;
+  const box = await page.locator('#sheet [data-a="resend"]').boundingBox();
+  await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
+  await R.sleep(90);
+  await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
+  await R.sleep(2500);
+  const sends = t.calls.filter(a => a === 'lt_book').length - n0;
+  const h1 = await page.evaluate(() => { const p = document.querySelectorAll('.pg-tk'); return p.length ? p[p.length - 1].querySelector('h1').textContent : null; });
+  R.info('result', { sends, h1, rows: t.rows().filter(r => r[16] === 'B901DY' && r[11] === 'Đã đặt').length });
+  R.ok('H7: double tap on "Gửi lại" sends once', sends === 1, sends);
+  R.ok('H7: confirmation stays "Đã thêm buổi tập!"', /thêm/i.test(h1 || ''), h1);
+  await page._ctx.close();
+  await R.stop();
+})().catch(e => { console.error(e); process.exit(2); });

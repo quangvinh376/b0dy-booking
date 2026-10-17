@@ -1,12 +1,12 @@
 /* Chạy thử toàn luồng trên Chromium với máy chủ giả (logic thật LichTuan.gs) + chụp ảnh từng màn.
-   node test/ui_smoke.js [desktop|mobile|all]   → ảnh ra SHOTS (scratchpad), in lỗi console / pageerror. */
+   node test/ui_smoke.js [desktop|mobile|all]   → ảnh ra SHOTS (mặc định thư mục tạm của máy), in lỗi console / pageerror. */
 'use strict';
 const { chromium } = require('playwright');
 const fs = require('fs');
 const path = require('path');
 const { startServer, backend, attach, vn } = require('./ui_harness');
 
-const SHOTS = process.env.SHOTS || '/tmp/claude-0/-home-claude/aacecc6b-f573-51ba-b532-f34e18112e07/scratchpad/ui';
+const SHOTS = process.env.SHOTS || path.join(require('os').tmpdir(), 'b0dy-ui');
 const EXE = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 const ARGS = ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'];
 const sleep = ms => new Promise(r => setTimeout(r, ms));

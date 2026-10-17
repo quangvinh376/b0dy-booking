@@ -5,14 +5,14 @@
    4. Đổi tâm trạng, gật / chớp / liếc, ẩn host thì ngừng vẽ.
    5. Không WebGL → ảnh dự phòng đúng tâm trạng. Mất context → dự phòng, khôi phục → về WebGL.
    6. 0 lỗi console / pageerror.
-   Ảnh ra thư mục OUT (scratchpad). Chạy: node test/b0b_check.js */
+   Ảnh ra thư mục OUT (mặc định thư mục tạm của máy). Chạy: node test/b0b_check.js */
 'use strict';
 const { chromium } = require('playwright');
 const path = require('path');
 const fs = require('fs');
 const { execFileSync } = require('child_process');
 
-const OUT = process.env.B0B_OUT || '/tmp/claude-0/-home-claude/aacecc6b-f573-51ba-b532-f34e18112e07/scratchpad/b0b_check';
+const OUT = process.env.B0B_OUT || path.join(require('os').tmpdir(), 'b0dy-b0b');
 const DEMO = 'file://' + path.resolve(__dirname, 'b0b_demo.html');
 const EXE = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 const ARGS = ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'];
