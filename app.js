@@ -9,7 +9,7 @@
 'use strict';
 
 /* ============================== CẤU HÌNH ============================== */
-var VER = '1.0.1';
+var VER = '1.0.2';
 var API_URL = 'https://b0dy-booking-api.little-bonus-1d87.workers.dev/';
 var API_SLOW = false;                 /* true khi chạy Apps Script (chậm hơn nhiều) → nới thời gian chờ */
 var T_READ = API_SLOW ? 30000 : 9000, T_WRITE = API_SLOW ? 50000 : 25000;
