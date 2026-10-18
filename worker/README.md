@@ -6,7 +6,7 @@ Máy chủ của trang **booking.b0dy.studio**, thay cho Apps Script để mọi
 |---|---|---|
 | Mở trang, tìm tên, xác minh 4 số | 1,5–4 s mỗi lượt | ~0,1 s (đọc từ bộ nhớ của Durable Object) |
 | Chốt đặt lịch / đổi buổi | 3–5 s, khoá 28 s khi đông | **~0,05 s tại DO** (kiểm bằng bộ nhớ + ghi nhật ký trong DO); sổ Google cập nhật trong **~1 s** (đặt ~0,5 s, đổi ~0,8 s) |
-| 30 người bấm cùng lúc lúc 06:00 | xếp hàng từng người | trả lời tức thì, gom thành 1–2 lệnh ghi, không bao giờ quá 4 người/khung |
+| 30 người bấm cùng lúc lúc 06:00 | xếp hàng từng người | trả lời tức thì, gom thành 1–2 lệnh ghi, không bao giờ quá sức chứa (4 suất coach/khung), không coach nào hai suất một khung |
 | Google chậm / lỗi khi ghi | báo lỗi, hội viên bấm lại | vẫn nhận đặt lịch; nhật ký tự ghi lên sổ khi Google ổn lại |
 
 **Hợp đồng API giống hệt `backend/LichTuan.gs`** (`lt_ping` · `lt_boot` · `lt_find` · `lt_verify` · `lt_book` · `lt_change`, cùng trường, cùng mã lỗi; riêng `lt_ping` có thêm 4 trường tình trạng, xem dưới). Trang web chỉ đổi một hằng số URL. Sổ **"Sổ đặt lịch"** trên Google Sheets vẫn là nguồn sự thật: anh sửa tay vẫn được, và Apps Script vẫn dùng lại được làm đường lùi (dòng ghi ra giống hệt từng ô).
@@ -18,6 +18,11 @@ Máy chủ của trang **booking.b0dy.studio**, thay cho Apps Script để mọi
 - **flush** chạy ngầm sau ~150 ms: gom mọi mục đang chờ thành **một** lệnh `spreadsheets.batchUpdate` (tất cả hoặc không). Đổi buổi thì đọc sổ ngay trước khi ghi để sửa đúng dòng (tìm dòng theo mã phiếu + mã KH + ngày + giờ, không tin số dòng cũ).
 - **Không bao giờ ghi trùng.** Mỗi mục mang mã yêu cầu (rid) của trình duyệt. Lần gửi trước không rõ kết quả (đứt mạng, hết giờ, 5xx, DO bị tắt giữa chừng) → lần sau đọc sổ trước, mục nào đã có rid trên sheet thì bỏ qua.
 - Đợi quá 25 s chưa tới lượt kiểm → `he_thong_ban` (như `tryLock` của Apps Script).
+- **Sức chứa tính theo suất coach** (`core.js` · `roomOf` / `coachAt` = `LichTuan.gs` · `ltRoom_` / `ltCoachAt_`, từ 18/10): mỗi coach mỗi khung
+  một suất — một khách 1:1, hoặc một nhóm 1:2 (tối đa 2 khách gói 1:2 của cùng coach). Phòng tối đa `Sức chứa` suất (⚙️ 2): 4 khách 1:1,
+  8 khách 1:2, hay 3 khách 1:1 + một cặp 1:2 đều là đầy. Khách 1:2 vào nhóm 1:2 có sẵn của coach mình không tốn suất (phòng đầy vẫn vào
+  được); coach đã có suất ở khung đó với người khác → `coach_ban` (trả `het_cho` như phòng đầy). Tập thử và dòng không có coach: mỗi
+  người một suất. State có `coachAt: {"yyyy-MM-dd|h": "busy" | "join"}` — chỉ về coach của chính hội viên, không lộ ai đặt.
 - **Bản phiếu (`base`)**: `lt_book` / `lt_change` gửi kèm bản phiếu trang đang xem (`mine.ver`). Sổ đã lên bản khác → `ban_cu`, không ghi gì (kèm state mới nhất). Chặn trường hợp một lệnh mất phản hồi đã vào sổ rồi khách gửi thêm lựa chọn khác (thành thêm buổi ngoài ý muốn) hoặc một lệnh đổi cũ tới sau. Kiểm trùng `rid` chạy trước nên gửi lại đúng lệnh cũ vẫn ra `dup`. Không gửi `base` thì không kiểm (máy khách cũ). Apps Script (`ltLocked_`) kiểm y hệt.
 - Lỗi theo khung (`khong_hop_le` kèm `why` của một khung cụ thể) trả thêm `date` + `h` để trang gọi đúng tên khung.
 - Bộ đếm tìm tên / sai mã / khoá máy / khoá tên nằm trong storage của DO, cùng ngưỡng với Apps Script.
@@ -34,7 +39,8 @@ Máy chủ của trang **booking.b0dy.studio**, thay cho Apps Script để mọi
 | DO bị dọn khỏi RAM / khởi động lại | lần thức sau nạp lại nhật ký, đọc sổ, ghi nốt (alarm tự đánh thức DO, cron mỗi phút là lớp dự phòng thứ hai) |
 | Sau khi lên sổ | xoá khoá `j:`; mục vẫn được "phủ" lên các lượt đọc sổ bắt đầu trước lúc ghi xong (ít nhất 120 s) → một lượt đọc chậm không bao giờ làm mất chỗ đã xác nhận |
 | Anh xoá / sửa tay dòng cũ trước khi lượt đổi kịp ghi | bỏ phần "Đã đổi" của dòng đó (cảnh báo `move_target_missing` trong Logs), dòng mới vẫn được thêm, hàng đợi không kẹt |
-| Khách tập thử đặt ở nơi khác đúng lúc đó | lượt đã nhận vẫn giữ; nếu khung vượt sức chứa → cảnh báo `over_cap_after_trial` trong Logs |
+| Khách tập thử đặt ở nơi khác đúng lúc đó | lượt đã nhận vẫn giữ; nếu khung vượt sức chứa (đếm suất coach) → cảnh báo `over_cap_after_trial` trong Logs |
+| Deploy mã mới khi DO còn ảnh chụp sổ dạng cũ | ảnh chụp mang số dạng (`fmt`, hiện 2 = dòng có coach + loại gói); khác dạng → bỏ, đọc sổ mới từ Google trước lượt đầu |
 
 **`lt_ping`** (không cần đăng nhập) trả thêm tình trạng nhật ký, không có dữ liệu cá nhân:
 

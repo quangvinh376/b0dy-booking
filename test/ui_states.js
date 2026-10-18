@@ -84,7 +84,10 @@ async function E01() {
     const page = await open(t, o, 'E01open' + k);
     await page.waitForSelector('.pg-closed');
     t.clock.now = vn('2026-10-18', '06:00') + 1000;
-    await page.waitForSelector('.pg-find', { timeout: 15000 });
+    /* đợi ĐÚNG màn Tìm tên đang hiện: chạy test sau 06:00 CN 18.10 (giờ máy thật) thì lúc khởi động trang tự tính tuần theo giờ máy →
+       vào Tìm tên trước, máy chủ (đồng hồ giả 05:59:57) trả "chưa mở" → sang Chưa mở; màn Tìm tên đang rời đi còn trong DOM ~230 ms
+       nên chờ '.pg-find' trúng ngay màn đó (18/10 12:40 đã gặp) */
+    await page.waitForFunction(() => window.__lt && window.__lt.S.view === 'find' && !document.querySelector('.page.leave-fwd,.page.leave-back'), null, { timeout: 15000 });
     await sleep(900);
     const g = await page.evaluate(() => ({ steps: document.querySelectorAll('#steps .step').length, ke: document.querySelector('#mbar').classList.contains('mb-ke') }));
     ok('E01 ' + k + ' → 06:00 mở: sang Tìm tên, dãy bước 4 mục hiện lại, thanh đáy bỏ kẻ 10 %', g.steps === 4 && !g.ke, g);

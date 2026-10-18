@@ -108,6 +108,10 @@ function ltCall_(name) {
   return rest.join(' ');
 }
 function ltCoach_(c) { return String(c == null ? '' : c).replace(/\s*\(.*\)\s*$/, '').trim(); }
+/** Khoá so sánh coach (bỏ hậu tố, bỏ dấu, chữ thường): dòng sổ sửa tay lệch dấu / hoa thường vẫn là cùng coach. */
+function ltCoachKey_(c) { return ltName_(ltCoach_(c)); }
+/** Gói 1:2 (một coach kèm hai khách). */
+function ltIsDuo_(kind) { return /^1\s*:\s*2$/.test(String(kind == null ? '' : kind).trim()); }
 function ltInitials_(c) { return ltWords_(ltCoach_(c)).map(function (x) { return x.charAt(0).toUpperCase(); }).join(''); }
 function ltPkg_(pkg, total) { var m = String(pkg == null ? '' : pkg).match(/\d+/), n = m ? +m[0] : (+total || 0); return n > 0 ? n + 'B' : ''; }
 function ltDigits_(v) { return String(v == null ? '' : v).replace(/\D+/g, ''); }
@@ -421,7 +425,8 @@ function ltLogRows_(sh) {
     if (!code) continue;
     var hm = String(ltIsDate_(x[5]) ? Utilities.formatDate(x[5], tz, 'HH:mm') : x[5]).trim();
     out.push({ row: first + i, code: code, ver: Number(x[1]) || 1, week: String(x[2]).trim(), date: ltCellIso_(x[3], tz, true),
-               h: /^\d{1,2}:00$/.test(hm) ? parseInt(hm, 10) : -1, name: String(x[6]).trim(), st: String(x[10]).trim().normalize('NFC'),
+               h: /^\d{1,2}:00$/.test(hm) ? parseInt(hm, 10) : -1, name: String(x[6]).trim(), coach: ltCoach_(x[8]),
+               kind: String(x[9]).trim(), st: String(x[10]).trim().normalize('NFC'),
                act: String(x[11]).trim().normalize('NFC'), note: String(x[12]).trim().normalize('NFC'), rid: String(x[14]).trim(), kh: String(x[15]).trim() });
   }
   return out;
@@ -454,13 +459,53 @@ function ltFromNote_(note, ctx) {
   for (var i = 0; i < ctx.days.length; i++) if (ltDdMm_(ctx.days[i]) === m[1] + '.' + m[2]) return { date: ctx.days[i], h: +m[3] };
   return null;
 }
-/** Số người đã chiếm mỗi khung: hội viên "Đã đặt" + khách tập thử. */
+/**
+ * Phòng ở từng khung, tính theo SUẤT COACH (chủ studio chốt 18/10): mỗi coach mỗi khung một suất — một khách 1:1, hoặc một
+ * nhóm 1:2 (tối đa 2 khách gói 1:2 của CÙNG coach đó). Phòng tối đa `cap` suất (= số coach dạy cùng lúc): 4 khách 1:1,
+ * hay 8 khách 1:2, hay 3 khách 1:1 + một cặp 1:2 = 5 người — đều là đầy. Khách tập thử và dòng sổ không ghi coach:
+ * mỗi người một suất riêng. Sổ lệch luật (một coach hai khách 1:1, hoặc 1:1 lẫn 1:2 — dòng sửa tay / ghi trước luật)
+ * vẫn tính đủ từng suất, không bao giờ nhét thêm người vào phòng.
+ * Trả {"yyyy-MM-dd|h": {u: số suất đã chiếm, x: số suất không coach, c: {khoá coach: [{kh: Mã KH, duo: gói 1:2}]}}}.
+ */
+function ltRoom_(rows, ctx, trials) {
+  var o = {};
+  function at(k) { return o[k] || (o[k] = { u: 0, x: 0, c: {} }); }
+  rows.forEach(function (r) {
+    if (r.week !== ctx.key || r.st !== LT.ON || r.h < 0) return;
+    var s = at(r.date + '|' + r.h), ck = ltCoachKey_(r.coach);
+    if (!ck) { s.x++; return; }
+    (s.c[ck] || (s.c[ck] = [])).push({ kh: r.kh, duo: ltIsDuo_(r.kind) });
+  });
+  for (var k in trials) at(k).x += trials[k];
+  for (var k2 in o) {
+    var s = o[k2], u = s.x;
+    for (var ck in s.c) {
+      var g = s.c[ck], two = g.filter(function (e) { return e.duo; }).length;
+      u += g.length - two + Math.ceil(two / 2);
+    }
+    s.u = u;
+  }
+  return o;
+}
+/** Số suất đã chiếm mỗi khung (hội viên "Đã đặt" theo coach + khách tập thử). */
 function ltTaken_(rows, ctx, trials) {
-  var t = {};
-  rows.forEach(function (r) { if (r.week === ctx.key && r.st === LT.ON && r.h >= 0) t[r.date + '|' + r.h] = (t[r.date + '|' + r.h] || 0) + 1; });
-  for (var k in trials) t[k] = (t[k] || 0) + trials[k];
+  var o = ltRoom_(rows, ctx, trials), t = {};
+  for (var k in o) t[k] = o[k].u;
   return t;
 }
+/**
+ * Coach của hội viên ở khung k (không tính dòng của chính hội viên): '' rảnh · 'join' coach đang có đúng MỘT khách 1:2 khác
+ * và hội viên cũng gói 1:2 → ghép thành cặp, không chiếm thêm suất · 'busy' coach đã kín khung đó với hội viên này.
+ */
+function ltCoachAt_(env, person, k) {
+  var s = env.room ? env.room[k] : null, ck = ltCoachKey_(person.coach), g = s && ck ? s.c[ck] : null;
+  if (!g) return '';
+  var o = g.filter(function (e) { return e.kh !== person.key; });
+  if (!o.length) return '';
+  return ltIsDuo_(person.kind) && o.length === 1 && o[0].duo ? 'join' : 'busy';
+}
+/** Khung hết chỗ với hội viên này: phòng đầy hoặc coach bận (máy chủ trả het_cho, trang gợi ý giờ khác). */
+function ltIsFull_(w) { return w === 'day' || w === 'coach_ban'; }
 /** Vì sao hội viên không đặt được khung này ('' = đặt được). lead: số ms phải báo trước. */
 function ltWhy_(ctx, person, env, iso, h, lead) {
   if (ctx.days.indexOf(iso) < 0) return 'ngoai_tuan';
@@ -471,7 +516,10 @@ function ltWhy_(ctx, person, env, iso, h, lead) {
   var t = ltSlotMs_(iso, h);
   if (t <= ctx.now) return 'qua';
   if (lead && t - ctx.now < lead) return 'duoi_24h';
-  if ((env.taken[iso + '|' + h] || 0) >= env.cap) return 'day';
+  var k = iso + '|' + h, co = ltCoachAt_(env, person, k);
+  if (co === 'join') return '';                            /* vào cặp 1:2 có sẵn của coach: không thêm suất nên phòng đầy vẫn vào được */
+  if ((env.taken[k] || 0) >= env.cap) return 'day';
+  if (co === 'busy') return 'coach_ban';
   return '';
 }
 function ltOpenDays_(ctx, person, env, lead, skip) {
@@ -504,7 +552,7 @@ function ltCheckBook_(ctx, person, env, mine, picks) {
     if (seen[p.date]) return { error: 'khong_hop_le', why: 'mot_ngay_mot_buoi' };
     seen[p.date] = 1;
     var w = ltWhy_(ctx, person, env, p.date, p.h, ctx.lead);
-    if (w === 'day') full.push({ date: p.date, h: p.h });
+    if (ltIsFull_(w)) full.push({ date: p.date, h: p.h });
     else if (w) return { error: 'khong_hop_le', why: w, date: p.date, h: p.h };
   }
   if (mine.sessions.length) {
@@ -527,7 +575,7 @@ function ltCheckChange_(ctx, person, env, mine, from, to) {
   if (to.date === from.date) return { error: 'khong_hop_le', why: 'cung_ngay' };
   for (var i = 0; i < mine.sessions.length; i++) if (mine.sessions[i].date === to.date) return { error: 'khong_hop_le', why: 'mot_ngay_mot_buoi' };
   var w = ltWhy_(ctx, person, env, to.date, to.h, LT.LEAD);
-  if (w === 'day') return { error: 'het_cho', full: [{ date: to.date, h: to.h }] };
+  if (ltIsFull_(w)) return { error: 'het_cho', full: [{ date: to.date, h: to.h }] };
   if (w) return { error: 'khong_hop_le', why: w };
   return { ok: true, cur: cur };
 }
@@ -546,10 +594,14 @@ function ltAnyOpen_(ctx, closed) {
 
 /** Gói thông tin trả cho trình duyệt (không có SĐT, không có tên người khác). */
 function ltStateOf_(ctx, person, env, mine, marks) {
-  var lim = ltLimits_(ctx, person, env, mine), closed = {}, taken = {};
+  var lim = ltLimits_(ctx, person, env, mine), closed = {}, taken = {}, co = {};
   ctx.days.forEach(function (d) {
     if (env.closed[d] !== undefined) closed[d] = env.closed[d] || 'Phòng nghỉ';
-    LT.SLOTS.forEach(function (h) { var n = env.taken[d + '|' + h] || 0; if (n) taken[d + '|' + h] = n; });
+    LT.SLOTS.forEach(function (h) {
+      var k = d + '|' + h, n = env.taken[k] || 0, c = ltCoachAt_(env, person, k);
+      if (n) taken[k] = n;
+      if (c) co[k] = c;                                     /* coach của chính hội viên: 'busy' · 'join' (không lộ ai đặt) */
+    });
   });
   var sessions = mine.sessions.map(function (s) {
     var past = ltSlotMs_(s.date, s.h) <= ctx.now, m = s.date <= ctx.today ? marks[person.name + '|' + s.date] : undefined;   /* điểm danh chỉ tính tới hôm nay */
@@ -560,7 +612,7 @@ function ltStateOf_(ctx, person, env, mine, marks) {
     ok: true, auth: true, now: ctx.now, mode: mode,
     week: { key: ctx.key, no: ctx.no, mon: ctx.mon, days: ctx.days, phase: ctx.phase, lead: ctx.lead > 0,
             nextOpen: ctx.nextOpen, nextNo: ctx.nextNo, closed: closed },
-    cap: env.cap, taken: taken, slots: LT.SLOTS,
+    cap: env.cap, taken: taken, coachAt: co, slots: LT.SLOTS,
     me: { short: person.short, call: person.call, coach: person.coach, kind: person.kind, pkg: person.pkg,
           left: person.left, exp: person.exp, start: person.start },
     mine: { code: mine.code, ver: mine.ver, changes: mine.changes, changesLeft: Math.max(0, LT.CHANGES - mine.changes), sessions: sessions,
@@ -641,7 +693,11 @@ function ltSnapshot_(persons, cap, now) {
   } catch (e) { c.remove('lt:snap'); }
 }
 
-function ltEnv_(ctx, rows, trials, closed, cap) { return { closed: closed, cap: cap, taken: ltTaken_(rows, ctx, trials) }; }
+function ltEnv_(ctx, rows, trials, closed, cap) {
+  var room = ltRoom_(rows, ctx, trials), t = {};
+  for (var k in room) t[k] = room[k].u;
+  return { closed: closed, cap: cap, taken: t, room: room };
+}
 
 /** Đọc mọi thứ và dựng state cho một hội viên (lượt XEM). */
 function ltLoadState_(ctx, person, persons) {

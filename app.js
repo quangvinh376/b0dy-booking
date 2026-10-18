@@ -9,7 +9,7 @@
 'use strict';
 
 /* ============================== CẤU HÌNH ============================== */
-var VER = '1.0.7';
+var VER = '1.0.8';
 var API_URL = 'https://b0dy-booking-api.little-bonus-1d87.workers.dev/';
 var API_SLOW = false;                 /* true khi chạy Apps Script (chậm hơn nhiều) → nới thời gian chờ */
 /* chế độ QC (?qc): máy chủ giả chạy ngay trên máy (qc.js, đúng mã của Worker) với dữ liệu giả — không gọi mạng,
@@ -21,7 +21,7 @@ var SLOTS = [6, 7, 8, 9, 10, 11, 14, 15, 16, 17, 18, 19, 20];
 var DOW = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
 var DOWF = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
 var OFF = 7 * 3600e3, HR = 3600e3, DAY = 864e5, LEAD = 24 * HR;
-var RULES = ['Mỗi tuần đặt 2–4 buổi, mỗi ngày tối đa 1 buổi.', 'Lịch đã đặt không thể huỷ.',
+var RULES = ['Mỗi tuần đặt 2–4 buổi, mỗi ngày tối đa 1 buổi.', 'Mỗi khung giờ, coach dạy một suất: 1 khách 1:1, hoặc 2 khách gói 1:2 của coach đó.', 'Lịch đã đặt không thể huỷ.',
   'Đổi lịch tối đa 2 lần mỗi tuần, trước buổi tập 24 giờ.', 'Chỉ đổi sang ngày khác trong cùng tuần.',
   'Không đến vẫn tính 1 buổi.', 'Lịch tuần sau mở lúc 06:00 Chủ Nhật.'];
 
@@ -1149,10 +1149,18 @@ function why(iso, h, lead) {
   var t = slotMs(iso, h), n = now();
   if (t <= n) return 'qua';
   if (lead && t - n < lead) return 'duoi_24h';
-  if ((st.taken[iso + '|' + h] || 0) >= st.cap) return 'day';
+  var k = iso + '|' + h, co = coachAt(iso, h);
+  if (co === 'join') return '';                            /* vào cặp 1:2 có sẵn của coach: không thêm suất */
+  if ((st.taken[k] || 0) >= st.cap) return 'day';
+  if (co === 'busy') return 'coach_ban';
   return '';
 }
+/* coach của chính hội viên ở khung (máy chủ tính, ltCoachAt_): '' rảnh · 'busy' bận · 'join' có một khách 1:2 cùng coach, ghép được */
+function coachAt(iso, h) { var c = S.st.coachAt; return (c && c[iso + '|' + h]) || ''; }
+/* hết chỗ với hội viên này (phòng đầy hoặc coach bận) — máy chủ trả het_cho cho cả hai */
+function isFull(w) { return w === 'day' || w === 'coach_ban'; }
 function leadBook() { return S.st.week.lead ? LEAD : 0; }
+/* suất còn lại của phòng (mỗi coach một suất mỗi khung — taken đếm suất, không đếm người) */
 function seatsLeft(iso, h) { return S.st.cap - (S.st.taken[iso + '|' + h] || 0); }
 function sessOn(iso) { var s = S.st.mine.sessions; for (var i = 0; i < s.length; i++) if (s[i].date === iso) return s[i]; return null; }
 function upcoming() { return S.st.mine.sessions.filter(function (x) { return x.st === 'on'; }); }
@@ -1224,10 +1232,12 @@ function cellModel(mode) {
         if (goneBy[k]) { m.cls = 'gone'; m.html = '<span class="d">Vừa hết</span><span class="m">Hết</span>'; m.aria = label + 'vừa hết chỗ'; out[k] = m; return; }
       }
       if (wy === '') {
-        var left = seatsLeft(d, h);
+        /* vào cặp 1:2 có sẵn không chiếm thêm suất → không báo "Còn 1" */
+        var left = coachAt(d, h) === 'join' ? 0 : seatsLeft(d, h);
         m.cls = 'free'; m.can = true; m.aria = label + (left === 1 ? 'còn 1 chỗ' : 'còn trống');
         if (left === 1) m.html = '<span class="d">Còn 1</span><span class="m">1</span>';
       } else if (wy === 'day') { m.cls = 'full'; m.html = '<span>Đầy</span>'; m.aria = label + 'đầy'; }
+      else if (wy === 'coach_ban') { m.cls = 'full'; m.html = '<span class="d">Coach bận</span><span class="m cb">Coach<br>bận</span>'; m.aria = label + 'coach của bạn đã có lịch dạy'; }
       else if (wy === 'qua') { m.cls = 'past'; m.aria = label + 'đã qua'; }
       else {
         m.cls = 'lock';
@@ -1433,7 +1443,7 @@ function bookSub() {
 }
 function legendHTML(kind) {
   var it = {
-    trong: ['', '', 'Trống'], con1: ['', '1', 'Còn 1 chỗ'], day: ['k-khoa', '', 'Đầy'], chon: ['k-chon', '', 'Đã chọn'], trua: ['k-qua', '', 'Nghỉ trưa'],
+    trong: ['', '', 'Trống'], con1: ['', '1', 'Còn 1 chỗ'], day: ['k-khoa', '', 'Đầy'], dayban: ['k-khoa', '', 'Đầy · coach bận'], chon: ['k-chon', '', 'Đã chọn'], trua: ['k-qua', '', 'Nghỉ trưa'],
     khong: ['k-khoa', '', 'Không chọn được'], dayle: ['k-khoa', '', 'Đầy · nghỉ lễ'], them: ['k-chon', '', 'Buổi thêm'], dat: ['k-dat', '', 'Đã đặt'], daybuoi: ['k-khoa', '', 'Đầy · đã có buổi'],
     toi: ['', '', 'Chuyển tới được'], kchuyen: ['k-khoa', '', 'Không chuyển được'], tap: ['k-tap', '', 'Đã tập'], dangdoi: ['k-doi', '', 'Buổi đang đổi'], moi: ['k-chon', '', 'Buổi mới'], cuaban: ['k-dat', '', 'Buổi của bạn'],
     kthe: ['k-khoa', '', 'Không thể đổi'],
@@ -1442,8 +1452,10 @@ function legendHTML(kind) {
   };
   var w = S.st && S.st.week, hasClosed = w && w.closed && Object.keys(w.closed).length, phaseLate = w && w.phase === 'late';
   var exp = S.st && S.st.me.exp && w && S.st.me.exp < w.days[w.days.length - 1];
+  /* có ô "Coach bận" (coach của hội viên đã dạy người khác ở khung đó) → ô xám của chú thích gọi luôn tên đó */
+  var ban = w && w.days.some(function (d) { return SLOTS.some(function (h) { return why(d, h, leadBook()) === 'coach_ban'; }); });
   var sets = {
-    book: ['trong', 'chon', 'con1', 'trua', hasClosed ? 'dayle' : (phaseLate || exp ? 'khong' : 'day')],
+    book: ['trong', 'chon', 'con1', 'trua', hasClosed ? 'dayle' : (phaseLate || exp ? 'khong' : (ban ? 'dayban' : 'day'))],
     'book-m': ['mtrong', 'mchon', 'mcon1', phaseLate || exp ? 'mkhong' : 'mday'],
     add: ['trong', 'them', 'con1', 'dat', 'daybuoi', 'trua'],
     'add-m': ['mtrong', 'mthem', 'mcon1', 'mdat', 'mday'],
@@ -1635,7 +1647,7 @@ function onWrite(r, kind, p) {
   var msg = whyText(r.why, r.date, r.h);
   if (r.date) S.picks = S.picks.filter(function (x) { return !(x.date === r.date && x.h === +r.h); });
   /* bỏ mọi lựa chọn không còn hợp lệ — kể cả ngày đã có buổi khi đang thêm buổi (không thì cùng lỗi lặp lại) */
-  S.picks = S.picks.filter(function (x) { var w = why(x.date, x.h, leadBook()); return (!w || w === 'day') && !(S.addMode && sessOn(x.date)); });
+  S.picks = S.picks.filter(function (x) { var w = why(x.date, x.h, leadBook()); return (!w || isFull(w)) && !(S.addMode && sessOn(x.date)); });
   S.notice = { tone: 'warn', title: msg.title, body: msg.body };
   tempMood('doubt', 3);
   updateBook();
@@ -2620,7 +2632,7 @@ function dropInvalid() {
   var lead = leadBook(), gone = [];
   S.picks = S.picks.filter(function (p) {
     var w = why(p.date, p.h, lead);
-    if (w === 'day') { gone.push({ date: p.date, h: p.h }); return false; }
+    if (isFull(w)) { gone.push({ date: p.date, h: p.h }); return false; }
     return !w && (!S.addMode || !sessOn(p.date));
   });
   if (gone.length) onFull(gone);

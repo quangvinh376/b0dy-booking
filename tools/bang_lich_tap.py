@@ -2,7 +2,9 @@
 """
 Tab "Bảng lịch tập" dựng lại theo bảng giờ của UI booking (Figma V2.4 · 03 Đặt lịch · bảng tuần):
 cột giờ 48 · khe 4 · ô ngày viền Kẻ 10 % · dải nghỉ trưa Giấy 2 · cột CN "COACH NGHỈ" · đầu cột Thứ (Mono, Than) + ngày (Mono 16 px, Mực).
-Ô = tên hội viên đã đặt khung đó ("H. Đức Nam · Quyết" — tên gọi coach, bảng T5:U12), xếp theo coach rồi theo tên. Ô đủ người → nền Sương (như ô "ĐẦY").
+Ô = MỖI DÒNG MỘT SUẤT COACH (luật 18/10: mỗi coach một suất mỗi khung): khách 1:1 "H. Đức Nam · Quyết", cặp 1:2 cùng coach
+"K. Cặp Một + N. Ngọc Nam · Quyết" (tên gọi coach, bảng T5:U12), xếp theo coach rồi theo tên. Số dòng = số suất → ô đủ suất
+(= sức chứa) → nền Sương (như ô "ĐẦY"), "KHUNG ĐẦY" đếm theo đó. Khách tập thử không nằm trên bảng (như trước).
 Ngày đã qua → Giấy 2, chữ Đá (như "đã qua"). Hôm nay → Thứ màu Mực + vạch "━━" dưới ngày (như vạch 20 × 2 px của UI).
 Chữ thường: Inter (chủ studio chốt 17/10). Số, nhãn: JetBrains Mono. Sheets không có độ đậm 500, bo góc, khoảng chữ → bỏ.
 Mỗi khối lưới là MỘT công thức MAKEARRAY trải ra cả khối (ô khe = ""), không có công thức từng ô.
@@ -168,6 +170,7 @@ cells[(2, 1)] = F(f'=TEXT($S$2,"dd.mm")&" — "&TEXT($S$2+5,"dd.mm.yyyy")&"  · 
 cells[(1, 9)], cells[(2, 9)] = F(f'=COUNTIFS({WEEK_ON})'), S('BUỔI ĐÃ ĐẶT')
 cells[(1, 11)], cells[(2, 11)] = F(f'=COUNTUNIQUEIFS({Q},{WEEK_ON})'), S('HỘI VIÊN ĐÃ ĐẶT')
 BODY = '$D$8:$N$34'
+# số dòng của ô = số suất coach (mỗi coach một dòng, cặp 1:2 chung một dòng) → khung đủ suất
 cells[(1, 13)], cells[(2, 13)] = F(f'=SUMPRODUCT(({BODY}<>"")*((LEN({BODY})-LEN(SUBSTITUTE({BODY},CHAR(10),""))+1)>=$S$4))'), S('KHUNG ĐẦY')
 # _dữ liệu chưa có ảnh chụp danh sách (Worker ghi khi hội viên đầu tiên mở trang) → "—", không hiện 0 sai
 cells[(1, 15)], cells[(2, 15)] = F(f'=IF(COUNTA({DAT}!$F$5:$F)=0,"—",IFERROR(ROWS(FILTER({DAT}!$F$5:$F,{DAT}!$F$5:$F<>"",COUNTIFS({Q},{DAT}!$F$5:$F,{WEEK_ON})=0)),0))'), S('CHƯA ĐẶT LỊCH')
@@ -179,24 +182,29 @@ for k, cc in enumerate(DAY_COLS + [CN_COL]):
 for k, cc in enumerate(DAY_COLS):
     cells[(6, cc)] = F('=IF($S$2' + ('+' + str(k) if k else '') + '=TODAY(),"━━","")')
 # lưới: MỘT công thức mỗi khối (sáng 11 × 11 từ D8 · chiều 13 × 11 từ D22). Hàng / cột chẵn của khối = khe → "".
+# Mỗi ô: các coach có mặt (UNIQUE, xếp theo tên) → mỗi coach MỘT dòng "tên + tên · coach" (MAP) → số dòng = số suất.
 def block(nrows, h0):
-    return F(f'=LET(e,{E},g,{G},l,{L},c,{J},n,ARRAYFORMULA({I}&" · "&IFERROR(VLOOKUP({J},{CALL},2,FALSE),{J})),'
+    return F(f'=LET(e,{E},g,{G},l,{L},c,{J},s,{I},'
              f'MAKEARRAY({nrows},11,LAMBDA(i,j,IF(OR(ISEVEN(i),ISEVEN(j)),"",'
-             f'IFERROR(TEXTJOIN(CHAR(10),TRUE,INDEX(SORT(FILTER({{n,c}},e=TEXT($S$2+(j-1)/2,"yyyy-mm-dd"),g=TEXT((i-1)/2+{h0},"00")&":00",l={ON}),'
-             f'2,TRUE,1,TRUE),0,1)),"")))))')
+             f'LET(d,TEXT($S$2+(j-1)/2,"yyyy-mm-dd"),t,TEXT((i-1)/2+{h0},"00")&":00",'
+             f'IFERROR(TEXTJOIN(CHAR(10),TRUE,MAP(SORT(UNIQUE(FILTER(c,e=d,g=t,l={ON}))),LAMBDA(k,'
+             f'TEXTJOIN(" + ",TRUE,SORT(FILTER(s,c=k,e=d,g=t,l={ON})))&" · "&IFERROR(VLOOKUP(k,{CALL},2,FALSE),k)))),""))))))')
 cells[(AM_TOP, 3)] = block(AM_ROWS, 6)
 cells[(PM_TOP, 3)] = block(PM_ROWS, 14)
 for i, r in enumerate(HOUR_ROWS): cells[(r, 1)] = S(HOURS[i])
 cells[(LUNCH_ROW, 3)] = S('NGHỈ TRƯA · 12:00–14:00')
 cells[(GRID_TOP, CN_COL)] = S('COACH\nNGHỈ')
-# Theo coach: đầu cột = coach (cột khe ""), mỗi ô "06:00   H. Đức Nam" theo giờ — một công thức trải 6 × 13 từ D41
+# Theo coach: đầu cột = coach (cột khe ""), mỗi ô "06:00   H. Đức Nam" theo giờ, cặp 1:2 một dòng "07:00   K. Cặp Một + N. Ngọc Nam"
+# — một công thức trải 6 × 13 từ D41
 cells[(R_COACH_T, 1)] = S('Theo coach')
 cells[(R_COACH_SUB, 1)] = S('GIỜ VÀ HỘI VIÊN CỦA TỪNG COACH TRONG NGÀY')
 cells[(R_COACH_HEAD, 3)] = F(f'=MAKEARRAY(1,13,LAMBDA(i,j,IF(ISEVEN(j),"",LET(k,INDEX($S$5:$S$11,(j+1)/2),IF(k="","",IFERROR(VLOOKUP(k,{CALL},2,FALSE),k))))))')
 for d in range(6):
     cells[(R_COACH_D0 + d, 1)] = F('="' + ['T2', 'T3', 'T4', 'T5', 'T6', 'T7'][d] + '"&CHAR(10)&TEXT($S$2' + ('+' + str(d) if d else '') + ',"dd.mm")')
-cells[(R_COACH_D0, 3)] = F(f'=LET(e,{E},g,{G},l,{L},n,{I},c,{J},MAKEARRAY(6,13,LAMBDA(i,j,LET(k,IF(ISEVEN(j),"",INDEX($S$5:$S$11,(j+1)/2)),IF(k="","",'
-                           f'IFERROR(TEXTJOIN(CHAR(10),TRUE,SORT(FILTER(g&"   "&n,c=k,e=TEXT($S$2+i-1,"yyyy-mm-dd"),l={ON}))),""))))))')
+cells[(R_COACH_D0, 3)] = F(f'=LET(e,{E},g,{G},l,{L},n,{I},c,{J},MAKEARRAY(6,13,LAMBDA(i,j,LET(k,IF(ISEVEN(j),"",INDEX($S$5:$S$11,(j+1)/2)),'
+                           f'd,TEXT($S$2+i-1,"yyyy-mm-dd"),IF(k="","",'
+                           f'IFERROR(TEXTJOIN(CHAR(10),TRUE,MAP(SORT(UNIQUE(FILTER(g,c=k,e=d,l={ON}))),LAMBDA(t,'
+                           f't&"   "&TEXTJOIN(" + ",TRUE,SORT(FILTER(n,c=k,e=d,g=t,l={ON})))))),""))))))')
 # Chưa đặt lịch: coach (trải xuống từ D51) · tên hội viên còn buổi mà chưa có buổi nào trong tuần
 cells[(R_MISS_T, 1)] = S('Chưa đặt lịch')
 cells[(R_MISS_SUB, 1)] = S('HỘI VIÊN CÒN BUỔI NHƯNG CHƯA CÓ BUỔI NÀO TRONG TUẦN')
@@ -227,7 +235,7 @@ def cf(ranges, formula, fmt):
 body = [grid(GRID_TOP, 3, GRID_END, 14)]
 DAY_OF_COL = '$S$2+(COLUMN()-4)/2'
 s3 += [
-    cf(body, '=AND(ISEVEN(COLUMN()),D8<>"",LEN(D8)-LEN(SUBSTITUTE(D8,CHAR(10),""))+1>=$S$4)', {'backgroundColor': SUONG}),
+    cf(body, '=AND(ISEVEN(COLUMN()),D8<>"",LEN(D8)-LEN(SUBSTITUTE(D8,CHAR(10),""))+1>=$S$4)', {'backgroundColor': SUONG}),   # số dòng = số suất
     cf(body, f'=AND(ISEVEN(COLUMN()),$B8<>"",{DAY_OF_COL}<TODAY())', {'backgroundColor': GIAY2, 'textFormat': {'foregroundColor': DA}}),
     cf([grid(4, 3, 5, 14)], f'=AND(ISEVEN(COLUMN()),{DAY_OF_COL}=TODAY())', {'textFormat': {'foregroundColor': MUC}}),
     cf([grid(4, 3, 6, 14)], f'=AND(ISEVEN(COLUMN()),{DAY_OF_COL}<TODAY())', {'textFormat': {'foregroundColor': TRO}}),

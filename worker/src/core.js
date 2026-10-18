@@ -110,6 +110,10 @@ export function callName(name) {
   return rest.join(' ');
 }
 export function coachName(c) { return String(c == null ? '' : c).replace(/\s*\(.*\)\s*$/, '').trim(); }
+/** Khoá so sánh coach (bỏ hậu tố, bỏ dấu, chữ thường): dòng sổ sửa tay lệch dấu / hoa thường vẫn là cùng coach. */
+export function coachKey(c) { return nameKey(coachName(c)); }
+/** Gói 1:2 (một coach kèm hai khách). */
+export function isDuo(kind) { return /^1\s*:\s*2$/.test(String(kind == null ? '' : kind).trim()); }
 export function initials(c) { return words(coachName(c)).map(x => x.charAt(0).toUpperCase()).join(''); }
 export function pkgLabel(pkg, total) { const m = String(pkg == null ? '' : pkg).match(/\d+/), n = m ? +m[0] : (+total || 0); return n > 0 ? n + 'B' : ''; }
 export function digits(v) { return String(v == null ? '' : v).replace(/\D+/g, ''); }
@@ -411,7 +415,8 @@ export function logRows(vals, first) {
     if (!code) continue;
     const h = cellHm(cell(x, 5));
     out.push({ row: first + i, code: code, ver: Number(cell(x, 1)) || 1, week: String(cell(x, 2)).trim(), date: cellIso(cell(x, 3), true),
-               h: /^\d{1,2}:00$/.test(h) ? parseInt(h, 10) : -1, name: String(cell(x, 6)).trim(), st: String(cell(x, 10)).trim().normalize('NFC'),
+               h: /^\d{1,2}:00$/.test(h) ? parseInt(h, 10) : -1, name: String(cell(x, 6)).trim(), coach: coachName(cell(x, 8)),
+               kind: String(cell(x, 9)).trim(), st: String(cell(x, 10)).trim().normalize('NFC'),
                act: String(cell(x, 11)).trim().normalize('NFC'), note: String(cell(x, 12)).trim().normalize('NFC'),
                rid: String(cell(x, 14)).trim(), kh: String(cell(x, 15)).trim() });
   }
@@ -457,14 +462,59 @@ export function fromNote(note, ctx) {
   for (let i = 0; i < ctx.days.length; i++) if (ddMm(ctx.days[i]) === m[1] + '.' + m[2]) return { date: ctx.days[i], h: +m[3] };
   return null;
 }
-/** Số người đã chiếm mỗi khung: hội viên "Đã đặt" + khách tập thử. */
+/**
+ * Phòng ở từng khung, tính theo SUẤT COACH (chủ studio chốt 18/10): mỗi coach mỗi khung một suất — một khách 1:1, hoặc một
+ * nhóm 1:2 (tối đa 2 khách gói 1:2 của CÙNG coach đó). Phòng tối đa `cap` suất (= số coach dạy cùng lúc): 4 khách 1:1,
+ * hay 8 khách 1:2, hay 3 khách 1:1 + một cặp 1:2 = 5 người — đều là đầy. Khách tập thử và dòng sổ không ghi coach:
+ * mỗi người một suất riêng. Sổ lệch luật (một coach hai khách 1:1, hoặc 1:1 lẫn 1:2 — dòng sửa tay / ghi trước luật)
+ * vẫn tính đủ từng suất, không bao giờ nhét thêm người vào phòng.
+ * Trả {"yyyy-MM-dd|h": {u: số suất đã chiếm, x: số suất không coach, c: {khoá coach: [{kh: Mã KH, duo: gói 1:2}]}}}.
+ */
+export function roomOf(rows, ctx, trials) {
+  const o = {};
+  const at = k => o[k] || (o[k] = { u: 0, x: 0, c: {} });
+  rows.forEach(r => {
+    if (r.week !== ctx.key || r.st !== LT.ON || r.h < 0) return;
+    const s = at(r.date + '|' + r.h), ck = coachKey(r.coach);
+    if (!ck) { s.x++; return; }
+    (s.c[ck] || (s.c[ck] = [])).push({ kh: r.kh, duo: isDuo(r.kind) });
+  });
+  for (const k in trials) at(k).x += trials[k];
+  for (const k in o) {
+    const s = o[k];
+    let u = s.x;
+    for (const ck in s.c) {
+      const g = s.c[ck], two = g.filter(e => e.duo).length;
+      u += g.length - two + Math.ceil(two / 2);
+    }
+    s.u = u;
+  }
+  return o;
+}
+/** Số suất đã chiếm mỗi khung (hội viên "Đã đặt" theo coach + khách tập thử). */
 export function taken(rows, ctx, trials) {
-  const t = {};
-  rows.forEach(r => { if (r.week === ctx.key && r.st === LT.ON && r.h >= 0) t[r.date + '|' + r.h] = (t[r.date + '|' + r.h] || 0) + 1; });
-  for (const k in trials) t[k] = (t[k] || 0) + trials[k];
+  const o = roomOf(rows, ctx, trials), t = {};
+  for (const k in o) t[k] = o[k].u;
   return t;
 }
-export function envOf(ctx, rows, trials, closed, cap) { return { closed: closed, cap: cap, taken: taken(rows, ctx, trials) }; }
+export function envOf(ctx, rows, trials, closed, cap) {
+  const room = roomOf(rows, ctx, trials), t = {};
+  for (const k in room) t[k] = room[k].u;
+  return { closed: closed, cap: cap, taken: t, room: room };
+}
+/**
+ * Coach của hội viên ở khung k (không tính dòng của chính hội viên): '' rảnh · 'join' coach đang có đúng MỘT khách 1:2 khác
+ * và hội viên cũng gói 1:2 → ghép thành cặp, không chiếm thêm suất · 'busy' coach đã kín khung đó với hội viên này.
+ */
+export function coachAt(env, person, k) {
+  const s = env.room ? env.room[k] : null, ck = coachKey(person.coach), g = s && ck ? s.c[ck] : null;
+  if (!g) return '';
+  const o = g.filter(e => e.kh !== person.key);
+  if (!o.length) return '';
+  return isDuo(person.kind) && o.length === 1 && o[0].duo ? 'join' : 'busy';
+}
+/** Khung hết chỗ với hội viên này: phòng đầy hoặc coach bận (máy chủ trả het_cho, trang gợi ý giờ khác). */
+export function isFull(w) { return w === 'day' || w === 'coach_ban'; }
 
 /** Vì sao hội viên không đặt được khung này ('' = đặt được). lead: số ms phải báo trước. */
 export function why(ctx, person, env, iso, h, lead) {
@@ -476,7 +526,10 @@ export function why(ctx, person, env, iso, h, lead) {
   const t = slotMs(iso, h);
   if (t <= ctx.now) return 'qua';
   if (lead && t - ctx.now < lead) return 'duoi_24h';
-  if ((env.taken[iso + '|' + h] || 0) >= env.cap) return 'day';
+  const k = iso + '|' + h, co = coachAt(env, person, k);
+  if (co === 'join') return '';                            /* vào cặp 1:2 có sẵn của coach: không thêm suất nên phòng đầy vẫn vào được */
+  if ((env.taken[k] || 0) >= env.cap) return 'day';
+  if (co === 'busy') return 'coach_ban';
   return '';
 }
 export function openDays(ctx, person, env, lead, skip) {
@@ -510,7 +563,7 @@ export function checkBook(ctx, person, env, m, picks) {
     if (seen[p.date]) return { error: 'khong_hop_le', why: 'mot_ngay_mot_buoi' };
     seen[p.date] = 1;
     const w = why(ctx, person, env, p.date, p.h, ctx.lead);
-    if (w === 'day') full.push({ date: p.date, h: p.h });
+    if (isFull(w)) full.push({ date: p.date, h: p.h });
     else if (w) return { error: 'khong_hop_le', why: w, date: p.date, h: p.h };
   }
   if (m.sessions.length) {
@@ -533,7 +586,7 @@ export function checkChange(ctx, person, env, m, from, to) {
   if (to.date === from.date) return { error: 'khong_hop_le', why: 'cung_ngay' };
   for (let i = 0; i < m.sessions.length; i++) if (m.sessions[i].date === to.date) return { error: 'khong_hop_le', why: 'mot_ngay_mot_buoi' };
   const w = why(ctx, person, env, to.date, to.h, LT.LEAD);
-  if (w === 'day') return { error: 'het_cho', full: [{ date: to.date, h: to.h }] };
+  if (isFull(w)) return { error: 'het_cho', full: [{ date: to.date, h: to.h }] };
   if (w) return { error: 'khong_hop_le', why: w };
   return { ok: true, cur: cur };
 }
@@ -552,10 +605,14 @@ export function anyOpen(ctx, closed) {
 
 /** Gói thông tin trả cho trình duyệt (không có SĐT, không có tên người khác). */
 export function stateOf(ctx, person, env, m, marks) {
-  const lim = limits(ctx, person, env, m), closed = {}, tk = {};
+  const lim = limits(ctx, person, env, m), closed = {}, tk = {}, co = {};
   ctx.days.forEach(d => {
     if (env.closed[d] !== undefined) closed[d] = env.closed[d] || 'Phòng nghỉ';
-    LT.SLOTS.forEach(h => { const n = env.taken[d + '|' + h] || 0; if (n) tk[d + '|' + h] = n; });
+    LT.SLOTS.forEach(h => {
+      const k = d + '|' + h, n = env.taken[k] || 0, c = coachAt(env, person, k);
+      if (n) tk[k] = n;
+      if (c) co[k] = c;                                     /* coach của chính hội viên: 'busy' · 'join' (không lộ ai đặt) */
+    });
   });
   const sessions = m.sessions.map(s => {
     const past = slotMs(s.date, s.h) <= ctx.now, mk = s.date <= ctx.today ? marks[person.name + '|' + s.date] : undefined;   /* điểm danh chỉ tính tới hôm nay */
@@ -566,7 +623,7 @@ export function stateOf(ctx, person, env, m, marks) {
     ok: true, auth: true, now: ctx.now, mode: mode,
     week: { key: ctx.key, no: ctx.no, mon: ctx.mon, days: ctx.days, phase: ctx.phase, lead: ctx.lead > 0,
             nextOpen: ctx.nextOpen, nextNo: ctx.nextNo, closed: closed },
-    cap: env.cap, taken: tk, slots: LT.SLOTS,
+    cap: env.cap, taken: tk, coachAt: co, slots: LT.SLOTS,
     me: { short: person.short, call: person.call, coach: person.coach, kind: person.kind, pkg: person.pkg,
           left: person.left, exp: person.exp, start: person.start },
     mine: { code: m.code, ver: m.ver, changes: m.changes, changesLeft: Math.max(0, LT.CHANGES - m.changes), sessions: sessions,

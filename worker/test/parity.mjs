@@ -54,10 +54,14 @@ function baSheets(extra) {
     m('908', 'Bùi Không Số', '24 buổi', '1:1', 'Bích Ngọc', '', 10, '2026-08-01', '2027-01-01', 'B908DY'),
     m('909', 'Mai Xuân Tú', '12 buổi', '1:1', 'Quyết Hán', '0900000009', 0, '2026-08-01', '2027-01-01', 'B909DY'),
     m('910', 'Cao Bảo Anh', '12 buổi', '1:1', 'Quyết Hán', '0900000010', 5, '2026-08-01', '2026-10-10', 'B910DY'),
+    /* bốn khách bốn coach khác nhau (luật 18/10: mỗi coach một suất mỗi khung) — đủ 4 suất một khung */
     m('921', 'Khách Thứ Một', '48 buổi', '1:1', 'Quyết Hán', '0900000021', 20, '2026-08-01', '2027-01-01', 'B921DY'),
-    m('922', 'Khách Thứ Hai', '48 buổi', '1:1', 'Quyết Hán', '0900000022', 20, '2026-08-01', '2027-01-01', 'B922DY'),
-    m('923', 'Khách Thứ Ba', '48 buổi', '1:1', 'Hiền Mai', '0900000023', 20, '2026-08-01', '2027-01-01', 'B923DY'),
-    m('924', 'Khách Thứ Tư', '48 buổi', '1:1', 'Hiền Mai', '0900000024', 20, '2026-08-01', '2027-01-01', 'B924DY')
+    m('922', 'Khách Thứ Hai', '48 buổi', '1:1', 'Hiền Mai', '0900000022', 20, '2026-08-01', '2027-01-01', 'B922DY'),
+    m('923', 'Khách Thứ Ba', '48 buổi', '1:1', 'Khải Phan', '0900000023', 20, '2026-08-01', '2027-01-01', 'B923DY'),
+    m('924', 'Khách Thứ Tư', '48 buổi', '1:1', 'Lâm Nguyễn', '0900000024', 20, '2026-08-01', '2027-01-01', 'B924DY'),
+    /* hai khách 1:2 nữa của Quyết (cùng T. Ngọc Nam) — ghép cặp 1:2 cùng coach */
+    m('925', 'Khách Cặp Một', '48 buổi', '1:2', 'Quyết Hán', '0900000025', 20, '2026-08-01', '2027-01-01', 'B925DY'),
+    m('926', 'Khách Cặp Hai', '48 buổi', '1:2', 'Quyết Hán', '0900000026', 20, '2026-08-01', '2027-01-01', 'B926DY')
   ].concat((extra || []).map(e => m(e[0], e[1], '48 buổi', '1:1', e[2], e[3], 20, '2026-08-01', '2027-01-01', e[4])));
   const LH = ['', '#', 'Ngày', 'Thứ', 'Khung giờ', 'Coach', 'Mã coach', 'Học viên', 'Mã HV', 'Loại', 'Khung', 'Trạng thái', '_h', '_tuần', 'Ký điện tử', '_mrow'];
   const log = [['', '— SESSION LOG'], ['', 'test'], [], LH,
@@ -74,11 +78,12 @@ function baSheets(extra) {
     [], ['', '— THÔNG SỐ VẬN HÀNH'], ['', 'Sức chứa tối đa / khung', 4], ['', 'Giờ mở cửa', '06:00 – 21:00']];
   return { 'MEMBERS': members, 'SESSION LOG': log, 'TRIAL': trial, 'B0B': b0b, ' ⚙️ 2': cfg };
 }
-function outSheets() {
+/** log: dòng sổ có sẵn (17 cột B..R) — vd dòng ghi trước luật / chủ studio sửa tay */
+function outSheets(log) {
   const head = ['Mã phiếu', 'Bản', 'Tuần', 'Ngày', 'Thứ', 'Giờ', 'Hội viên', 'Tên ngắn', 'Coach', 'Loại', 'Trạng thái', 'Thao tác', 'Ghi chú', 'Lúc ghi', 'Mã yêu cầu', 'Mã KH', '_hiển thị'];
   return {
     'Bảng lịch tập': [['', '— LỊCH TẬP TUẦN']],
-    'Sổ đặt lịch': [['', '— SỔ ĐẶT LỊCH'], ['', 'mô tả'], [], [''].concat(head)],
+    'Sổ đặt lịch': [['', '— SỔ ĐẶT LỊCH'], ['', 'mô tả'], [], [''].concat(head)].concat((log || []).map(r => [''].concat(r))),
     '_dữ liệu': [['SỨC CHỨA / KHUNG', 4], ['CẬP NHẬT', ''], [], ['Hội viên', 'Tên ngắn', 'Coach', 'Còn lại', 'Hết hạn', 'Mã KH', '_hiển thị']]
   };
 }
@@ -86,10 +91,10 @@ function setup(nowMs, opts) {
   opts = opts || {};
   const clock = { now: nowMs };
   const secret = (opts.props && opts.props.LT_SECRET) || SECRET;
-  const files = { BA: new Spreadsheet('BA', LA, baSheets(opts.members)), OUT: new Spreadsheet('OUT', 'Asia/Saigon', outSheets()) };
+  const files = { BA: new Spreadsheet('BA', LA, baSheets(opts.members)), OUT: new Spreadsheet('OUT', 'Asia/Saigon', outSheets(opts.log)) };
   files.OUT.title = '[B0DY Studio] Lịch tập tuần';
   const env = makeEnv(files, clock, Object.assign({}, opts, { props: Object.assign({ BA_ID: 'BA', LT_OUT_ID: 'OUT', LT_SECRET: secret }, opts.props || {}) }));
-  const wfiles = { BA: new Spreadsheet('BA', LA, baSheets(opts.members)), OUT: new Spreadsheet('OUT', 'Asia/Saigon', outSheets()) };
+  const wfiles = { BA: new Spreadsheet('BA', LA, baSheets(opts.members)), OUT: new Spreadsheet('OUT', 'Asia/Saigon', outSheets(opts.log)) };
   const fg = new FakeGoogle(wfiles, { publicKey: SA.publicKey });
   const storage = new FakeStorage();
   const wk = new BookingCore({ storage, env: { BA_ID: 'BA', OUT_ID: 'OUT', SA_JSON: SA.saJson, LT_SECRET: secret },
@@ -315,7 +320,7 @@ console.log('\n== 6. Sức chứa 4/khung (hội viên + tập thử) · nguyên
     ok('Khách ' + (i + 1) + ' đặt T3 18:00 + T5 18:00', r.ok, r.error || r.why);
   }
   const s4 = await login(t, 'thu tu', '0024');
-  ok('T3 18:00 đã 3 hội viên + 1 tập thử = 4 → đầy', s4.taken['2026-10-20|18'] === 4, s4.taken);
+  ok('T3 18:00 đã 3 hội viên (3 coach) + 1 tập thử = 4 suất → đầy', s4.taken['2026-10-20|18'] === 4, s4.taken);
   let r = await call(t, { action: 'lt_book', tok: s4.tok, rid: rid(), week: '2026-W43', picks: [{ date: '2026-10-19', h: 18 }, { date: '2026-10-20', h: 18 }] });
   ok('Khách 4 chọn T3 18:00 → het_cho, chỉ ra khung đầy', r.error === 'het_cho' && r.full.length === 1 && r.full[0].date === '2026-10-20' && r.full[0].h === 18, r);
   ok('… không ghi buổi T2 nào (tất cả hoặc không)', logRows(t).filter(x => x[16] === 'B924DY').length === 0);
@@ -551,6 +556,9 @@ console.log('\n== 12. Tìm tên gõ tới đâu ra tới đó: ma trận chữ g
   ok('Ma trận tìm tên: không phản hồi nào lộ họ đầy đủ hay SĐT (' + outs.length + ' lượt)',
      outs.every(o => !/Khách|Mẫu|Hoàng|Trần|0900/.test(o)), outs.filter(o => /Khách|Mẫu|Hoàng|Trần|0900/.test(o)));
 }
+
+/* luật "mỗi coach một suất mỗi khung" (18/10): cùng kịch bản với test/gas_lt.js, mỗi phản hồi Worker = Apps Script */
+await require('../../test/coach_cases.js').coachCases({ setup, call, login, logRows, ok, rid, vn });
 
 {
   const flushes = flushLog.filter(o => o.a === 'flush');

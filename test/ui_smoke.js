@@ -21,14 +21,19 @@ const BUSY = [['2026-10-19', 10, 4], ['2026-10-21', 10, 4], ['2026-10-21', 15, 4
   ['2026-10-23', 7, 3], ['2026-10-22', 9, 3], ['2026-10-23', 10, 3], ['2026-10-19', 14, 3], ['2026-10-21', 14, 3], ['2026-10-22', 14, 3], ['2026-10-21', 16, 3], ['2026-10-24', 16, 3],
   ['2026-10-24', 18, 3], ['2026-10-20', 20, 3]];
 const NUMS = ['Một', 'Hai', 'Ba', 'Bốn', 'Năm', 'Sáu', 'Bảy', 'Tám', 'Chín', 'Mười', 'Mười Một', 'Mười Hai', 'Mười Ba', 'Mười Bốn', 'Mười Lăm', 'Mười Sáu'];
+/* coach của "Khách Thử <số>" trong ui_harness: ['Quyết Hán', 'Hiền Mai', 'Khải Phan', 'Lâm Nguyễn'][số % 4] */
+const COACH_OF = i => (i + 1) % 4;
+/** Chia khung bận cho khách thử: mỗi khung các khách KHÁC coach (luật 18/10: mỗi coach một suất mỗi khung), mỗi người ≤ 4 buổi, 1 buổi/ngày. */
 function plan(busy, week) {
   const per = NUMS.map(() => ({}));
   busy.forEach(([date, h, n]) => {
+    const used = new Set();
     for (let k = 0; k < n; k++) {
       let best = -1;
-      per.forEach((p, i) => { const c = Object.keys(p).length; if (!p[date] && c < 4 && (best < 0 || c < Object.keys(per[best]).length)) best = i; });
+      per.forEach((p, i) => { const c = Object.keys(p).length; if (!p[date] && c < 4 && !used.has(COACH_OF(i)) && (best < 0 || c < Object.keys(per[best]).length)) best = i; });
       if (best < 0) throw new Error('không đủ khách thử');
       per[best][date] = h;
+      used.add(COACH_OF(best));
     }
   });
   const out = [];

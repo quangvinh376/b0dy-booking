@@ -4,7 +4,7 @@
    · Không bao giờ chạm vào lệnh gọi máy chủ đặt lịch (POST, khác origin).
    Mỗi lần deploy: đổi VER ở đây cùng ?v= trong index.html. */
 'use strict';
-var VER = '1.0.7';
+var VER = '1.0.8';
 var CACHE = 'lt-' + VER;
 var CORE = ['./', 'app.css?v=' + VER, 'app.js?v=' + VER, 'b0b.js?v=' + VER, 'tk3d.js?v=' + VER,
   'fonts/SVN-Switzer-Medium.woff2', 'fonts/JetBrainsMono-Medium.woff2', 'img/favicon.svg'];

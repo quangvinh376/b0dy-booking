@@ -595,6 +595,7 @@ button.stepn .ic{width:16px;height:16px}
   .tl{font-size:9px;line-height:11px;letter-spacing:.06em}
   .tl .d,.c .d{display:none}
   .c .m{display:inline}
+  .c .m.cb{line-height:10px;text-align:center}    /* "Coach / bận" hai dòng như cột "Coach / nghỉ" */
   .c{padding:0 2px;gap:3px;font-size:9px;line-height:11px;letter-spacing:.06em}
   .c.sel,.c.moving,.c.mine.tm{font-size:10px;line-height:12px;letter-spacing:.08em}
   .c .ic{width:11px;height:11px}

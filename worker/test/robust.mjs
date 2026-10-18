@@ -29,9 +29,10 @@ function files() {
   const H = ['', '#', 'Tên', 'Gói', 'Số buổi', 'Loại', 'Coach', 'SĐT', 'Còn lại', 'Ngày bắt đầu', 'Ngày hết hạn', 'Mã KH'];
   const mem = (no, name, coach, phone, code) => ['', no, name, '24 buổi', 24, '1:1', coach, phone, 20, d('2026-08-01'), d('2027-01-01'), code];
   const ba = {
+    /* năm coach khác nhau cho 5 khách đầu (luật 18/10: mỗi coach một suất mỗi khung — 4 khách đầu đủ 4 suất một khung) */
     MEMBERS: [H, mem('1', 'Hoàng Đức Nam', 'Quyết Hán', '0900000001', 'B901DY'), mem('2', 'Phạm Minh Tâm', 'Hiền Mai', '0900000002', 'B902DY'),
-                 mem('3', 'Khách Số Ba', 'Quyết Hán', '0900000003', 'B903DY'), mem('4', 'Khách Số Bốn', 'Hiền Mai', '0900000004', 'B904DY'),
-                 mem('5', 'Khách Số Năm', 'Quyết Hán', '0900000005', 'B905DY'), mem('6', 'Khách Số Sáu', 'Hiền Mai', '0900000006', 'B906DY')],
+                 mem('3', 'Khách Số Ba', 'Khải Phan', '0900000003', 'B903DY'), mem('4', 'Khách Số Bốn', 'Lâm Nguyễn', '0900000004', 'B904DY'),
+                 mem('5', 'Khách Số Năm', 'Bích Ngọc', '0900000005', 'B905DY'), mem('6', 'Khách Số Sáu', 'Quyết Hán', '0900000006', 'B906DY')],
     'SESSION LOG': [['', '#', 'Ngày', 'Học viên', 'Trạng thái']],
     TRIAL: [['', '#', 'Ngày hẹn', 'Giờ hẹn', 'Họ tên', 'Trạng thái']],
     B0B: [['', 'LÝ DO ĐÓNG CỬA', 'NGÀY']],
@@ -89,6 +90,27 @@ console.log('\n== DO thức dậy từ storage ==');
   const r2 = await b.api(BOOK(s.tok, R1, [{ date: '2026-10-19', h: 6 }, { date: '2026-10-21', h: 6 }]));
   await b.idle();
   ok('Gửi lại mã yêu cầu cũ ở bản DO mới → dup, không ghi thêm', r2.ok && r2.dup && rows(w.f).length === 2 && w.fg.calls.batchUpdate === u0, r2);
+}
+{
+  /* deploy bản có luật coach lên DO đang giữ ảnh chụp sổ dạng CŨ (dòng chưa có coach / loại gói): không được dùng ảnh đó,
+     không thì vài giây đầu các dòng cũ không chặn được người cùng coach */
+  const w = world(vn('2026-10-18', '07:00'));
+  const s = await login(w.wk, 0), s6 = await login(w.wk, 5, 'devROBUSTROBUSTROB6');
+  const r = await w.wk.api(BOOK(s.tok, rid(), [{ date: '2026-10-19', h: 6 }, { date: '2026-10-21', h: 6 }]));
+  await w.wk.idle();
+  const snap = await w.storage.get('snap:log');
+  ok('Ảnh chụp sổ lưu storage có dạng 2 (dòng có coach + loại gói)', r.ok && snap && snap.fmt === 2 && snap.rows.every(x => x.coach === 'Quyết Hán' && x.kind === '1:1'), snap && [snap.fmt, snap.rows[0]]);
+  await w.storage.put('snap:log', { at: snap.at, rt: 0, seq: 0, lastRow: snap.lastRow, partial: true, weeks: snap.weeks,
+                                    rows: snap.rows.map(x => { const y = Object.assign({}, x); delete y.coach; delete y.kind; return y; }) });
+  const b = core(w.f, w.fg, w.storage, w.clock, {}, w.logs);
+  await b.init();
+  ok('Bản DO mới bỏ ảnh chụp dạng cũ (không có fmt)', b.base === null && b.log === null, b.base && b.base.fmt);
+  const g0 = w.fg.calls.get || 0;
+  const st = await b.api({ action: 'lt_boot', dev: 'devROBUSTROBUSTROB6', tok: s6.tok });
+  ok('… lượt đầu đọc sổ mới từ Google rồi mới trả lời: khách cùng coach Quyết thấy T2 06:00 "busy"', st.ok && st.coachAt['2026-10-19|6'] === 'busy' && (w.fg.calls.get || 0) > g0, [st.coachAt, g0, w.fg.calls.get]);
+  const r6 = await b.api(BOOK(s6.tok, rid(), [{ date: '2026-10-19', h: 6 }, { date: '2026-10-20', h: 6 }], 'devROBUSTROBUSTROB6'));
+  ok('… và chặn được lượt đặt trùng coach ngay lượt đầu (het_cho)', r6.error === 'het_cho' && r6.full.length === 1 && r6.full[0].date === '2026-10-19', r6);
+  await b.idle();
 }
 
 console.log('\n== Lỗi ghi Google → nhật ký thử lại, mỗi lượt lên sổ ĐÚNG MỘT LẦN ==');

@@ -42,6 +42,10 @@ const DEFAULTS = {
 const ST_IDX = LT.LOG_HEAD.indexOf('Trạng thái'), NOTE_IDX = LT.LOG_HEAD.indexOf('Ghi chú');
 const STATUS_COL = LT.LOG_COL + ST_IDX;             // cột L
 const NOTE_COL = LT.LOG_COL + NOTE_IDX;             // cột N
+/* Dạng ảnh chụp sổ lưu storage ('snap:log' — các dòng ĐÃ ĐỌC, không phải mảng ô). Đổi trường của C.logRows thì tăng số này:
+   2 = có coach + loại gói (luật mỗi coach một suất, 18/10). DO thức dậy với ảnh chụp dạng cũ thì bỏ ảnh đó, đọc sổ mới từ Google
+   trước lượt đầu (không thì vài giây đầu sau deploy các dòng cũ thiếu coach → luật coach không chặn được). */
+const SNAP_LOG_FMT = 2;
 
 function msg(e) { return String(e && e.message || e).slice(0, 120); }
 
@@ -94,7 +98,8 @@ export function applyEntry(L, e) {
  * rowUpdates > 0 hoặc missing > 0 trên bản sổ không đọc mới → nơi gọi phải đọc sổ mới rồi lập lại.
  */
 export function planFlush(entries, view, logId) {
-  const rows = view.rows.map(r => ({ row: r.row, week: r.week, code: r.code, kh: r.kh, date: r.date, h: r.h, st: r.st, note: r.note, arr: null, dirty: false }));
+  const rows = view.rows.map(r => ({ row: r.row, week: r.week, code: r.code, kh: r.kh, date: r.date, h: r.h, st: r.st, note: r.note,
+                                    coach: r.coach, kind: r.kind, arr: null, dirty: false }));
   const rids = new Set(view.rids || []);
   if (!view.rids) view.rows.forEach(r => { if (r.rid) rids.add(r.rid); });
   const plan = { done: [], sent: [], arrs: [], warns: [], requests: [], rows: rows, rowUpdates: 0, missing: 0 };
@@ -113,7 +118,7 @@ export function planFlush(entries, view, logId) {
     e.appends.forEach(a => {
       const arr = a.slice(), p = C.logRowParsed(arr, 0);
       plan.arrs.push(arr);
-      rows.push({ row: 0, week: p.week, code: p.code, kh: p.kh, date: p.date, h: p.h, st: p.st, note: p.note, arr: arr, dirty: false });
+      rows.push({ row: 0, week: p.week, code: p.code, kh: p.kh, date: p.date, h: p.h, st: p.st, note: p.note, coach: p.coach, kind: p.kind, arr: arr, dirty: false });
     });
     rids.add(e.rid);
     plan.sent.push(e);
@@ -173,7 +178,8 @@ export class BookingCore {
       if (g('snap:meta')) this.meta = g('snap:meta');
       if (g('snap:ba')) this.ba = g('snap:ba');
       if (g('snap:mk')) this.mk = g('snap:mk');
-      if (g('snap:log')) this.base = Object.assign({}, g('snap:log'), { seq: 0 });
+      const sl = g('snap:log');
+      if (sl && sl.fmt === SNAP_LOG_FMT) this.base = Object.assign({}, sl, { seq: 0 });
     } catch (e) { /* không có ảnh chụp thì đọc từ Google ở lượt đầu */ }
     try {
       const all = await this.storage.list({ prefix: 'j:' }), list = [];
@@ -339,7 +345,7 @@ export class BookingCore {
     const L = overlay(this.base, this.jRecent), ctx = C.weekCtx(this.now()), keep = {}, weeks = [];
     /* chỉ lưu dòng của tuần trước / này / sau (đủ để kiểm + dựng state khi DO vừa thức) — giữ dưới giới hạn 2 MB/khoá */
     [C.addDays(ctx.mon, -7), ctx.mon, C.addDays(ctx.mon, 7)].forEach(d => { const k = C.weekKey(d); keep[k] = 1; weeks.push(k); });
-    await this.storage.put('snap:log', { at: L.at, rt: 0, seq: 0, lastRow: L.lastRow, rows: L.rows.filter(r => keep[r.week]), partial: true, weeks: weeks });
+    await this.storage.put('snap:log', { fmt: SNAP_LOG_FMT, at: L.at, rt: 0, seq: 0, lastRow: L.lastRow, rows: L.rows.filter(r => keep[r.week]), partial: true, weeks: weeks });
   }
   persistBase() { this.bgRun(this.persistBaseNow()); }
 
@@ -810,15 +816,11 @@ export class BookingCore {
   capWarn(plan) {
     const ba = this.ba;
     if (!ba || !plan.arrs.length) return;
-    const ctx = C.weekCtx(this.now()), trials = this.trialsFor(ctx, ba), cnt = {}, touched = {};
-    plan.rows.forEach(r => {
-      if (r.week !== ctx.key || r.st !== LT.ON || r.h < 0) return;
-      const k = r.date + '|' + r.h;
-      cnt[k] = (cnt[k] || 0) + 1;
-      if (r.arr) touched[k] = 1;
-    });
+    /* đếm SUẤT coach (luật 18/10), không đếm người: cặp 1:2 cùng coach = một suất */
+    const ctx = C.weekCtx(this.now()), room = C.roomOf(plan.rows, ctx, this.trialsFor(ctx, ba)), touched = {};
+    plan.rows.forEach(r => { if (r.arr && r.week === ctx.key && r.st === LT.ON && r.h >= 0) touched[r.date + '|' + r.h] = 1; });
     Object.keys(touched).forEach(k => {
-      const n = cnt[k] + (trials[k] || 0);
+      const n = room[k] ? room[k].u : 0;
       if (n > ba.cap) this.logf({ a: 'flush', warn: 'over_cap_after_trial', slot: k, n: n, cap: ba.cap });
     });
   }

@@ -66,26 +66,39 @@ const QH = 'Quyết Hán', HM = 'Hiền Mai', KP = 'Khải Phan', LN = 'Lâm Ngu
 /* Hội viên thử (chủ studio đăng nhập bằng tên + 4 số cuối điện thoại). Tên bịa, đã so với file BA thật:
    không trùng họ tên, không trùng tên đệm + tên của hội viên nào. SĐT bịa. */
 const PERSONAS = [
-  { code: 'B801DY', name: 'Trịnh Minh Khôi', pkg: 48, kind: '1:1', coach: QH, phone: '0900001111', left: 30, start: '2026-08-03', exp: '2027-03-01', test: 'Đặt mới 2–4 buổi, đổi lịch, thêm buổi' },
+  { code: 'B801DY', name: 'Trịnh Minh Khôi', pkg: 48, kind: '1:1', coach: QH, phone: '0900001111', left: 30, start: '2026-08-03', exp: '2027-03-01', test: 'Đặt mới 2–4 buổi, đổi lịch, thêm buổi · "Coach bận" ở khung Quyết đang dạy (T6 07:00)' },
   { code: 'B802DY', name: 'Vũ Thanh Hằng', pkg: 24, kind: '1:1', coach: HM, phone: '0900002222', left: 1, start: '2026-06-01', exp: '2026-12-31', test: 'Còn 1 buổi · chỉ đặt được 1 buổi' },
   { code: 'B803DY', name: 'Đặng Quốc Bảo', pkg: 24, kind: '1:1', coach: KP, phone: '0900003333', left: 6, start: '2026-07-01', exp: '2026-10-21', test: 'Gói hết hạn T4 21.10 · từ T5 bị khoá' },
   { code: 'B804DY', name: 'Lương Thùy Dung', pkg: 36, kind: '1:1', coach: BN, phone: '0900004444', left: 36, start: '2026-10-21', exp: '2027-04-30', test: 'Gói bắt đầu T4 21.10 · T2, T3 bị khoá' },
-  { code: 'B805DY', name: 'Tạ Uyển Nhi', pkg: 48, kind: '1:2', coach: LN, phone: '0900005555', left: 20, start: '2026-08-03', exp: '2027-02-28', test: 'Gói 1:2 · mỗi người tự đặt' },
+  { code: 'B805DY', name: 'Tạ Uyển Nhi', pkg: 48, kind: '1:2', coach: LN, phone: '0900005555', left: 20, start: '2026-08-03', exp: '2027-02-28', test: 'Gói 1:2 · ghép với khách 1:2 cùng coach: T3 18:00 đầy vẫn vào được · T2 16:00 cặp đã đủ → "Coach bận"' },
   { code: 'B806DY', name: 'Châu Gia Huy', pkg: 24, kind: '1:1', coach: QH, phone: '', left: 12, start: '2026-08-03', exp: '2027-01-31', test: 'Hồ sơ chưa có số điện thoại' },
   { code: 'B807DY', name: 'Phùng Diệu Linh', pkg: 48, kind: '1:1', coach: HM, phone: '0900007777', left: 25, start: '2026-07-06', exp: '2027-02-28', test: 'Đã đặt sẵn 3 buổi · mở thẳng phiếu, đổi, thêm buổi' },
   { code: 'B808DY', name: 'Kiều Hữu Tâm', pkg: 24, kind: '1:1', coach: KP, phone: '0900008888', left: 14, start: '2026-07-06', exp: '2027-01-31', test: 'Đã đổi 2 lần · hết lượt đổi' },
   { code: 'B809DY', name: 'Hà Minh Quân', pkg: 36, kind: '1:1', coach: LN, phone: '0900009999', left: 18, start: '2026-07-06', exp: '2027-03-31', test: 'Trùng tên đệm + tên · gõ "minh quân" ra hai người' },
   { code: 'B810DY', name: 'Lục Minh Quân', pkg: 12, kind: '1:1', coach: BN, phone: '0900001010', left: 8, start: '2026-09-07', exp: '2026-12-31', test: 'Trùng tên đệm + tên với Hà Minh Quân' }
 ];
-/* Người tập nền: lấp bảng giờ cho giống ngày mở đặt thật (đã so với file BA thật như trên). */
+/* Người tập nền: lấp bảng giờ cho giống ngày mở đặt thật (đã so với file BA thật như trên). Coach xoay vòng Quyết · Mai · Khải ·
+   Lâm · Ngọc; hai người của Lâm (Quách Tuấn Kiệt, Bế Thảo Vy) mua gói 1:2 — để thử luật ghép 1:2 cùng coach. */
+const DUO_BG = ['Quách Tuấn Kiệt', 'Bế Thảo Vy'];
 const BG = ['Âu Bảo Châu', 'Bạch Gia Hân', 'Doãn Khánh Ly', 'Hứa Tường Vy', 'Khổng Đình Phúc', 'Lã Phương Thảo', 'Mạc Quang Huy', 'Ông Thục Anh',
   'Quách Tuấn Kiệt', 'Sầm Hạnh Nhi', 'Thân Đức Duy', 'Triệu Mỹ Duyên', 'Yên Khả Hân', 'Bế Thảo Vy', 'Chung Thiên Ý', 'Diệp Chí Thanh', 'La Ngân Hà',
   'Mai Trúc Lam', 'Giáp Hoàng Sơn', 'Lý Nhã Uyên', 'Tô Kỳ Nam', 'Viên Hồng Nhung']
-  .map((name, i) => ({ code: 'B8' + (51 + i) + 'DY', name: name, pkg: 48, kind: '1:1', coach: [QH, HM, KP, LN, BN][i % 5],
+  .map((name, i) => ({ code: 'B8' + (51 + i) + 'DY', name: name, pkg: 48, kind: DUO_BG.indexOf(name) >= 0 ? '1:2' : '1:1', coach: [QH, HM, KP, LN, BN][i % 5],
                        phone: '09100000' + String(i + 1).padStart(2, '0'), left: 30, start: '2026-07-01', exp: '2027-03-01' }));
-/* Khung bận lúc 07:00 CN (giống Figma 03): [thứ (0 = T2), giờ, số người] — 4 người = kín, 3 người = còn 1 */
-const BUSY = [[0, 10, 4], [2, 10, 4], [2, 15, 4], [4, 15, 4], [1, 18, 4], [3, 18, 4], [4, 18, 4],
-  [4, 7, 3], [3, 9, 3], [4, 10, 3], [0, 14, 3], [2, 14, 3], [3, 14, 3], [2, 16, 3], [5, 16, 3], [5, 18, 3], [1, 20, 3]];
+/* Khung bận lúc 07:00 CN (giống Figma 03): [thứ (0 = T2), giờ, các suất] — mỗi coach một suất mỗi khung (luật 18/10); 4 suất = đầy,
+   3 suất = còn 1. Suất: 'QH' 'HM' 'KP' 'LN' 'BN' = một khách 1:1 của coach đó · 'LN2' = một khách 1:2 của Lâm (còn ghép được) ·
+   'LN22' = cặp 1:2 của Lâm (hai người, một suất). Không đụng khung của hội viên thử đã đặt sẵn (Diệu Linh, Hữu Tâm) và các khung
+   test/ui_qc.js đặt. Chỗ để thử: T3 18:00 đầy nhưng Tạ Uyển Nhi (1:2 · Lâm) vào được · T7 16:00 cô ấy vào không tốn suất ·
+   T2 16:00 cặp của Lâm đã đủ → "Coach bận" · T4 16:00 Lâm đang dạy 1:1 → "Coach bận" · T6 07:00 Quyết bận với Trịnh Minh Khôi. */
+const BUSY = [
+  [0, 10, ['QH', 'HM', 'KP', 'BN']], [2, 10, ['QH', 'HM', 'KP', 'LN']], [2, 15, ['QH', 'HM', 'KP', 'BN']], [4, 15, ['QH', 'KP', 'LN', 'BN']],
+  [1, 18, ['QH', 'HM', 'KP', 'LN2']], [3, 18, ['QH', 'HM', 'LN', 'BN']], [4, 18, ['QH', 'HM', 'KP', 'BN']],
+  [4, 7, ['QH', 'HM', 'KP']], [3, 9, ['HM', 'KP', 'BN']], [4, 10, ['HM', 'LN', 'BN']], [0, 14, ['QH', 'KP', 'BN']], [2, 14, ['HM', 'KP', 'BN']],
+  [3, 14, ['QH', 'KP', 'LN']], [2, 16, ['QH', 'LN', 'BN']], [5, 16, ['HM', 'KP', 'LN2']], [5, 18, ['QH', 'HM', 'BN']], [1, 20, ['HM', 'KP', 'BN']],
+  [0, 16, ['LN22']]];
+const TAG = { QH: QH, HM: HM, KP: KP, LN: LN, BN: BN };
+/* Đổi dữ liệu thế giới giả (người tập nền, khung bận) → tăng số này: máy đã mở ?qc trước đó dựng lại thế giới mới khi tải trang. */
+const WORLD_V = 2;
 /* Phòng nghỉ T7 24.10 (bật / tắt trong bảng QC) — dòng của khối "LÝ DO ĐÓNG CỬA" trên tab B0B */
 const NGHI = ['', 'Bảo trì phòng tập', '24/10/26'];
 
@@ -93,19 +106,28 @@ function meOf(m) { return { key: m.code, name: m.name, short: C.short(m.name), c
 function ticketOf(m) { return m.code + '-W' + C.lt2(WNO); }
 function slot(d, h) { return { date: day(d), h: h }; }
 
-/** Chia khung bận cho người tập nền: mỗi người tối đa 4 buổi, mỗi ngày 1 buổi, ai đang ít buổi nhất nhận trước. */
+/**
+ * Chia khung bận cho người tập nền theo từng suất: suất của coach nào lấy người của coach đó (đúng loại gói), mỗi người tối đa
+ * 4 buổi, mỗi ngày 1 buổi, ai đang ít buổi nhất nhận trước. Thiếu người → ném lỗi (sửa BUSY, đừng để thế giới giả lệch luật).
+ */
 function bgPlan() {
   const per = BG.map(() => ({}));
-  BUSY.forEach(([d, h, n]) => {
+  const take = (date, h, coach, kind) => {
+    let best = -1;
+    per.forEach((p, i) => {
+      const c = Object.keys(p).length;
+      if (BG[i].coach !== coach || BG[i].kind !== kind || p[date] || c >= LT.MAX) return;
+      if (best < 0 || c < Object.keys(per[best]).length) best = i;
+    });
+    if (best < 0) throw new Error('QC: thiếu người tập nền cho ' + coach + ' ' + kind + ' ' + date);
+    per[best][date] = h;
+  };
+  BUSY.forEach(([d, h, tags]) => {
     const date = day(d);
-    for (let k = 0; k < n; k++) {
-      let best = -1;
-      per.forEach((p, i) => {
-        const c = Object.keys(p).length;
-        if (!p[date] && c < LT.MAX && (best < 0 || c < Object.keys(per[best]).length)) best = i;
-      });
-      per[best][date] = h;
-    }
+    tags.forEach(tg => {
+      const coach = TAG[tg.slice(0, 2)], n = tg.length === 4 ? 2 : 1;
+      for (let k = 0; k < n; k++) take(date, h, coach, tg.length > 2 ? '1:2' : '1:1');
+    });
   });
   return per;
 }
@@ -320,10 +342,13 @@ function freshWorld(key) {
   FROZEN = true;
   opt.fault = ''; opt.last = ''; saveOpt();
   files = buildFiles(key, opt.nghi);
-  clock = { key: key, base: SCEN[key].at, t0: Date.now() };
+  clock = { key: key, base: SCEN[key].at, t0: Date.now(), v: WORLD_V };
   save(K.g, files); save(K.do, {}); save(K.clock, clock);
 }
-if (!clock || !SCEN[clock.key] || !files || !files[BA_ID] || !files[OUT_ID]) { freshWorld('mo'); FROZEN = false; }   /* lần đầu mở ?qc: đang mở đặt */
+/* lần đầu mở ?qc: đang mở đặt · thế giới giả đời cũ (máy đã mở QC trước khi đổi dữ liệu giả): dựng lại, giữ kịch bản đang chọn */
+if (!clock || !SCEN[clock.key] || !files || !files[BA_ID] || !files[OUT_ID] || clock.v !== WORLD_V) {
+  freshWorld(clock && SCEN[clock.key] ? clock.key : 'mo'); FROZEN = false;
+}
 function saveOpt() { save(K.opt, opt); }
 
 const sheets = new FakeSheets(files, () => save(K.g, files));
@@ -346,21 +371,31 @@ const FAULTS = [
   ['busy', 'Máy chủ bận', 'Máy chủ trả lời đang bận. Gửi lại cùng mã yêu cầu, không ghi trùng.']
 ];
 
-/** "Người khác vừa giữ khung": người tập nền đặt kín khung đầu tiên của lệnh (ghi thẳng vào sổ giả), máy chủ đọc lại sổ. */
+/**
+ * "Người khác vừa giữ khung": người tập nền 1:1 đặt kín khung đầu tiên của lệnh (ghi thẳng vào sổ giả), máy chủ đọc lại sổ.
+ * Đúng luật suất coach: mỗi người thêm vào là một coach CHƯA có mặt ở khung (coach của người đang đặt xếp cuối → khung đầy vì
+ * phòng hết suất, không phải vì coach bận) cho tới khi đủ sức chứa.
+ */
 async function fillSlot(p) {
   const x = p.action === 'lt_book' ? (Array.isArray(p.picks) ? p.picks[0] : null) : p.to;
   if (!x || !C.validIso(String(x.date || ''))) return;
   const ctx = C.weekCtx(nowMs()), date = String(x.date), h = Number(x.h);
   if (ctx.days.indexOf(date) < 0) return;
   const ba = await core.getBA(), rows = (await core.getLog()).rows;
-  let n = C.envOf(ctx, rows, core.trialsFor(ctx, ba), ba.closed, ba.cap).taken[date + '|' + h] || 0;
+  const env = C.envOf(ctx, rows, core.trialsFor(ctx, ba), ba.closed, ba.cap), k = date + '|' + h, s = env.room[k];
+  let n = env.taken[k] || 0;
+  const t = await (await core.signer()).tokRead(p.tok, p.dev, nowMs()), mineCoach = t ? (PERSONAS.find(m => m.code === t.k) || {}).coach : '';
+  const here = new Set(s ? Object.keys(s.c) : []);
+  const pool = BG.filter(m => m.kind === '1:1').sort((a, b) => (a.coach === mineCoach) - (b.coach === mineCoach));
   const arrs = [];
-  for (const m of BG) {
+  for (const m of pool) {
     if (n >= ba.cap) break;
+    if (here.has(C.coachKey(m.coach))) continue;
     const mm = C.mine(rows, meOf(m), ctx);
-    if (mm.sessions.length >= LT.MAX || mm.sessions.some(s => s.date === date)) continue;
+    if (mm.sessions.length >= LT.MAX || mm.sessions.some(q => q.date === date)) continue;
     arrs.push(C.logRow(mm.code, mm.ver + 1, ctx.key, { date: date, h: h }, meOf(m), mm.sessions.length ? 'Thêm' : 'Đặt', '', C.stamp(nowMs()),
                        'qcf' + m.code + Date.now().toString(36)));
+    here.add(C.coachKey(m.coach));
     n++;
   }
   if (!arrs.length) return;
