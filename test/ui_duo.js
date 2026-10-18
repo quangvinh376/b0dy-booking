@@ -36,6 +36,9 @@ async function run(browser, server, mobile) {
     return rows.slice(4).filter(r => r && r[16] === kh && r[3] === '2026-W43').map(r => [r[4], r[6], r[11], r[12], r[13]].join(' | ')); }, kh);
   const cell = (d, h) => page.locator('#wkb .c[data-d="' + d + '"][data-h="' + h + '"] >> visible=true').first();
   const cta = () => page.locator((mobile ? '#ctaM' : '#cta')).first();
+  /* nút chốt đổi chữ kiểu fade-through + thanh đáy mobile thay sau ~100 ms → đợi tới khi đúng (tối đa 4 s) thay vì đọc một lần */
+  const ctaIs = (re, on) => page.waitForFunction(([m, src, on]) => { const b = document.querySelector(m ? '#ctaM' : '#cta'); return !!b && new RegExp(src).test(b.textContent) && (!on || !b.disabled); },
+    [mobile, re.source, !!on], { timeout: 4000 }).then(() => true, () => false);
   const book = async picks => { await waitView(page, 'book'); for (const [d, h] of picks) await cell(d, h).click(); await cta().click(); await waitView(page, 'ticket'); await flushed(); };
   const openPairs = async () => { await page.locator('#prLine .prl').click(); await page.waitForSelector(mobile ? '#sheet.on' : '#drawer.on'); await sleep(300); };
   const host = mobile ? '#sheet' : '#drawer';
@@ -75,7 +78,7 @@ async function run(browser, server, mobile) {
   await waitView(page, 'change'); await sleep(600);
   const chg = await page.evaluate(() => window.__lt.S.chg);
   ok('Tập cùng (cùng ngày có buổi đang chờ) → đổi lịch chọn sẵn T4 11:00 → T4 09:00', chg.from && chg.from.date === '2026-10-21' && chg.from.h === 11 && chg.to && chg.to.date === '2026-10-21' && chg.to.h === 9, chg);
-  ok('Nút chốt "Dời vào cặp" bật', await page.evaluate(m => { const b = document.querySelector(m ? '#ctaM' : '#cta'); return b && !b.disabled && /Dời vào cặp/.test(b.textContent); }, mobile));
+  ok('Nút chốt "Dời vào cặp" bật', await ctaIs(/Dời vào cặp/, true));
   await cta().click();
   await waitView(page, 'ticket'); await flushed(); await sleep(800);
   const st = await page.evaluate(() => ({ v: window.__lt.S.tkVariant, left: window.__lt.S.st.mine.changesLeft, pairs: window.__lt.S.st.duo.pairs, h1: document.querySelector('#pg-tk h1, .pg-tk h1') ? document.querySelector('.pg-tk h1').textContent : '' }));
@@ -90,7 +93,7 @@ async function run(browser, server, mobile) {
   const jn = await page.evaluate(() => { const c = document.querySelector('#wkb .c[data-d="2026-10-22"][data-h="11"]'); return c ? c.className + ' · ' + c.textContent : 'none'; });
   ok('Chọn T6 09:00 (đang lẻ) → T5 11:00 hiện ô Ghép · Thục Quyên', /join/.test(jn) && /Thục Quyên/.test(jn), jn);
   await cell('2026-10-22', 11).click(); await sleep(300);
-  ok('Nút chốt "Dời vào cặp"', await page.evaluate(m => /Dời vào cặp/.test(document.querySelector(m ? '#ctaM' : '#cta').textContent), mobile));
+  ok('Nút chốt "Dời vào cặp"', await ctaIs(/Dời vào cặp/, true));
   await cta().click(); await waitView(page, 'ticket'); await flushed(); await sleep(600);
   const s2 = await page.evaluate(() => ({ v: window.__lt.S.tkVariant, left: window.__lt.S.st.mine.changesLeft, pairs: window.__lt.S.st.duo.pairs }));
   ok('Uyển Nhi: Ghép khác ngày → phiếu "paired" · lượt đổi còn 2 · T5 11:00 cùng Thục Quyên', s2.v === 'paired' && s2.left === 2 && s2.pairs['2026-10-22|11'] === 'Thục Quyên', s2);
@@ -103,7 +106,7 @@ async function run(browser, server, mobile) {
   const same = await page.evaluate(() => { const c = document.querySelector('#wkb .c[data-d="2026-10-21"][data-h="11"]'); return c ? c.className + ' ' + c.getAttribute('aria-disabled') : 'none'; });
   ok('Thục Quyên chọn T4 09:00 (đang tập đôi) → T4 11:00 khoá (rời cặp trong ngày không được)', /lock/.test(same) && /true/.test(same), same);
   await cell('2026-10-23', 19).click(); await sleep(300);
-  ok('T4 09:00 → T6 19:00: nút "Xác nhận đổi" (tính lượt)', await page.evaluate(m => /Xác nhận đổi/.test(document.querySelector(m ? '#ctaM' : '#cta').textContent), mobile));
+  ok('T4 09:00 → T6 19:00: nút "Xác nhận đổi" (tính lượt)', await ctaIs(/Xác nhận đổi/, true));
   await cta().click(); await waitView(page, 'ticket'); await flushed(); await sleep(600);
   const s3 = await page.evaluate(() => ({ v: window.__lt.S.tkVariant, left: window.__lt.S.st.mine.changesLeft }));
   ok('Rời cặp → "Đổi" · lượt đổi còn 1', s3.v === 'changed' && s3.left === 1, s3);

@@ -65,3 +65,10 @@
 @media (prefers-reduced-motion:reduce){
   .qc-tab,.qc-x,.qc-b,.qc-sc,.qc-z{transition:none}
 }
+/* tab ?qc khác đang giữ bộ nhớ chung (qc.js · own()): tab này thôi ghi, nhắc tải lại */
+.qc-stale{position:fixed;left:50%;bottom:24px;z-index:62;transform:translateX(-50%);display:flex;align-items:center;gap:16px;
+  width:max-content;max-width:calc(100vw - 32px);padding:10px 10px 10px 16px;border-radius:var(--r);background:var(--muc);color:var(--giay);
+  font-size:14px;line-height:17px}
+.qc-stale button{flex:none;height:32px;padding:0 12px;border-radius:var(--r);background:var(--giay);color:var(--muc);font-size:14px;line-height:17px;
+  transition:background-color var(--hov)}
+.qc-stale button:hover{background:var(--suong)}

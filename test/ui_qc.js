@@ -364,6 +364,53 @@ async function strayKeys(page) {
   ok('0 lỗi console / pageerror (mobile)', m.errs.length === 0, m.errs);
   await m.ctx.close();
 
+  console.log('\n== hai tab ?qc dùng chung bộ nhớ · tab đời cũ ghi đè ==');
+  {
+    const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    const errs = [];
+    const pageOf = async () => {
+      const pg = await ctx.newPage();
+      pg.on('pageerror', e => errs.push('pageerror: ' + e.message));
+      await pg.route(API + '**', r => r.abort());
+      await pg.goto(server.url + '?qc'); await pg.waitForSelector('.qc-tab');
+      return pg;
+    };
+    const a = await pageOf();
+    await waitView(a, 'find');
+    const b = await pageOf();
+    await waitView(b, 'find');
+    await a.waitForSelector('.qc-stale', { timeout: 5000 }).catch(() => {});
+    ok('Mở tab ?qc thứ hai → tab trước thôi ghi bộ nhớ chung, hiện "Chế độ QC đang mở ở một tab khác" + nút Tải lại',
+       await a.evaluate(() => { const x = document.querySelector('.qc-stale'); return !!x && /tab khác/.test(x.textContent) && !!x.querySelector('button'); }) &&
+       !(await b.evaluate(() => !!document.querySelector('.qc-stale'))));
+    const before = await b.evaluate(() => localStorage.getItem('qcsrv:do'));
+    await a.evaluate(() => window.QCB.fetch('/', { method: 'POST', body: JSON.stringify({ action: 'lt_find', q: 'uyen', dev: 'qcTabAaaaaaaaaaaaaaa1' }) }));
+    await sleep(300);
+    ok('… tab trước gọi máy chủ giả vẫn trả lời nhưng không ghi đè storage của tab sau', (await b.evaluate(() => localStorage.getItem('qcsrv:do'))) === before);
+    await a.close();
+    /* tab đời cũ (không biết mã thế giới) còn mở ghi đè storage DO bằng ảnh chụp BA cũ (như máy chủ studio 18/10: thiếu hội viên thử mới,
+       khung 1:2 cũ) → tải lại: bỏ storage đó, đọc lại từ bảng tính giả; bảng tính còn đúng mã thì giữ nguyên thế giới */
+    const wid1 = await b.evaluate(() => JSON.parse(localStorage.getItem('qcsrv:clock')).wid);
+    await b.evaluate(() => { const d = JSON.parse(localStorage.getItem('qcsrv:do')); delete d._wid; d['snap:ba'] = { at: Date.now(), members: [], layout: {}, trialRows: [], closed: {}, cap: 4, trialRt: Date.now() }; localStorage.setItem('qcsrv:do', JSON.stringify(d)); });
+    await b.reload(); await b.waitForSelector('.qc-tab'); await waitView(b, 'find');
+    await b.fill('#q', 'thuc quyen'); await b.waitForSelector('.rrow');
+    const s1 = await b.evaluate(() => ({ wid: JSON.parse(localStorage.getItem('qcsrv:clock')).wid, d: JSON.parse(localStorage.getItem('qcsrv:do'))._wid }));
+    ok('Storage DO bị tab cũ ghi đè → tải lại bỏ storage đó, giữ thế giới (cùng mã), tìm thấy Mẫn Thục Quyên', s1.wid === wid1 && s1.d === wid1 && /Thục Quyên/.test(await b.textContent('.res')), s1);
+    await b.fill('#q', '');
+    await b.evaluate(() => {
+      const d = JSON.parse(localStorage.getItem('qcsrv:do')); delete d._wid; d['snap:ba'] = { at: 1, members: [] }; localStorage.setItem('qcsrv:do', JSON.stringify(d));
+      const g = JSON.parse(localStorage.getItem('qcsrv:g')); delete g.wid; localStorage.setItem('qcsrv:g', JSON.stringify(g));
+    });
+    const wid0 = await b.evaluate(() => JSON.parse(localStorage.getItem('qcsrv:clock')).wid);
+    await b.reload(); await b.waitForSelector('.qc-tab'); await waitView(b, 'find');
+    const w = await b.evaluate(() => ({ wid: JSON.parse(localStorage.getItem('qcsrv:clock')).wid, g: JSON.parse(localStorage.getItem('qcsrv:g')).wid, d: JSON.parse(localStorage.getItem('qcsrv:do'))._wid }));
+    ok('Bảng tính giả bị tab cũ ghi đè (không mã thế giới) → tải lại dựng thế giới mới, bảng tính + storage cùng mã', w.wid && w.wid !== wid0 && w.g === w.wid && w.d === w.wid, [wid0, w]);
+    await b.fill('#q', 'thuc quyen'); await b.waitForSelector('.rrow');
+    ok('… hội viên thử mới (Mẫn Thục Quyên) có trong thế giới dựng lại', /Thục Quyên/.test(await b.textContent('.res')));
+    ok('0 lỗi console / pageerror (hai tab)', errs.length === 0, errs);
+    await ctx.close();
+  }
+
   console.log('\n== qc.js không tải được ==');
   {
     const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } }), pg = await ctx.newPage();

@@ -13,7 +13,9 @@ import * as C from './worker/src/core.js';
 import { GoogleError, appendRows } from './worker/src/sheets.js';
 
 const LT = C.LT;
-const K = { g: 'qcsrv:g', do: 'qcsrv:do', clock: 'qcsrv:clock', opt: 'qcsrv:opt' };
+const K = { g: 'qcsrv:g', do: 'qcsrv:do', clock: 'qcsrv:clock', opt: 'qcsrv:opt', owner: 'qcsrv:owner' };
+/* Mã của tab này: tab ?qc mở sau cùng giữ bộ nhớ chung (qcsrv:owner); tab cũ thôi ghi và nhắc tải lại (xem own()). */
+const TAB_ID = Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 const BA_ID = 'qc-ba', OUT_ID = 'qc-out';
 const SECRET = 'qc-che-do-thu-khong-phai-ma-that-0123456789';   /* chỉ ký mã nhớ máy của chế độ QC */
 const HR = 3600e3, DAY = 864e5;
@@ -351,17 +353,40 @@ function freshWorld(key) {
   FROZEN = true;
   opt.fault = ''; opt.last = ''; saveOpt();
   files = buildFiles(key, opt.nghi);
-  clock = { key: key, base: SCEN[key].at, t0: Date.now(), v: WORLD_V };
-  save(K.g, files); save(K.do, {}); save(K.clock, clock);
+  clock = { key: key, base: SCEN[key].at, t0: Date.now(), v: WORLD_V, wid: Math.random().toString(36).slice(2, 12) };
+  files.wid = clock.wid;
+  save(K.g, files); save(K.do, { _wid: clock.wid }); save(K.clock, clock);
 }
-/* lần đầu mở ?qc: đang mở đặt · thế giới giả đời cũ (máy đã mở QC trước khi đổi dữ liệu giả): dựng lại, giữ kịch bản đang chọn */
-if (!clock || !SCEN[clock.key] || !files || !files[BA_ID] || !files[OUT_ID] || clock.v !== WORLD_V) {
+/* lần đầu mở ?qc: đang mở đặt · thế giới giả đời cũ (máy đã mở QC trước khi đổi dữ liệu giả) · bảng tính giả không cùng mã thế giới với
+   đồng hồ (một tab ?qc đời cũ còn mở đã ghi đè): dựng lại, giữ kịch bản đang chọn */
+if (!clock || !SCEN[clock.key] || !files || !files[BA_ID] || !files[OUT_ID] || clock.v !== WORLD_V || !clock.wid || files.wid !== clock.wid) {
   freshWorld(clock && SCEN[clock.key] ? clock.key : 'mo'); FROZEN = false;
 }
 function saveOpt() { save(K.opt, opt); }
+/* tab này nhận giữ bộ nhớ chung; storage DO của thế giới khác (tab cũ ghi đè) → bỏ, máy chủ giả đọc lại từ bảng tính giả */
+save(K.owner, TAB_ID);
+const DO0 = load(K.do) || {}, DO_OK = DO0._wid === clock.wid;
+delete DO0._wid;
+/** Bộ nhớ chung còn của tab này không: tab ?qc khác mở sau (giữ bộ nhớ), dựng lại thế giới, đổi kịch bản hay thoát QC → thôi ghi, nhắc tải lại.
+    Hai tab cùng ghi một bộ nhớ thì tab này ghi đè dữ liệu của tab kia (lệch lịch, mất lời mời / hội viên thử mới). */
+function own() {
+  if (FROZEN) return false;
+  const c = load(K.clock);
+  if (load(K.owner) === TAB_ID && c && c.wid === clock.wid) return true;
+  FROZEN = true; staleBanner(); return false;
+}
+function staleBanner() {
+  if (document.querySelector('.qc-stale')) return;
+  const b = document.createElement('div');
+  b.className = 'qc-stale'; b.setAttribute('role', 'alert');
+  b.innerHTML = '<span>Chế độ QC đang mở ở một tab khác. Tải lại trang này để dùng cùng dữ liệu.</span><button type="button">Tải lại</button>';
+  b.querySelector('button').addEventListener('click', () => location.reload());
+  document.body.appendChild(b);
+}
+window.addEventListener('storage', e => { if (!FROZEN && (e.key === null || e.key === K.owner || e.key === K.clock)) own(); });
 
-const sheets = new FakeSheets(files, () => save(K.g, files));
-const storage = new FakeStorage(load(K.do), o => save(K.do, o));
+const sheets = new FakeSheets(files, () => { if (own()) save(K.g, files); });
+const storage = new FakeStorage(DO_OK ? DO0 : {}, o => { if (own()) save(K.do, Object.assign({ _wid: clock.wid }, o)); });
 const core = new BookingCore({
   storage: storage, sheets: sheets, now: nowMs,
   env: { BA_ID: BA_ID, OUT_ID: OUT_ID, LT_SECRET: SECRET },
@@ -467,6 +492,7 @@ const ACT = {
     save(K.g, files);
     const d = load(K.do) || {};
     delete d['snap:ba'];                                       /* máy chủ đọc lại BA (tab B0B) ngay khi trang mở lại */
+    d._wid = clock.wid;
     FROZEN = true; save(K.do, d); reload();
   },
   reset: () => { freshWorld(clock.key); signOutPage(); reload(); },
