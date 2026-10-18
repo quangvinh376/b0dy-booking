@@ -35,7 +35,9 @@ ID hai file Google Sheets: `BA_ID` (file BA: MEMBERS · SESSION LOG · TRIAL · 
 - Chủ studio đã quyết (18/10): (1) khách tập thử đã có "Coach tiếp nhận" chiếm suất của coach đó — **làm ở 1.0.12**
   (`trialsFrom` / `ltTrials_` trả `{khung: [coach, …]}` → `roomOf` / `ltRoom_`), trang 1.0.12 chỉ tăng VER để `?qc` nạp lại
   `worker/src`; **Worker chưa deploy** → luật chỉ có hiệu lực sau khi deploy (cần câu đồng ý); (2) giữ tối thiểu 2 buổi;
-  (3) buổi 1:2 lẻ giờ cao điểm: chưa làm, đo sau tuần 44. Khách 1:2 của Lâm → Ngọc: chủ studio tự đổi trong BA. Tuần 44 chạy thử nội bộ, ra mắt chính thức tháng 11.
+  (3) buổi 1:2 lẻ giờ cao điểm: chưa làm, đo sau tuần 44. **Sức chứa 4 → 5 suất / khung** (5 coach: 5 khách 1:1 hay 10 khách
+  1:2) — chỉ đổi ô dữ liệu BA `' ⚙️ 2'!C27` (18/10), không đổi mã; `LT.CAP` = 4 chỉ là dự phòng khi không đọc được ô đó.
+  Thế giới giả `?qc` vẫn sức chứa 4 (`qc.js` · cfg + BUSY). Khách 1:2 của Lâm → Ngọc: chủ studio tự đổi trong BA. Tuần 44 chạy thử nội bộ, ra mắt chính thức tháng 11.
 
 ## Phiên bản trang
 

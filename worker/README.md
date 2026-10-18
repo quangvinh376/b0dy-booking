@@ -19,8 +19,8 @@ Máy chủ của trang **booking.b0dy.studio**, thay cho Apps Script để mọi
 - **Không bao giờ ghi trùng.** Mỗi mục mang mã yêu cầu (rid) của trình duyệt. Lần gửi trước không rõ kết quả (đứt mạng, hết giờ, 5xx, DO bị tắt giữa chừng) → lần sau đọc sổ trước, mục nào đã có rid trên sheet thì bỏ qua.
 - Đợi quá 25 s chưa tới lượt kiểm → `he_thong_ban` (như `tryLock` của Apps Script).
 - **Sức chứa tính theo suất coach** (`core.js` · `roomOf` / `coachAt` = `LichTuan.gs` · `ltRoom_` / `ltCoachAt_`, từ 18/10): mỗi coach mỗi khung
-  một suất — một khách 1:1, hoặc một nhóm 1:2 (tối đa 2 khách gói 1:2 của cùng coach). Phòng tối đa `Sức chứa` suất (⚙️ 2): 4 khách 1:1,
-  8 khách 1:2, hay 3 khách 1:1 + một cặp 1:2 đều là đầy. Khách 1:2 vào nhóm 1:2 có sẵn của coach mình không tốn suất (phòng đầy vẫn vào
+  một suất — một khách 1:1, hoặc một nhóm 1:2 (tối đa 2 khách gói 1:2 của cùng coach). Phòng tối đa `Sức chứa` suất (⚙️ 2, ô C27 — 5 từ 18/10):
+  5 khách 1:1, 10 khách 1:2, hay 4 khách 1:1 + một cặp 1:2 đều là đầy. Khách 1:2 vào nhóm 1:2 có sẵn của coach mình không tốn suất (phòng đầy vẫn vào
   được); coach đã có suất ở khung đó với người khác → `coach_ban` (trả `het_cho` như phòng đầy). Khách tập thử đã có "Coach tiếp nhận"
   (TRIAL) chiếm suất của coach đó như một khách 1:1 (`trialsFrom` = `ltTrials_` trả `{khung: [coach, …]}`, chốt 18/10); tập thử chưa
   giao coach và dòng sổ không có coach: mỗi người một suất riêng. State có `coachAt: {"yyyy-MM-dd|h": "busy" | "join"}` — chỉ về coach của chính hội viên, không lộ ai đặt.
