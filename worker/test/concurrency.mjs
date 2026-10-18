@@ -124,19 +124,22 @@ console.log('\n== A2. Cùng coach tranh một khung cùng lúc (luật mỗi coa
   ok('Sổ: đúng 2 dòng (1 khách × 2 buổi), T3 06:00 một người', R.length === 2 && R.filter(r => r[4] === '2026-10-20').length === 1, R.length);
 }
 {
-  /* 6 khách 1:2 của Quyết cùng lúc chọn T3 06:00 → đúng một cặp (2 người, 1 suất) */
+  /* 6 khách 1:2 của Quyết cùng lúc chọn T3 09:00 (khung ghép) → đúng một cặp (2 người, 1 suất); buổi thứ hai mỗi người một khung ghép riêng */
   const t = setup(vn('2026-10-18', '06:00'), null, { kindOf: i => i % 5 === 0 ? '1:2' : '1:1' });
   const toks = await loginAll(t);
   await t.wk.idle();
-  const ids = [0, 5, 10, 15, 20, 25];
+  const ids = [0, 5, 10, 15, 20, 25], second = [['2026-10-21', 9], ['2026-10-21', 11], ['2026-10-21', 15], ['2026-10-21', 17], ['2026-10-21', 19], ['2026-10-22', 9]];
   const res = await Promise.all(ids.map((i, k) => t.wk.api({ action: 'lt_book', dev: devOf(i), tok: toks[i], rid: rid(), week: '2026-W43',
-    picks: [{ date: '2026-10-20', h: 6 }, { date: '2026-10-22', h: 6 + k }] })));
+    picks: [{ date: '2026-10-20', h: 9 }, { date: second[k][0], h: second[k][1] }] })));
   await t.wk.idle();
   const okN = res.filter(r => r.ok).length, lost = res.filter(r => r.error === 'het_cho');
-  ok('6 khách 1:2 cùng coach tranh T3 06:00 → đúng 2 thành công (một cặp), 4 het_cho', okN === 2 && lost.length === 4, res.map(r => r.ok ? 'ok' : r.error));
-  const R = rows(t), at = R.filter(r => r[4] === '2026-10-20' && r[6] === '06:00');
-  ok('… sổ: T3 06:00 đúng 2 người, cùng coach, gói 1:2; phòng 1 suất', at.length === 2 && at.every(r => r[9] === 'Quyết Hán' && r[10] === '1:2') &&
-     res.find(r => r.ok).taken['2026-10-20|6'] >= 1 && lost.every(r => r.taken['2026-10-20|6'] === 1), at.map(r => [r[9], r[10]]));
+  ok('6 khách 1:2 cùng coach tranh T3 09:00 → đúng 2 thành công (một cặp), 4 het_cho', okN === 2 && lost.length === 4, res.map(r => r.ok ? 'ok' : r.error));
+  ok('… het_cho chỉ ra T3 09:00', lost.every(r => r.full.length === 1 && r.full[0].date === '2026-10-20' && r.full[0].h === 9));
+  const R = rows(t), at = R.filter(r => r[4] === '2026-10-20' && r[6] === '09:00');
+  ok('… sổ: T3 09:00 đúng 2 người, cùng coach, gói 1:2; phòng 1 suất', at.length === 2 && at.every(r => r[9] === 'Quyết Hán' && r[10] === '1:2') &&
+     res.find(r => r.ok).taken['2026-10-20|9'] >= 1 && lost.every(r => r.taken['2026-10-20|9'] === 1), at.map(r => [r[9], r[10]]));
+  const winner = res.find(r => r.ok && r.duo && r.duo.pairs['2026-10-20|9']);
+  ok('… người vào sau thấy tên bạn cùng cặp (duo.pairs)', !!winner, res.filter(r => r.ok).map(r => r.duo && r.duo.pairs));
 }
 
 console.log('\n== B. Cùng mã yêu cầu gửi 2 lần cùng lúc ==');

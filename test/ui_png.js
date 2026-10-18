@@ -105,7 +105,7 @@ const geo = page => page.evaluate(() => {
   return { desk, id: tk.id, W, H, pr, ms, meta, size, win, acid: ro ? [ro.left + 2.5, ro.top + 3, ro.left + Math.min(9, ro.width / 6), ro.bottom - 3] : null, vw: innerWidth, vh: innerHeight,
     fontsOk: document.fonts.check('500 16px "SVN-Switzer"') && document.fonts.check('500 16px "JetBrains Mono"') };
 });
-const HIDE = '.tkp-top,.hd,.floor,.mbar,.bob,#bobD,.bob-m,#toast,.scrim';
+const HIDE = '.tkp-top,.prl-w,.hd,.floor,.mbar,.bob,#bobD,.bob-m,#toast,.scrim';   /* .prl-w: dòng Tập đôi của gói 1:2 (1.0.9) — không thuộc vé */
 const hideRest = (page, on) => page.evaluate(([sel, on]) => document.querySelectorAll(sel).forEach(e => on ? e.style.setProperty('visibility', 'hidden', 'important') : e.style.removeProperty('visibility')), [HIDE, on]);
 
 /* chụp vé DOM ở DPR 3 (CDP), đúng vùng ảnh tải về (cắt theo khung nhìn) */
@@ -308,7 +308,7 @@ async function deskLong() {
   const t = R.H.backend(vn('2026-10-18', '20:15')); addLongMember(t);
   const page = await openPage(t, R.DESK, 'png-dl');
   await R.login(page, 'phuong bao ngoc', '0099', true);
-  await book(page, [['2026-10-20', 7], ['2026-10-24', 16]]);
+  await book(page, [['2026-10-20', 9], ['2026-10-24', 15]]);      /* gói 1:2: chỉ các khung ghép 09 · 11 · 15 · 17 · 19 (từ 1.0.9) */
   await settled(page, 'đặt lịch');
   const nm = await page.evaluate(() => [window.__lt.S.st.me.coach, window.__lt.S.st.me.short]);
   R.info('tên trên vé', nm);
@@ -345,7 +345,7 @@ async function mobLong() {
   const t = R.H.backend(vn('2026-10-18', '20:15')); addLongMember(t);
   const page = await openPage(t, R.MOB, 'png-ml');
   await R.login(page, 'phuong bao ngoc', '0099', false);
-  await book(page, [['2026-10-20', 7], ['2026-10-24', 16]]);
+  await book(page, [['2026-10-20', 9], ['2026-10-24', 15]]);      /* gói 1:2: chỉ các khung ghép (từ 1.0.9) */
   await settled(page, 'đặt lịch');
   await checkSave(page, 'm-long-2', { via: 'download', mustHave: ['coach', 'member'] });
   await page._ctx.close();

@@ -9,7 +9,7 @@ Máy chủ của trang **booking.b0dy.studio**, thay cho Apps Script để mọi
 | 30 người bấm cùng lúc lúc 06:00 | xếp hàng từng người | trả lời tức thì, gom thành 1–2 lệnh ghi, không bao giờ quá sức chứa (4 suất coach/khung), không coach nào hai suất một khung |
 | Google chậm / lỗi khi ghi | báo lỗi, hội viên bấm lại | vẫn nhận đặt lịch; nhật ký tự ghi lên sổ khi Google ổn lại |
 
-**Hợp đồng API giống hệt `backend/LichTuan.gs`** (`lt_ping` · `lt_boot` · `lt_find` · `lt_verify` · `lt_book` · `lt_change`, cùng trường, cùng mã lỗi; riêng `lt_ping` có thêm 4 trường tình trạng, xem dưới). Trang web chỉ đổi một hằng số URL. Sổ **"Sổ đặt lịch"** trên Google Sheets vẫn là nguồn sự thật: anh sửa tay vẫn được, và Apps Script vẫn dùng lại được làm đường lùi (dòng ghi ra giống hệt từng ô).
+**Hợp đồng API giống hệt `backend/LichTuan.gs`** (`lt_ping` · `lt_boot` · `lt_find` · `lt_verify` · `lt_book` · `lt_change` · `lt_invite` · `lt_decline`, cùng trường, cùng mã lỗi; riêng `lt_ping` có thêm 4 trường tình trạng, xem dưới). Trang web chỉ đổi một hằng số URL. Sổ **"Sổ đặt lịch"** trên Google Sheets vẫn là nguồn sự thật: anh sửa tay vẫn được, và Apps Script vẫn dùng lại được làm đường lùi (dòng ghi ra giống hệt từng ô).
 
 ## Cách chạy
 
@@ -23,6 +23,17 @@ Máy chủ của trang **booking.b0dy.studio**, thay cho Apps Script để mọi
   8 khách 1:2, hay 3 khách 1:1 + một cặp 1:2 đều là đầy. Khách 1:2 vào nhóm 1:2 có sẵn của coach mình không tốn suất (phòng đầy vẫn vào
   được); coach đã có suất ở khung đó với người khác → `coach_ban` (trả `het_cho` như phòng đầy). Tập thử và dòng không có coach: mỗi
   người một suất. State có `coachAt: {"yyyy-MM-dd|h": "busy" | "join"}` — chỉ về coach của chính hội viên, không lộ ai đặt.
+- **Ghép lớp 1:2** (chủ studio chốt 18/10 14:13; `core.js` · `duoState` / `pairMove` / `checkInvite` / `checkDecline` = `LichTuan.gs` ·
+  `ltDuoState_` / `ltPairMove_` / `ltCheckInvite_` / `ltCheckDecline_`, parity so từng phản hồi):
+  - Gói 1:2 chỉ đặt ở **khung ghép** `LT.DUO_HOURS` = 09 · 11 · 15 · 17 · 19 (giờ khác → `khong_hop_le` / `gio_ghep`).
+  - Dời một buổi **đang lẻ** vào khung có đúng một khách 1:2 cùng coach đang chờ = **"Ghép"**: không tính lượt đổi, được khi đã hết
+    lượt, được trong cùng ngày (dòng mới "Ghép từ …", dòng cũ "Ghép sang …"). Rời một cặp tính "Đổi" như thường.
+  - **Lời mời / từ chối là dòng sổ** (Trạng thái + Thao tác "Mời" / "Từ chối", không đổi bản phiếu): `lt_invite {tok, dev, rid, week,
+    date, h, to: id | ''}` (id như `lt_find`; `''` = huỷ) · `lt_decline {tok, dev, rid, week, date, h}`. Mời lại đúng người / từ chối hai
+    lần = không ghi. Lời mời chỉ sống khi ghi sau lượt đặt hiện tại của người mời và người được mời chưa vào khung đó sau lời mời.
+    Tối đa 20 dòng mời + từ chối / hội viên / tuần (`qua_luot_moi`). Bảng lịch tập lọc "Đã đặt" nên không hiện các dòng này.
+  - State của khách 1:2 thêm `duo: {duoHours, wait, pairs, invOut, invIn, peers}` — chỉ **tên gọi** của khách 1:2 cùng coach, `peers`
+    mang id (HMAC), không bao giờ có Mã KH / SĐT. Khách 1:1 không có `duo`.
 - **Bản phiếu (`base`)**: `lt_book` / `lt_change` gửi kèm bản phiếu trang đang xem (`mine.ver`). Sổ đã lên bản khác → `ban_cu`, không ghi gì (kèm state mới nhất). Chặn trường hợp một lệnh mất phản hồi đã vào sổ rồi khách gửi thêm lựa chọn khác (thành thêm buổi ngoài ý muốn) hoặc một lệnh đổi cũ tới sau. Kiểm trùng `rid` chạy trước nên gửi lại đúng lệnh cũ vẫn ra `dup`. Không gửi `base` thì không kiểm (máy khách cũ). Apps Script (`ltLocked_`) kiểm y hệt.
 - Lỗi theo khung (`khong_hop_le` kèm `why` của một khung cụ thể) trả thêm `date` + `h` để trang gọi đúng tên khung.
 - Bộ đếm tìm tên / sai mã / khoá máy / khoá tên nằm trong storage của DO, cùng ngưỡng với Apps Script.

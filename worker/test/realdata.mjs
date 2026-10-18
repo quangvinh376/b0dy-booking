@@ -100,6 +100,27 @@ ok('lt_verify (4 số cuối thật) cho ' + verN + ' hội viên: state + mã n
 ok('lt_boot bằng mã nhớ máy: state giống hệt (' + bootSame + '/' + verN + ')', bootSame === verN);
 const [gx, wx] = await both({ action: 'lt_verify', id: (await wk.api({ action: 'lt_find', q: gP[0].toks.slice(-2).join(' '), dev: 'devREALWRONG0000001' })).results[0].id, pin: '0000', dev: 'devREALWRONG0000001' });
 ok('Sai mã trên dữ liệu thật: phản hồi giống hệt', canon(gx) === canon(wx));
+{
+  /* gói 1:2 (ghép lớp, chốt 18/10 14:13): mọi khách 1:2 thật — state giống hệt, có khung ghép + danh sách mời đúng số khách 1:2 cùng coach,
+     danh sách mời chỉ có id + tên rút gọn (không Mã KH của ai khác) */
+  const duoP = gP.filter(p => C.isDuo(p.kind) && p.phone.length >= 4), codes = gP.map(p => p.key).filter(x => /^B\d+DY$/.test(x));
+  let dSame = 0, dShape = 0, dLeak = 0, n = 0;
+  for (const p of duoP) {
+    const dev = 'devREALDUO' + String(n++).padStart(10, '0');
+    const [, wf] = await both({ action: 'lt_find', q: p.toks.slice(-2).join(' '), dev: dev });
+    const hit = wf.results.find(x => x.short === p.short);
+    if (!hit) continue;
+    const [g, w] = await both({ action: 'lt_verify', id: hit.id, pin: p.phone.slice(-4), remember: true, dev: dev });
+    if (canon(g) === canon(w) && w.ok) dSame++;
+    const mates = gP.filter(x => x.key !== p.key && C.isDuo(x.kind) && C.coachKey(x.coach) === C.coachKey(p.coach)).length;
+    if (w.duo && JSON.stringify(w.duo.duoHours) === '[9,11,15,17,19]' && w.duo.peers.length === mates && w.duo.peers.every(x => x.id && !('key' in x))) dShape++;
+    const o = JSON.stringify(w);
+    if (codes.some(c => c !== p.key && o.indexOf(c) >= 0)) dLeak++;
+  }
+  ok('Khách 1:2 thật (' + duoP.length + '): state giống hệt (' + dSame + '), có khung ghép + danh sách mời đúng số bạn cùng coach (' + dShape + ')',
+     duoP.length > 0 && dSame === duoP.length && dShape === duoP.length, [dSame, dShape, duoP.length]);
+  ok('… không state nào chứa Mã KH của người khác (' + dLeak + ')', dLeak === 0, dLeak);
+}
 
 console.log('\n== Tìm tên gõ tới đâu ra tới đó trên dữ liệu thật (chỉ in số đếm) ==');
 {

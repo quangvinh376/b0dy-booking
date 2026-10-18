@@ -70,12 +70,13 @@ const PERSONAS = [
   { code: 'B802DY', name: 'Vũ Thanh Hằng', pkg: 24, kind: '1:1', coach: HM, phone: '0900002222', left: 1, start: '2026-06-01', exp: '2026-12-31', test: 'Còn 1 buổi · chỉ đặt được 1 buổi' },
   { code: 'B803DY', name: 'Đặng Quốc Bảo', pkg: 24, kind: '1:1', coach: KP, phone: '0900003333', left: 6, start: '2026-07-01', exp: '2026-10-21', test: 'Gói hết hạn T4 21.10 · từ T5 bị khoá' },
   { code: 'B804DY', name: 'Lương Thùy Dung', pkg: 36, kind: '1:1', coach: BN, phone: '0900004444', left: 36, start: '2026-10-21', exp: '2027-04-30', test: 'Gói bắt đầu T4 21.10 · T2, T3 bị khoá' },
-  { code: 'B805DY', name: 'Tạ Uyển Nhi', pkg: 48, kind: '1:2', coach: LN, phone: '0900005555', left: 20, start: '2026-08-03', exp: '2027-02-28', test: 'Gói 1:2 · ghép với khách 1:2 cùng coach: T3 18:00 đầy vẫn vào được · T2 16:00 cặp đã đủ → "Coach bận"' },
+  { code: 'B805DY', name: 'Tạ Uyển Nhi', pkg: 48, kind: '1:2', coach: LN, phone: '0900005555', left: 20, start: '2026-08-03', exp: '2027-02-28', test: 'Gói 1:2 · chỉ khung ghép 09 · 11 · 15 · 17 · 19 · Tuấn Kiệt mời tập đôi T3 17:00 (phòng đầy vẫn ghép được) · Thảo Vy mời T7 15:00 · T2 15:00 cặp đã đủ → "Coach bận"' },
   { code: 'B806DY', name: 'Châu Gia Huy', pkg: 24, kind: '1:1', coach: QH, phone: '', left: 12, start: '2026-08-03', exp: '2027-01-31', test: 'Hồ sơ chưa có số điện thoại' },
   { code: 'B807DY', name: 'Phùng Diệu Linh', pkg: 48, kind: '1:1', coach: HM, phone: '0900007777', left: 25, start: '2026-07-06', exp: '2027-02-28', test: 'Đã đặt sẵn 3 buổi · mở thẳng phiếu, đổi, thêm buổi' },
   { code: 'B808DY', name: 'Kiều Hữu Tâm', pkg: 24, kind: '1:1', coach: KP, phone: '0900008888', left: 14, start: '2026-07-06', exp: '2027-01-31', test: 'Đã đổi 2 lần · hết lượt đổi' },
   { code: 'B809DY', name: 'Hà Minh Quân', pkg: 36, kind: '1:1', coach: LN, phone: '0900009999', left: 18, start: '2026-07-06', exp: '2027-03-31', test: 'Trùng tên đệm + tên · gõ "minh quân" ra hai người' },
-  { code: 'B810DY', name: 'Lục Minh Quân', pkg: 12, kind: '1:1', coach: BN, phone: '0900001010', left: 8, start: '2026-09-07', exp: '2026-12-31', test: 'Trùng tên đệm + tên với Hà Minh Quân' }
+  { code: 'B810DY', name: 'Lục Minh Quân', pkg: 12, kind: '1:1', coach: BN, phone: '0900001010', left: 8, start: '2026-09-07', exp: '2026-12-31', test: 'Trùng tên đệm + tên với Hà Minh Quân' },
+  { code: 'B811DY', name: 'Mẫn Thục Quyên', pkg: 24, kind: '1:2', coach: LN, phone: '0900001212', left: 16, start: '2026-08-03', exp: '2027-02-28', test: 'Gói 1:2 cùng coach Lâm với Tạ Uyển Nhi · đặt một khung ghép rồi mời bạn, hoặc mở trang xem lời mời bạn gửi' }
 ];
 /* Người tập nền: lấp bảng giờ cho giống ngày mở đặt thật (đã so với file BA thật như trên). Coach xoay vòng Quyết · Mai · Khải ·
    Lâm · Ngọc; hai người của Lâm (Quách Tuấn Kiệt, Bế Thảo Vy) mua gói 1:2 — để thử luật ghép 1:2 cùng coach. */
@@ -88,17 +89,18 @@ const BG = ['Âu Bảo Châu', 'Bạch Gia Hân', 'Doãn Khánh Ly', 'Hứa Tư�
 /* Khung bận lúc 07:00 CN (giống Figma 03): [thứ (0 = T2), giờ, các suất] — mỗi coach một suất mỗi khung (luật 18/10); 4 suất = đầy,
    3 suất = còn 1. Suất: 'QH' 'HM' 'KP' 'LN' 'BN' = một khách 1:1 của coach đó · 'LN2' = một khách 1:2 của Lâm (còn ghép được) ·
    'LN22' = cặp 1:2 của Lâm (hai người, một suất). Không đụng khung của hội viên thử đã đặt sẵn (Diệu Linh, Hữu Tâm) và các khung
-   test/ui_qc.js đặt. Chỗ để thử: T3 18:00 đầy nhưng Tạ Uyển Nhi (1:2 · Lâm) vào được · T7 16:00 cô ấy vào không tốn suất ·
-   T2 16:00 cặp của Lâm đã đủ → "Coach bận" · T4 16:00 Lâm đang dạy 1:1 → "Coach bận" · T6 07:00 Quyết bận với Trịnh Minh Khôi. */
+   test/ui_qc.js đặt. Khách 1:2 chỉ đặt khung ghép 09 · 11 · 15 · 17 · 19 (chủ studio chốt 18/10) nên suất 1:2 nằm ở các giờ đó.
+   Chỗ để thử: T3 17:00 đầy nhưng Tạ Uyển Nhi (1:2 · Lâm) ghép được với Tuấn Kiệt · T7 15:00 ghép với Thảo Vy không tốn suất ·
+   T2 15:00 cặp của Lâm đã đủ → "Coach bận" · T6 15:00 Lâm đang dạy 1:1 (phòng đầy) · T6 07:00 Quyết bận với Trịnh Minh Khôi. */
 const BUSY = [
   [0, 10, ['QH', 'HM', 'KP', 'BN']], [2, 10, ['QH', 'HM', 'KP', 'LN']], [2, 15, ['QH', 'HM', 'KP', 'BN']], [4, 15, ['QH', 'KP', 'LN', 'BN']],
-  [1, 18, ['QH', 'HM', 'KP', 'LN2']], [3, 18, ['QH', 'HM', 'LN', 'BN']], [4, 18, ['QH', 'HM', 'KP', 'BN']],
+  [1, 17, ['QH', 'HM', 'KP', 'LN2']], [3, 18, ['QH', 'HM', 'LN', 'BN']], [4, 18, ['QH', 'HM', 'KP', 'BN']],
   [4, 7, ['QH', 'HM', 'KP']], [3, 9, ['HM', 'KP', 'BN']], [4, 10, ['HM', 'LN', 'BN']], [0, 14, ['QH', 'KP', 'BN']], [2, 14, ['HM', 'KP', 'BN']],
-  [3, 14, ['QH', 'KP', 'LN']], [2, 16, ['QH', 'LN', 'BN']], [5, 16, ['HM', 'KP', 'LN2']], [5, 18, ['QH', 'HM', 'BN']], [1, 20, ['HM', 'KP', 'BN']],
-  [0, 16, ['LN22']]];
+  [3, 14, ['QH', 'KP', 'LN']], [2, 16, ['QH', 'LN', 'BN']], [5, 15, ['HM', 'KP', 'LN2']], [5, 18, ['QH', 'HM', 'BN']], [1, 20, ['HM', 'KP', 'BN']],
+  [0, 15, ['LN22']]];
 const TAG = { QH: QH, HM: HM, KP: KP, LN: LN, BN: BN };
 /* Đổi dữ liệu thế giới giả (người tập nền, khung bận) → tăng số này: máy đã mở ?qc trước đó dựng lại thế giới mới khi tải trang. */
-const WORLD_V = 2;
+const WORLD_V = 3;
 /* Phòng nghỉ T7 24.10 (bật / tắt trong bảng QC) — dòng của khối "LÝ DO ĐÓNG CỬA" trên tab B0B */
 const NGHI = ['', 'Bảo trì phòng tập', '24/10/26'];
 
@@ -141,6 +143,13 @@ function seedWrites() {
     const m = BG[i], at = t0 + (5 + i * 157) * 1e3;
     const picks = Object.keys(p).sort().map(d => ({ date: d, h: p[d] }));
     out.push({ at: at, rows: picks.map(x => C.logRow(ticketOf(m), 1, WEEK, x, meOf(m), 'Đặt', '', C.stamp(at), 'qcw' + m.code + '01')) });
+  });
+  /* lời mời tập đôi: người 1:2 của Lâm đang chờ một mình mời Tạ Uyển Nhi (dòng "Mời" như máy chủ ghi, sau dòng đặt của họ) */
+  const U = PERSONAS.find(m => m.code === 'B805DY'), plan = bgPlan();
+  [[slot(1, 17), vn('2026-10-18', '06:35:10')], [slot(5, 15), vn('2026-10-18', '06:41:40')]].forEach(([x, at], j) => {
+    const i = BG.findIndex((m, k) => m.kind === '1:2' && m.coach === LN && plan[k][x.date] === x.h);
+    if (i < 0) throw new Error('QC: không có người 1:2 nào của Lâm chờ ở ' + x.date + ' ' + x.h);
+    out.push({ at: at, rows: [C.inviteRow(ticketOf(BG[i]), 1, WEEK, x, meOf(BG[i]), meOf(U), C.stamp(at), 'qcwI' + BG[i].code + j)] });
   });
   const L = PERSONAS.find(m => m.code === 'B807DY'), a = vn('2026-10-18', '06:12:31');
   out.push({ at: a, rows: [slot(0, 7), slot(2, 18), slot(4, 19)].map(x => C.logRow(ticketOf(L), 1, WEEK, x, meOf(L), 'Đặt', '', C.stamp(a), 'qcwB807DY01')) });
@@ -407,7 +416,8 @@ async function fillSlot(p) {
 async function serve(p) {
   if (opt.slow) await sleep(2000);
   if (opt.offline) { await sleep(120); throw netErr(); }
-  const write = p.action === 'lt_book' || p.action === 'lt_change', fault = write ? opt.fault : '';
+  const book = p.action === 'lt_book' || p.action === 'lt_change', duo = p.action === 'lt_invite' || p.action === 'lt_decline';
+  const fault = book || (duo && opt.fault !== 'taken') ? opt.fault : '';
   if (fault) {
     const f = FAULTS.find(x => x[0] === fault), pp = C.parts(nowMs());
     opt.fault = ''; opt.last = f[1] + ' · lúc ' + C.lt2(pp.hh) + ':' + C.lt2(pp.mi) + ':' + C.lt2(pp.ss); saveOpt(); refreshPanel();

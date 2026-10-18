@@ -29,6 +29,12 @@ export const LT = {
   FIND_TOP: 6,                                       // tối đa 6 người mỗi lượt tìm; nhiều hơn → more: true
   LOG: 'Sổ đặt lịch', DATA: '_dữ liệu',
   ON: 'Đã đặt', MOVED: 'Đã đổi',
+  /* Ghép lớp 1:2 (chủ studio chốt 18/10 14:13): gói 1:2 chỉ đặt ở các khung ghép cố định; người đặt trước mời được một bạn 1:2
+     cùng coach (dòng sổ "Mời"), bạn kia nhận (đặt / thêm / dời vào) hoặc từ chối (dòng "Từ chối"); dời một buổi ĐANG LẺ vào cặp
+     đang chờ = "Ghép" — không tính lượt đổi, được dời trong cùng ngày */
+  DUO_HOURS: [9, 11, 15, 17, 19],
+  INVITE: 'Mời', DECLINE: 'Từ chối', PAIR: 'Ghép',
+  INVITE_MAX: 20,                                    // dòng mời + từ chối / hội viên / tuần (chặn bấm liên tục)
   LOG_HEAD: ['Mã phiếu', 'Bản', 'Tuần', 'Ngày', 'Thứ', 'Giờ', 'Hội viên', 'Tên ngắn', 'Coach', 'Loại',
              'Trạng thái', 'Thao tác', 'Ghi chú', 'Lúc ghi', 'Mã yêu cầu', 'Mã KH', '_hiển thị'],
   LOG_COL: 2, LOG_HEAD_ROW: 4,
@@ -438,12 +444,14 @@ export function slotLabel(x) { return LT.DOW[dowOf(x.date)] + ' ' + ddMm(x.date)
 /* Lõi nghiệp vụ                                                        */
 /* ================================================================== */
 
-/** Phiếu của hội viên trong tuần: các dòng "Đã đặt" + số lần đổi + bản phiếu + vết đổi (từ → sang, theo thứ tự ghi). */
+/** Phiếu của hội viên trong tuần: các dòng "Đã đặt" + số lần đổi + bản phiếu + vết đổi (từ → sang, theo thứ tự ghi).
+    Dòng "Mời" / "Từ chối" không phải buổi tập, không đổi bản phiếu — chỉ đếm (acts) để chặn bấm liên tục. "Ghép" không tính lượt đổi. */
 export function mine(rows, person, ctx) {
   const code = person.key + '-W' + lt2(ctx.no), list = [], moves = [];
-  let ver = 0, changes = 0;
+  let ver = 0, changes = 0, acts = 0;
   rows.forEach(r => {
     if (r.week !== ctx.key || r.kh !== person.key) return;
+    if (r.st === LT.INVITE || r.st === LT.DECLINE) { acts++; return; }
     if (r.ver > ver) ver = r.ver;
     if (r.act === 'Đổi') {
       changes++;
@@ -453,7 +461,7 @@ export function mine(rows, person, ctx) {
     if (r.st === LT.ON && r.date && r.h >= 0) list.push({ date: r.date, h: r.h, row: r.row, note: r.note || '' });
   });
   list.sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : a.h - b.h);
-  return { code: code, ver: ver, changes: changes, sessions: list, moves: moves };
+  return { code: code, ver: ver, changes: changes, sessions: list, moves: moves, acts: acts };
 }
 /** "Đổi từ T6 23.10 · 19:00 …" → {date: ngày trong tuần có dd.mm đó, h: 19}; không đọc được → null. */
 export function fromNote(note, ctx) {
@@ -468,16 +476,17 @@ export function fromNote(note, ctx) {
  * hay 8 khách 1:2, hay 3 khách 1:1 + một cặp 1:2 = 5 người — đều là đầy. Khách tập thử và dòng sổ không ghi coach:
  * mỗi người một suất riêng. Sổ lệch luật (một coach hai khách 1:1, hoặc 1:1 lẫn 1:2 — dòng sửa tay / ghi trước luật)
  * vẫn tính đủ từng suất, không bao giờ nhét thêm người vào phòng.
- * Trả {"yyyy-MM-dd|h": {u: số suất đã chiếm, x: số suất không coach, c: {khoá coach: [{kh: Mã KH, duo: gói 1:2}]}}}.
+ * Trả {"yyyy-MM-dd|h": {u: số suất đã chiếm, x: số suất không coach, c: {khoá coach: [{kh: Mã KH, duo: gói 1:2, name: họ tên trên sổ,
+ * i: thứ tự dòng trong sổ}]}}} — i để biết một lời mời có ghi SAU lượt đặt hiện tại của người mời không.
  */
 export function roomOf(rows, ctx, trials) {
   const o = {};
   const at = k => o[k] || (o[k] = { u: 0, x: 0, c: {} });
-  rows.forEach(r => {
+  rows.forEach((r, i) => {
     if (r.week !== ctx.key || r.st !== LT.ON || r.h < 0) return;
     const s = at(r.date + '|' + r.h), ck = coachKey(r.coach);
     if (!ck) { s.x++; return; }
-    (s.c[ck] || (s.c[ck] = [])).push({ kh: r.kh, duo: isDuo(r.kind) });
+    (s.c[ck] || (s.c[ck] = [])).push({ kh: r.kh, duo: isDuo(r.kind), name: r.name, i: i });
   });
   for (const k in trials) at(k).x += trials[k];
   for (const k in o) {
@@ -500,18 +509,61 @@ export function taken(rows, ctx, trials) {
 export function envOf(ctx, rows, trials, closed, cap) {
   const room = roomOf(rows, ctx, trials), t = {};
   for (const k in room) t[k] = room[k].u;
-  return { closed: closed, cap: cap, taken: t, room: room };
+  return { closed: closed, cap: cap, taken: t, room: room, inv: invitesOf(rows, ctx) };
+}
+/** Mã KH ở cuối ghi chú dòng mời / từ chối: "Mời K. Cặp Hai · B926DY" → "B926DY"; "Huỷ mời" → "". */
+export function noteKey(note) { const s = String(note || ''), i = s.lastIndexOf(' · '); return i < 0 ? '' : s.slice(i + 3).trim(); }
+/**
+ * Lời mời trong tuần (dòng sau thay dòng trước): inv["người mời|ngày|giờ"] = {to: Mã KH người được mời ('' = đã huỷ), i: thứ tự dòng};
+ * dec["người được mời|người mời|ngày|giờ"] = thứ tự dòng "Từ chối" mới nhất; seat["hội viên|ngày|giờ"] = thứ tự dòng đặt mới nhất
+ * (kể cả dòng đã đổi đi) của hội viên ở khung đó — người được mời đã vào khung sau lời mời thì lời mời đã xong.
+ */
+export function invitesOf(rows, ctx) {
+  const inv = {}, dec = {}, seat = {};
+  rows.forEach((r, i) => {
+    if (r.week !== ctx.key || !r.date || r.h < 0) return;
+    if (r.st === LT.INVITE) inv[r.kh + '|' + r.date + '|' + r.h] = { to: noteKey(r.note), i: i };
+    else if (r.st === LT.DECLINE) dec[r.kh + '|' + noteKey(r.note) + '|' + r.date + '|' + r.h] = i;
+    else if (r.kh) seat[r.kh + '|' + r.date + '|' + r.h] = i;
+  });
+  return { inv: inv, dec: dec, seat: seat };
+}
+/** Lời mời iv (của người mời `from` ở khung k) đã bị người được mời từ chối SAU khi mời chưa. */
+function declinedOf(inv, iv, from, k) { const d = inv.dec[iv.to + '|' + from + '|' + k]; return d !== undefined && d > iv.i; }
+/** Những người khác trong nhóm của coach hội viên ở khung k (bỏ dòng của chính hội viên). */
+function othersAt(env, person, k) {
+  const s = env.room ? env.room[k] : null, ck = coachKey(person.coach), g = s && ck ? s.c[ck] : null;
+  return g ? g.filter(e => e.kh !== person.key) : [];
+}
+/** Dòng "Đã đặt" của chính hội viên ở khung k (trong nhóm coach của mình), không có → null. */
+function selfAt(env, person, k) {
+  const s = env.room ? env.room[k] : null, ck = coachKey(person.coach), g = s && ck ? s.c[ck] : null;
+  if (!g) return null;
+  for (let i = 0; i < g.length; i++) if (g[i].kh === person.key) return g[i];
+  return null;
+}
+/** Lời mời đang còn của người mời `from` (dòng "Đã đặt" của họ ở khung k là `seat`): ghi SAU lượt đặt hiện tại, chưa huỷ, người được
+    mời chưa từng vào khung này sau lời mời (đã vào — kể cả rồi đổi đi — là lời mời đã xong, không hiện lại).
+    Trả lời mời (có thể đã bị từ chối — kiểm declinedOf) hoặc null. */
+function liveInvite(env, from, seat, k) {
+  const iv = env.inv.inv[from + '|' + k];
+  if (!iv || !iv.to || !seat || iv.i <= seat.i) return null;
+  const a = env.inv.seat[iv.to + '|' + k];
+  return a !== undefined && a > iv.i ? null : iv;
 }
 /**
  * Coach của hội viên ở khung k (không tính dòng của chính hội viên): '' rảnh · 'join' coach đang có đúng MỘT khách 1:2 khác
  * và hội viên cũng gói 1:2 → ghép thành cặp, không chiếm thêm suất · 'busy' coach đã kín khung đó với hội viên này.
  */
 export function coachAt(env, person, k) {
-  const s = env.room ? env.room[k] : null, ck = coachKey(person.coach), g = s && ck ? s.c[ck] : null;
-  if (!g) return '';
-  const o = g.filter(e => e.kh !== person.key);
+  const o = othersAt(env, person, k);
   if (!o.length) return '';
   return isDuo(person.kind) && o.length === 1 && o[0].duo ? 'join' : 'busy';
+}
+/** Dời buổi `from` của hội viên 1:2 — đang LẺ (coach chưa có ai khác ở đó) — vào khung `to` có đúng một khách 1:2 cùng coach đang
+    chờ → thành cặp: "Ghép", không tính lượt đổi, được dời trong cùng ngày. */
+export function pairMove(env, person, from, to) {
+  return isDuo(person.kind) && coachAt(env, person, to.date + '|' + to.h) === 'join' && coachAt(env, person, from.date + '|' + from.h) === '';
 }
 /** Khung hết chỗ với hội viên này: phòng đầy hoặc coach bận (máy chủ trả het_cho, trang gợi ý giờ khác). */
 export function isFull(w) { return w === 'day' || w === 'coach_ban'; }
@@ -523,6 +575,7 @@ export function why(ctx, person, env, iso, h, lead) {
   if (env.closed[iso] !== undefined) return 'nghi';
   if (person.start && iso < person.start) return 'chua_bat_dau';
   if (person.exp && iso > person.exp) return 'het_han';
+  if (isDuo(person.kind) && LT.DUO_HOURS.indexOf(h) < 0) return 'gio_ghep';     /* gói 1:2: chỉ các khung ghép cố định */
   const t = slotMs(iso, h);
   if (t <= ctx.now) return 'qua';
   if (lead && t - ctx.now < lead) return 'duoi_24h';
@@ -575,20 +628,70 @@ export function checkBook(ctx, person, env, m, picks) {
   if (full.length) return { error: 'het_cho', full: full };
   return { ok: true };
 }
-/** Kiểm tra đổi buổi: từ buổi `from` sang khung `to` (ngày khác, cùng tuần, cả hai cách hiện tại ≥ 24 giờ). */
+/**
+ * Kiểm tra đổi buổi: từ buổi `from` sang khung `to` (ngày khác, cùng tuần, cả hai cách hiện tại ≥ 24 giờ).
+ * Gói 1:2: dời một buổi đang lẻ vào cặp đang chờ (pairMove) không tính lượt đổi — còn làm được khi đã hết lượt, và được dời
+ * trong cùng ngày. Trả {ok, cur, pair} — pair: ghi "Ghép" thay "Đổi".
+ */
 export function checkChange(ctx, person, env, m, from, to) {
-  if (m.changes >= LT.CHANGES) return { error: 'het_luot_doi' };
+  const duo = isDuo(person.kind);
+  if (!duo && m.changes >= LT.CHANGES) return { error: 'het_luot_doi' };
   if (!from || !to || !validIso(from.date) || !validIso(to.date) || LT.SLOTS.indexOf(to.h) < 0) return { error: 'khong_hop_le', why: 'khung' };
   let cur = null;
   m.sessions.forEach(s => { if (s.date === from.date && s.h === from.h) cur = s; });
   if (!cur) return { error: 'khong_hop_le', why: 'khong_co_buoi' };
+  const pair = duo && pairMove(env, person, cur, to);
+  if (!pair && m.changes >= LT.CHANGES) return { error: 'het_luot_doi' };
   if (slotMs(cur.date, cur.h) - ctx.now < LT.LEAD) return { error: 'khong_hop_le', why: 'buoi_duoi_24h' };
-  if (to.date === from.date) return { error: 'khong_hop_le', why: 'cung_ngay' };
-  for (let i = 0; i < m.sessions.length; i++) if (m.sessions[i].date === to.date) return { error: 'khong_hop_le', why: 'mot_ngay_mot_buoi' };
+  if (to.date === from.date && !pair) return { error: 'khong_hop_le', why: 'cung_ngay' };
+  for (let i = 0; i < m.sessions.length; i++) if (m.sessions[i].date === to.date && m.sessions[i] !== cur) return { error: 'khong_hop_le', why: 'mot_ngay_mot_buoi' };
   const w = why(ctx, person, env, to.date, to.h, LT.LEAD);
   if (isFull(w)) return { error: 'het_cho', full: [{ date: to.date, h: to.h }] };
   if (w) return { error: 'khong_hop_le', why: w };
-  return { ok: true, cur: cur };
+  return { ok: true, cur: cur, pair: pair };
+}
+/**
+ * Kiểm lời mời: người mời (gói 1:2) có buổi ở khung ghép `slot`, đang chờ một mình, khung còn đặt được; to = hội viên được mời
+ * (gói 1:2, cùng coach, không phải chính mình) hoặc null = huỷ lời mời. noop: không cần ghi gì (mời lại đúng người đang được
+ * mời, hay huỷ khi chưa mời ai).
+ */
+export function checkInvite(ctx, person, env, m, slot, to) {
+  if (!isDuo(person.kind)) return { error: 'khong_hop_le', why: 'goi' };
+  if (!slot || !validIso(slot.date) || LT.DUO_HOURS.indexOf(slot.h) < 0) return { error: 'khong_hop_le', why: 'khung' };
+  if (!m.sessions.some(s => s.date === slot.date && s.h === slot.h)) return { error: 'khong_hop_le', why: 'khong_co_buoi' };
+  const t = slotMs(slot.date, slot.h), k = slot.date + '|' + slot.h;
+  if (t <= ctx.now) return { error: 'khong_hop_le', why: 'qua' };
+  if (ctx.lead && t - ctx.now < ctx.lead) return { error: 'khong_hop_le', why: 'duoi_24h' };
+  if (othersAt(env, person, k).length) return { error: 'da_ghep' };
+  if (m.acts >= LT.INVITE_MAX) return { error: 'qua_luot_moi' };
+  const cur = liveInvite(env, person.key, selfAt(env, person, k), k);
+  if (to) {
+    if (to.key === person.key || !isDuo(to.kind) || coachKey(to.coach) !== coachKey(person.coach)) return { error: 'khong_hop_le', why: 'nguoi_moi' };
+    if (cur && cur.to === to.key && !declinedOf(env.inv, cur, person.key, k)) return { ok: true, noop: true };
+  } else if (!cur) return { ok: true, noop: true };
+  return { ok: true };
+}
+/** Từ chối lời mời ở khung `slot`: tìm người đang chờ một mình trong nhóm coach của hội viên ở khung đó và đang mời hội viên.
+    Không còn lời mời nào như vậy (người mời đã dời, đã có người vào, đã từ chối) → noop. Trả {ok, from: {kh, name}}. */
+export function checkDecline(ctx, person, env, slot) {
+  if (!isDuo(person.kind)) return { error: 'khong_hop_le', why: 'goi' };
+  if (!slot || !validIso(slot.date) || LT.SLOTS.indexOf(slot.h) < 0) return { error: 'khong_hop_le', why: 'khung' };
+  const k = slot.date + '|' + slot.h, o = othersAt(env, person, k);
+  if (o.length !== 1 || !o[0].duo) return { ok: true, noop: true };
+  const iv = liveInvite(env, o[0].kh, o[0], k);
+  if (!iv || iv.to !== person.key || declinedOf(env.inv, iv, o[0].kh, k)) return { ok: true, noop: true };
+  return { ok: true, from: { kh: o[0].kh, name: o[0].name } };
+}
+/** Dòng sổ lời mời (17 cột như logRow): Trạng thái + Thao tác "Mời", ghi chú "Mời <tên ngắn> · <Mã KH>" hoặc "Huỷ mời". Bản phiếu
+    giữ nguyên (lời mời không đổi phiếu). */
+export function inviteRow(code, ver, week, slot, me, to, stampStr, rid) {
+  return [code, ver, week, slot.date, LT.DOW[dowOf(slot.date)], hm(slot.h), me.name, me.short, me.coach, me.kind,
+          LT.INVITE, LT.INVITE, to ? LT.INVITE + ' ' + to.short + ' · ' + to.key : 'Huỷ mời', stampStr, rid, me.key, me.short + ' · ' + initials(me.coach)];
+}
+/** Dòng sổ từ chối lời mời: của người được mời, ở khung được mời, ghi chú "Từ chối lời mời của <tên ngắn người mời> · <Mã KH>". */
+export function declineRow(code, ver, week, slot, me, fromShort, fromKey, stampStr, rid) {
+  return [code, ver, week, slot.date, LT.DOW[dowOf(slot.date)], hm(slot.h), me.name, me.short, me.coach, me.kind,
+          LT.DECLINE, LT.DECLINE, 'Từ chối lời mời của ' + fromShort + ' · ' + fromKey, stampStr, rid, me.key, me.short + ' · ' + initials(me.coach)];
 }
 
 /** Còn khung nào đặt được tuần này không (bỏ qua chỗ trống) — dùng cho màn chưa mở. */
@@ -603,8 +706,43 @@ export function anyOpen(ctx, closed) {
   return false;
 }
 
-/** Gói thông tin trả cho trình duyệt (không có SĐT, không có tên người khác). */
-export function stateOf(ctx, person, env, m, marks) {
+/** Tên gọi / tên ngắn của một người trên sổ: lấy theo danh sách hội viên hiện tại (Mã KH), không có thì theo họ tên ghi trên sổ. */
+function callOf(kh, name, list) { const p = list ? findPerson(list, kh) : null; return p ? p.call : callName(name); }
+export function shortOf(kh, name, list) { const p = list ? findPerson(list, kh) : null; return p ? p.short : short(name); }
+/**
+ * Phần riêng gói 1:2 trong state (chủ studio chốt 18/10 14:13 — khách 1:2 thấy tên bạn tập cùng coach):
+ *  duoHours: các khung ghép · wait: {khung: tên gọi người đang chờ ghép} (khung còn tới, coach của mình, chưa có mình) ·
+ *  pairs: {buổi của mình: tên gọi bạn tập} · invOut: {buổi đang lẻ của mình: {to: tên gọi người được mời, st: 'wait' | 'no'}} ·
+ *  invIn: [{date, h, from: tên gọi}] lời mời gửi mình còn nhận được · peers: [{key, short, call}] khách 1:2 cùng coach để mời
+ *  (máy chủ đổi key → id trước khi trả, không bao giờ lộ Mã KH).
+ */
+export function duoState(ctx, person, env, m, list) {
+  const wait = {}, pairs = {}, invOut = {}, invIn = [], mineAt = {}, ck = coachKey(person.coach);
+  m.sessions.forEach(s => { mineAt[s.date + '|' + s.h] = 1; });
+  ctx.days.forEach(d => LT.DUO_HOURS.forEach(h => {
+    const k = d + '|' + h, o = othersAt(env, person, k);
+    if (mineAt[k] || slotMs(d, h) <= ctx.now || o.length !== 1 || !o[0].duo) return;
+    wait[k] = callOf(o[0].kh, o[0].name, list);
+    const iv = liveInvite(env, o[0].kh, o[0], k);
+    if (iv && iv.to === person.key && !declinedOf(env.inv, iv, o[0].kh, k) && why(ctx, person, env, d, h, ctx.lead) === '') {
+      invIn.push({ date: d, h: h, from: wait[k] });
+    }
+  }));
+  m.sessions.forEach(s => {
+    const k = s.date + '|' + s.h, o = othersAt(env, person, k);
+    if (o.length === 1 && o[0].duo) { pairs[k] = callOf(o[0].kh, o[0].name, list); return; }
+    if (o.length || slotMs(s.date, s.h) <= ctx.now) return;
+    const iv = liveInvite(env, person.key, selfAt(env, person, k), k), p = iv && list ? findPerson(list, iv.to) : null;
+    if (p) invOut[k] = { to: p.call, st: declinedOf(env.inv, iv, person.key, k) ? 'no' : 'wait' };
+  });
+  const peers = (list || []).filter(p => p.key !== person.key && isDuo(p.kind) && coachKey(p.coach) === ck)
+    .map(p => ({ key: p.key, short: p.short, call: p.call }))
+    .sort((a, b) => a.short.localeCompare(b.short, 'vi') || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
+  return { duoHours: LT.DUO_HOURS, wait: wait, pairs: pairs, invOut: invOut, invIn: invIn, peers: peers };
+}
+/** Gói thông tin trả cho trình duyệt (không có SĐT; tên người khác chỉ có ở phần gói 1:2 — bạn tập cùng coach). list: danh sách
+    hội viên còn hiệu lực (gói 1:2 cần để lấy tên gọi + danh sách mời). */
+export function stateOf(ctx, person, env, m, marks, list) {
   const lim = limits(ctx, person, env, m), closed = {}, tk = {}, co = {};
   ctx.days.forEach(d => {
     if (env.closed[d] !== undefined) closed[d] = env.closed[d] || 'Phòng nghỉ';
@@ -619,7 +757,7 @@ export function stateOf(ctx, person, env, m, marks) {
     return { date: s.date, h: s.h, st: mk === 'done' ? 'done' : mk === 'absent' ? 'absent' : past ? 'past' : 'on' };
   });
   const mode = sessions.length ? 'ticket' : (lim.max > 0 ? 'book' : 'closed');
-  return {
+  const out = {
     ok: true, auth: true, now: ctx.now, mode: mode,
     week: { key: ctx.key, no: ctx.no, mon: ctx.mon, days: ctx.days, phase: ctx.phase, lead: ctx.lead > 0,
             nextOpen: ctx.nextOpen, nextNo: ctx.nextNo, closed: closed },
@@ -630,6 +768,8 @@ export function stateOf(ctx, person, env, m, marks) {
             moves: (m.moves || []).map(x => ({ from: { date: x.from.date, h: x.from.h }, to: { date: x.to.date, h: x.to.h } })) },
     limits: { min: lim.min, max: lim.max, add: lim.add }
   };
+  if (isDuo(person.kind)) out.duo = duoState(ctx, person, env, m, list);
+  return out;
 }
 /** Màn công khai (chưa xác minh): thông tin tuần để hiện tìm tên hoặc đếm ngược. */
 export function publicOf(ctx, why, closed) {

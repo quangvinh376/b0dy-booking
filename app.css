@@ -311,6 +311,10 @@ button.stepn .ic{width:16px;height:16px}
 .pk-t{font-family:var(--mono);font-size:24px;line-height:23px;letter-spacing:-.03em;color:var(--muc)}
 .pk .ib{flex:none}
 .pk>.ic{flex:none;margin-right:6px;width:20px;height:20px;stroke:var(--than)}
+.pk-t.w{display:flex;align-items:center;gap:12px;min-width:0}
+.pk-w{display:flex;align-items:center;gap:6px;min-width:0;font-family:var(--sans);font-size:14px;line-height:17px;letter-spacing:-.01em;color:var(--than)}
+.pk-w .ic{width:16px;height:16px;stroke:var(--than);stroke-width:1.5}
+.pk-w>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pk.booked{box-shadow:inset 0 0 0 1px var(--muc)}
 .pk.moving{box-shadow:none;background:var(--giay)}
 .pk.moving::before{content:'';position:absolute;inset:0;border-radius:var(--r);border:1px dashed var(--muc);pointer-events:none}
@@ -387,6 +391,31 @@ button.stepn .ic{width:16px;height:16px}
   .c.sel:not(:disabled):hover::before{background:var(--ke-giay)}
 }
 .c .m{display:none}
+/* gói 1:2 · ghép lớp: bảng chỉ các khung ghép (ít hàng → hàng cao hơn, đủ chỗ cho tên bạn tập) */
+.wk.duo{--rh:clamp(48px,calc((100dvh - 354px)/(var(--n,5) + 1)),80px)}
+/* ô có bạn cùng coach đang chờ: nhãn "GHÉP" (mono) + tên gọi (sans, chữ thường) · buổi của mình / ô đang chọn đã có bạn: giờ + tên */
+.c .d.jn{display:flex;flex-direction:column;align-items:center;gap:3px;max-width:100%}
+.c .jk{display:flex;align-items:center;gap:5px;white-space:nowrap}
+.c .jk .ic{width:14px;height:14px;stroke-width:1.5}
+.c .jt{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--sans);font-size:13px;line-height:16px;letter-spacing:-.01em;text-transform:none;color:var(--muc)}
+.c.sel .jt{color:var(--giay)}
+.c.sel .d.jn .jk,.c.mine .d.jn .jk{font-size:14px;line-height:17px;letter-spacing:0}
+.c.join{color:var(--muc)}
+/* lời mời gửi mình ở ô này: chấm Acid (dữ liệu sống), viền Mực mảnh để thấy trên nền Giấy */
+.c.inv::after{content:'';position:absolute;top:5px;right:5px;width:7px;height:7px;border-radius:50%;background:var(--acid);box-shadow:0 0 0 1px var(--muc);pointer-events:none}
+.sw.k-ghep svg{width:11px;height:11px;stroke:var(--muc);stroke-width:2;fill:none}
+
+/* dòng Tập đôi trên màn phiếu (gói 1:2): bấm → bảng Tập đôi */
+.prl-w{display:flex;margin-top:20px}
+.prl-w:empty{display:none}
+.prl{display:flex;align-items:center;gap:10px;min-width:0;max-width:100%;height:48px;padding:0 14px 0 16px;border-radius:var(--r);background:var(--giay2);text-align:left;transition:background-color var(--hov)}
+.prl>.ic{width:20px;height:20px;stroke:var(--than);flex:none}
+.prl-t{flex:0 1 auto;min-width:0;font-size:16px;line-height:19px;color:var(--muc);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.prl-c{flex:none;margin-left:6px;font-family:var(--mono);font-size:10px;line-height:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muc)}
+.prl .chev{width:16px;height:16px;stroke:var(--than);stroke-width:1.5;flex:none;margin-left:2px}
+.prl.inv{background:var(--giay);box-shadow:inset 0 0 0 1px var(--muc)}
+.prl-dot{width:8px;height:8px;margin:0 2px;border-radius:50%;background:var(--acid);box-shadow:0 0 0 1px var(--muc);flex:none}
+@media (hover:hover) and (pointer:fine){ .prl:hover{background-image:linear-gradient(var(--ke-manh),var(--ke-manh))} }
 /* vạch "bây giờ" */
 .now{position:absolute;left:0;height:2px;margin-top:-1px;pointer-events:none;z-index:3;display:flex;align-items:center;transition:top .6s var(--eio)}
 .now::before{content:'';position:absolute;left:-3px;top:-2px;width:6px;height:6px;border-radius:50%;background:var(--muc)}
@@ -497,6 +526,33 @@ button.stepn .ic{width:16px;height:16px}
 .sh-act{display:flex;flex-direction:column;gap:10px}
 .sh-act .row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .sh-act .row .btn{padding:0 8px}
+.sh-two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.sh-two .btn{width:100%;padding:0 12px}
+/* vẽ lại tại chỗ (đổi lựa chọn / state mới): không chạy lại hiệu ứng trồi lên */
+.drawer.on.rr .dr-h,.drawer.on.rr .dr-sec{animation:none}
+
+/* bảng Tập đôi (gói 1:2): lời mời cho mình · từng buổi 1:2 · chọn bạn để mời */
+.pr-sub{margin-top:-12px;font-family:var(--mono);font-size:10px;line-height:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--than);text-wrap:balance}
+.pr-list{display:flex;flex-direction:column}
+.pr-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px 12px;min-height:64px;padding:12px 0;box-shadow:inset 0 -1px 0 var(--ke)}
+.pr-l{display:flex;flex-direction:column;gap:4px;min-width:0;flex:1 1 180px}
+.pr-t{font-family:var(--mono);font-size:14px;line-height:17px;letter-spacing:0;color:var(--muc)}
+.pr-s{font-size:14px;line-height:17px;color:var(--than)}
+.pr-row.on .pr-s{color:var(--muc)}
+.pr-row.inv .pr-s{color:var(--muc)}
+.pr-a{display:flex;gap:8px;flex:none}
+.pr-pick{display:flex;flex-direction:column;gap:12px;padding:4px 0 16px;box-shadow:inset 0 -1px 0 var(--ke)}
+.pr-q{font-size:14px;line-height:17px;color:var(--than)}
+.pr-opts{display:flex;flex-wrap:wrap;gap:8px}
+.pr-opt{display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 14px 0 12px;border-radius:var(--r);background:var(--giay);box-shadow:inset 0 0 0 1px var(--ke);font-size:14px;line-height:17px;color:var(--muc);transition:box-shadow var(--hov)}
+.pr-opt .rd{position:relative;width:14px;height:14px;border-radius:50%;box-shadow:inset 0 0 0 1px var(--muc);flex:none}
+.pr-opt .rd::after{content:'';position:absolute;inset:3px;border-radius:50%;background:var(--muc);transform:scale(0);transition:transform .18s var(--eo)}
+.pr-opt.on{box-shadow:inset 0 0 0 1px var(--muc)}
+.pr-opt.on .rd::after{transform:none}
+.pr-pa{display:flex;gap:8px}
+.pr-empty{padding:12px 0;font-size:14px;line-height:17px;color:var(--than)}
+.pr-note{font-size:14px;line-height:17px;color:var(--than)}
+@media (hover:hover) and (pointer:fine){ .pr-opt:not(.on):hover{box-shadow:inset 0 0 0 1px var(--bong-cham)} }
 
 /* ---------- toast (thông báo nhỏ, mép trên) ---------- */
 .toast{position:fixed;left:50%;top:calc(var(--hdh) + 12px);z-index:50;display:flex;align-items:center;gap:10px;max-width:calc(100vw - 32px);padding:10px 16px;border-radius:var(--r);
@@ -596,6 +652,17 @@ button.stepn .ic{width:16px;height:16px}
   .tl .d,.c .d{display:none}
   .c .m{display:inline}
   .c .m.cb{line-height:10px;text-align:center}    /* "Coach / bận" hai dòng như cột "Coach / nghỉ" */
+  .c .m.jn{line-height:10px;text-align:center}    /* "Ghép / Vy" hai dòng */
+  .wk.duo{--rh:clamp(44px,calc((100svh - 560px)/var(--n,5)),58px)}
+  .c.inv::after{top:3px;right:3px;width:5px;height:5px}
+  .lg-m .sw.k-ghep svg{width:9px;height:9px}
+  .prl-w{margin-top:12px}
+  .prl{width:100%;height:44px;padding:0 12px 0 14px}
+  .prl-t{flex:1 1 auto;font-size:14px;line-height:17px}
+  .pr-sub{margin-top:-8px}
+  .pr-row.inv .pr-a{width:100%}
+  .pr-row.inv .pr-a .btn{flex:1 1 0}
+  .pr-pa .btn{flex:1 1 0;padding:0 12px}
   .c{padding:0 2px;gap:3px;font-size:9px;line-height:11px;letter-spacing:.06em}
   .c.sel,.c.moving,.c.mine.tm{font-size:10px;line-height:12px;letter-spacing:.08em}
   .c .ic{width:11px;height:11px}

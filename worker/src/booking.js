@@ -1,12 +1,13 @@
 /**
  * B0DY — Lịch tập tuần · Durable Object "Booking" (một bản duy nhất phục vụ mọi lượt gọi)
  *
- * Hợp đồng API giống hệt ltDoPost_ của backend/LichTuan.gs: lt_ping · lt_boot · lt_find · lt_verify · lt_book · lt_change.
+ * Hợp đồng API giống hệt ltDoPost_ của backend/LichTuan.gs: lt_ping · lt_boot · lt_find · lt_verify · lt_book · lt_change ·
+ * lt_invite · lt_decline (gói 1:2: mời bạn cùng coach vào buổi đang chờ ghép / không nhận lời mời — dòng "Mời" / "Từ chối" trên sổ).
  * Sổ "Sổ đặt lịch" trên Google Sheets vẫn là NGUỒN SỰ THẬT (chủ studio sửa tay được, Apps Script dùng lại được).
  *
  *  · Đọc (boot / find / verify): trả ngay từ bộ nhớ (stale-while-revalidate), quá hạn thì làm mới ngầm.
  *      BA (MEMBERS, TRIAL, B0B, ⚙️ 2): 30 s · điểm danh SESSION LOG: 60 s · sổ: 15 s · cron giữ BA + sổ ≤ 1 phút.
- *  · Ghi (book / change) — GHI SAU, lượt gọi không đợi Google:
+ *  · Ghi (book / change / invite / decline) — GHI SAU, lượt gọi không đợi Google:
  *      xếp hàng trong DO → kiểm từng lượt bằng BỘ NHỚ (BA ≤ 90 s, TRIAL trong bộ nhớ, sổ = bản sheet ⊕ nhật ký)
  *      → sửa sổ trong bộ nhớ → lưu MỘT mục nhật ký 'j:…' vào storage của DO (bền) → mới trả lời.
  *  · flush() chạy ngầm sau ~150 ms: gom mọi mục đang chờ thành MỘT lệnh spreadsheets.batchUpdate (tất cả hoặc không).
@@ -466,6 +467,8 @@ export class BookingCore {
       if (a === 'lt_verify') return await this.apiVerify(p, now);
       if (a === 'lt_book') return await this.apiBook(p, now);
       if (a === 'lt_change') return await this.apiChange(p, now);
+      if (a === 'lt_invite') return await this.apiInvite(p, now);
+      if (a === 'lt_decline') return await this.apiDecline(p, now);
       return { ok: false, error: 'unknown_action', now: now };
     } catch (e) {
       return { ok: false, error: 'loi_he_thong', detail: msg(e), now: now };
@@ -539,7 +542,16 @@ export class BookingCore {
   async loadState(ctx, person, list, ba) {
     const L = await this.getLog(), marks = await this.marksFor(ctx);
     if (list) this.maybeSnapshot(list, ba.cap, ctx.now);
-    return C.stateOf(ctx, person, C.envOf(ctx, L.rows, this.trialsFor(ctx, ba), ba.closed, ba.cap), C.mine(L.rows, person, ctx), marks);
+    return this.withIds(C.stateOf(ctx, person, C.envOf(ctx, L.rows, this.trialsFor(ctx, ba), ba.closed, ba.cap), C.mine(L.rows, person, ctx), marks, list));
+  }
+  /** Gói 1:2: danh sách bạn để mời mang Mã KH → đổi sang id (như lt_find) trước khi trả cho trình duyệt. */
+  async withIds(st) {
+    if (st && st.duo && st.duo.peers) {
+      const sg = await this.signer(), out = [];
+      for (const x of st.duo.peers) out.push({ id: await sg.idOf(x.key), short: x.short, call: x.call });
+      st.duo.peers = out;
+    }
+    return st;
   }
 
   /** Ghi danh sách hội viên còn hiệu lực sang tab _dữ liệu (để "Bảng lịch tập" liệt kê "Chưa đặt lịch"). Tối đa 10 phút/lần. */
@@ -577,6 +589,25 @@ export class BookingCore {
     const to = { date: String(p.to && p.to.date || ''), h: Number(p.to && p.to.h) };
     return this.enqueue(pre, p, 'change', { from: from, to: to });
   }
+  /** Gói 1:2 · mời một bạn cùng coach vào buổi đang chờ ghép. p: {tok, dev, rid, week, date, h, to: id ('' = huỷ lời mời)} */
+  async apiInvite(p, now) {
+    const pre = await this.pre(p, now);
+    if (pre.out) return pre.out;
+    const slot = { date: String(p.date || ''), h: Number(p.h) }, id = String(p.to || '');
+    let to = null;
+    if (id) {
+      const sg = await this.signer();
+      for (const x of pre.list) { if (await sg.idOf(x.key) === id) { to = x; break; } }
+      if (!to) return { ok: false, error: 'khong_hop_le', why: 'nguoi_moi', now: now };
+    }
+    return this.enqueue(pre, p, 'invite', { slot: slot, to: to });
+  }
+  /** Gói 1:2 · không nhận lời mời ở khung date/h. p: {tok, dev, rid, week, date, h} */
+  async apiDecline(p, now) {
+    const pre = await this.pre(p, now);
+    if (pre.out) return pre.out;
+    return this.enqueue(pre, p, 'decline', { slot: { date: String(p.date || ''), h: Number(p.h) } });
+  }
 
   /** Kiểm phiên + mã yêu cầu + hội viên (dữ liệu BA không cũ hơn 90 s) — trước khi xếp hàng. */
   async pre(p, now) {
@@ -584,9 +615,9 @@ export class BookingCore {
     if (!t || !t.k) return { out: { ok: false, error: 'het_phien', now: now } };
     const rid = String(p.rid || '');
     if (!C.ridOk(rid)) return { out: { ok: false, error: 'khong_hop_le', why: 'rid', now: now } };
-    const ctx = C.weekCtx(now), ba = await this.getBA(this.cfg.WRITE_BA_FRESH), me = C.findPerson(this.persons(ctx, ba), t.k);
+    const ctx = C.weekCtx(now), ba = await this.getBA(this.cfg.WRITE_BA_FRESH), list = this.persons(ctx, ba), me = C.findPerson(list, t.k);
     if (!me) return { out: { ok: false, error: 'het_goi', now: now } };
-    return { rid: rid, me: me, closed: ba.closed, cap: ba.cap };
+    return { rid: rid, me: me, list: list, closed: ba.closed, cap: ba.cap };
   }
 
   /* ---------------- hàng đợi kiểm + ghi nhật ký ---------------- */
@@ -667,7 +698,8 @@ export class BookingCore {
     if (String(j.p.week || '') !== ctx.key) return { error: 'tuan_doi' };
     const env = C.envOf(ctx, L.rows, this.trialsFor(ctx, ba), j.pre.closed, j.pre.cap), m = C.mine(L.rows, j.pre.me, ctx);
     if (C.baseStale(j.p.base, m)) return { error: 'ban_cu' };
-    const r = j.kind === 'book' ? this.planBook(ctx, j, env, m) : this.planChange(ctx, j, env, m, L);
+    const r = j.kind === 'book' ? this.planBook(ctx, j, env, m) : j.kind === 'change' ? this.planChange(ctx, j, env, m, L)
+      : j.kind === 'invite' ? this.planInvite(ctx, j, env, m) : this.planDecline(ctx, j, env, m);
     if (!r.entry) return r;
     applyEntry(L, r.entry);
     this.jPending.push(r.entry);
@@ -685,12 +717,25 @@ export class BookingCore {
   planChange(ctx, j, env, m, L) {
     const chk = C.checkChange(ctx, j.pre.me, env, m, j.args.from, j.args.to);
     if (!chk.ok) return chk;
-    const cur = chk.cur, row = L.rows.find(x => x.row === cur.row) || {};
-    const st = C.stamp(ctx.now), ver = m.ver + 1, add = 'Đổi sang ' + C.slotLabel(j.args.to);
-    const arr = C.logRow(m.code, ver, ctx.key, j.args.to, j.pre.me, 'Đổi', 'Đổi từ ' + C.slotLabel(j.args.from), st, j.pre.rid);
+    /* gói 1:2 dời buổi đang lẻ vào cặp đang chờ: "Ghép" (không tính lượt đổi), còn lại "Đổi" như trước */
+    const act = chk.pair ? LT.PAIR : 'Đổi', cur = chk.cur, row = L.rows.find(x => x.row === cur.row) || {};
+    const st = C.stamp(ctx.now), ver = m.ver + 1, add = act + ' sang ' + C.slotLabel(j.args.to);
+    const arr = C.logRow(m.code, ver, ctx.key, j.args.to, j.pre.me, act, act + ' từ ' + C.slotLabel(j.args.from), st, j.pre.rid);
     /* dòng cũ: tìm lại theo khoá lúc ghi (số dòng có thể đổi vì chủ studio sửa tay) */
     const move = { code: row.code || m.code, kh: row.kh || j.pre.me.key, date: cur.date, h: cur.h, note: joinNote(cur.note, add), add: add };
     return { entry: this.newEntry(j.pre.rid, 'change', [arr], [move]) };
+  }
+  planInvite(ctx, j, env, m) {
+    const chk = C.checkInvite(ctx, j.pre.me, env, m, j.args.slot, j.args.to);
+    if (!chk.ok || chk.noop) return chk.ok ? { ok: true } : chk;
+    const arr = C.inviteRow(m.code, m.ver, ctx.key, j.args.slot, j.pre.me, j.args.to, C.stamp(ctx.now), j.pre.rid);
+    return { entry: this.newEntry(j.pre.rid, 'invite', [arr], []) };
+  }
+  planDecline(ctx, j, env, m) {
+    const chk = C.checkDecline(ctx, j.pre.me, env, j.args.slot);
+    if (!chk.ok || chk.noop) return chk.ok ? { ok: true } : chk;
+    const f = chk.from, arr = C.declineRow(m.code, m.ver, ctx.key, j.args.slot, j.pre.me, C.shortOf(f.kh, f.name, j.pre.list), f.kh, C.stamp(ctx.now), j.pre.rid);
+    return { entry: this.newEntry(j.pre.rid, 'decline', [arr], []) };
   }
   newEntry(rid, kind, appends, moves) {
     return { seq: ++this.seq, rid: rid, kind: kind, at: Date.now(), appends: appends, moves: moves, durable: false, uncertain: false };
@@ -710,7 +755,7 @@ export class BookingCore {
         if (r.fail) { j.resolve(r.fail === 'loi_he_thong' ? { ok: false, error: 'loi_he_thong', detail: r.detail, now: this.now() } : { ok: false, error: r.fail, now: this.now() }); continue; }
         if (!marks) marks = await this.marksFor(ctx);
         const L = this.log, trials = this.trialsFor(ctx, ba);
-        const st = C.stateOf(ctx, j.pre.me, C.envOf(ctx, L.rows, trials, j.pre.closed, j.pre.cap), C.mine(L.rows, j.pre.me, ctx), marks);
+        const st = await this.withIds(C.stateOf(ctx, j.pre.me, C.envOf(ctx, L.rows, trials, j.pre.closed, j.pre.cap), C.mine(L.rows, j.pre.me, ctx), marks, j.pre.list));
         if (r.dup) st.dup = true;
         if (!r.ok) {
           st.ok = false;

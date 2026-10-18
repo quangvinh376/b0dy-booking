@@ -187,20 +187,62 @@ async function strayKeys(page) {
   });
   ok('Khung T3 06:00 kín 4/4 · Lục Minh Quân chưa có dòng nào', slot === 4 && (await soOf(page, 'B810DY')).length === 0, { slot });
 
-  /* máy chủ bận: Tạ Uyển Nhi (gói 1:2) → thông báo bận → gửi lại cùng mã → phiếu */
+  /* gói 1:2 (chủ studio chốt 18/10): Tạ Uyển Nhi · khung ghép, lời mời của Tuấn Kiệt → Tập cùng → máy chủ bận → gửi lại → phiếu ·
+     mời Thục Quyên · từ chối lời mời của Thảo Vy · Thục Quyên mở trang thấy lời mời → Tập cùng → tập đôi */
   await signOut(page);
   await qc(page, '[data-qc="fault"][data-k="busy"]');
   await panel(page, false);
   await login(t, 'uyen nhi', 'T. Uyển Nhi', '5555');
   await waitView(page, 'book');
-  ok('Gói 1:2 → "Gói 1:2 · mỗi người tự đặt lịch." (E07)', /Gói 1:2 · mỗi người tự đặt lịch/.test(await page.textContent('body')));
-  await book(t, [['2026-10-19', 6], ['2026-10-21', 6]]);
+  const hrs = await page.evaluate(() => Array.from(new Set(Array.from(document.querySelectorAll('#wkb .c')).map(c => +c.dataset.h))));
+  ok('Gói 1:2 → bảng chỉ các khung ghép 09 · 11 · 15 · 17 · 19', hrs.join() === '9,11,15,17,19', hrs);
+  ok('Lời mời của Tuấn Kiệt hiện ở sàn: "Tuấn Kiệt mời bạn tập đôi." + Tập cùng / Không, cảm ơn',
+     /Tuấn Kiệt mời bạn tập đôi/.test(await page.textContent('.floor')) && (await page.locator('.floor [data-a="invok"]').count()) === 1 && (await page.locator('.floor [data-a="invno"]').count()) === 1);
+  const cls = k => page.evaluate(k => { const [d, h] = k.split('|'); const c = document.querySelector('#wkb .c[data-d="' + d + '"][data-h="' + h + '"]'); return c ? c.className + ' · ' + c.textContent : 'none'; }, k);
+  ok('T3 17:00 phòng đầy vẫn ghép được: ô "Ghép · Tuấn Kiệt" + chấm lời mời', /join/.test(await cls('2026-10-20|17')) && /inv/.test(await cls('2026-10-20|17')) && /Tuấn Kiệt/.test(await cls('2026-10-20|17')), await cls('2026-10-20|17'));
+  ok('T2 15:00 cặp 1:2 của Lâm đã đủ → "Coach bận"', /Coach bận/.test(await cls('2026-10-19|15')), await cls('2026-10-19|15'));
+  ok('T2 10:00 (ngoài khung ghép) không có trên bảng', (await cls('2026-10-19|10')) === 'none');
+  await page.locator('.floor [data-a="invok"]').click();
+  ok('Tập cùng → chọn sẵn T3 17:00', JSON.stringify(await page.evaluate(() => window.__lt.S.picks)) === '[{"date":"2026-10-20","h":17}]', await page.evaluate(() => window.__lt.S.picks));
+  const next = await page.waitForFunction(() => /Thảo Vy mời bạn tập đôi/.test(document.querySelector('.floor').textContent), null, { timeout: 4000 }).then(() => true, () => false);
+  ok('Lời mời kế tiếp (Thảo Vy · T7 15:00) lên sàn', next, await page.textContent('.floor'));
+  await book(t, [['2026-10-21', 9]]);
   await page.waitForFunction(() => window.__lt.S.notice && window.__lt.S.notice.type === 'busy', null, { timeout: 8000 });
   ok('Máy chủ bận → trang báo bận, chưa ghi gì', (await soOf(page, 'B805DY')).length === 0);
   await page.locator('#cta').click();
   await waitView(page, 'ticket');
   await flushed(page);
   ok('Gửi lại → phiếu · sổ giả đúng 2 dòng', (await soOf(page, 'B805DY')).length === 2);
+  ok('Phiếu: T3 17:00 tập đôi cùng Tuấn Kiệt', await page.evaluate(() => window.__lt.S.st.duo.pairs['2026-10-20|17'] === 'Tuấn Kiệt'));
+  ok('Dòng Tập đôi trên phiếu báo lời mời của Thảo Vy', /Thảo Vy mời bạn tập đôi/.test(await page.textContent('#prLine')));
+  await page.locator('#prLine .prl').click();
+  await page.waitForSelector('#drawer.on');
+  await page.locator('#drawer [data-a="invpick"][data-d="2026-10-21"]').click();
+  await page.locator('#drawer .pr-opt:has-text("Thục Quyên")').click();
+  ok('Chọn người mời: Thục Quyên được chọn (radio)', (await page.getAttribute('#drawer .pr-opt:has-text("Thục Quyên")', 'aria-checked')) === 'true');
+  await page.locator('#drawer [data-a="invsend"]').click();
+  await page.waitForFunction(() => /Đã mời Thục Quyên/.test(document.querySelector('#drawer').textContent), null, { timeout: 8000 });
+  await flushed(page);
+  rows = await soOf(page, 'B805DY');
+  ok('Mời → sổ giả thêm dòng "Mời", phiếu không đổi bản', rows.length === 3 && rows[2].st === 'Mời' && rows[2].act === 'Mời' && await page.evaluate(() => window.__lt.S.st.mine.ver === 1), rows);
+  ok('Tiêu điểm về nút "Đổi người" của buổi vừa mời', await page.evaluate(() => document.activeElement && document.activeElement.dataset.a === 'invpick' && document.activeElement.dataset.d === '2026-10-21'));
+  await page.locator('#drawer [data-a="invno"]').click();
+  await page.waitForFunction(() => !document.querySelector('#drawer [data-a="invno"]'), null, { timeout: 8000 });
+  await flushed(page);
+  rows = await soOf(page, 'B805DY');
+  ok('Không, cảm ơn → sổ giả thêm dòng "Từ chối" (lời mời của Thảo Vy hết hiện)', rows.length === 4 && rows[3].st === 'Từ chối' && rows[3].d === '2026-10-24', rows);
+  await page.keyboard.press('Escape');
+  await page.waitForSelector('#drawer', { state: 'hidden' });
+  await signOut(page);
+  await login(t, 'thuc quyen', 'M. Thục Quyên', '1212');
+  await waitView(page, 'book');
+  const seen = await page.waitForFunction(() => { const t = document.querySelector('.floor').textContent; return /Uyển Nhi mời bạn tập đôi/.test(t) && /Thứ Tư 21\.10 · 09:00/.test(t); }, null, { timeout: 4000 }).then(() => true, () => false);
+  ok('Thục Quyên mở trang → thấy lời mời của Uyển Nhi (T4 21.10 · 09:00)', seen, await page.textContent('.floor'));
+  await page.locator('.floor [data-a="invok"]').click();
+  await book(t, [['2026-10-22', 11]]);
+  await waitView(page, 'ticket');
+  await flushed(page);
+  ok('Thục Quyên đặt → T4 09:00 tập đôi cùng Uyển Nhi', await page.evaluate(() => window.__lt.S.st.duo.pairs['2026-10-21|9'] === 'Uyển Nhi'), await page.evaluate(() => window.__lt.S.st.duo));
 
   /* mất mạng · chưa ghi: Đặng Quốc Bảo (hết hạn T4 21.10) → báo lỗi → gửi lại → phiếu */
   await signOut(page);
@@ -296,6 +338,27 @@ async function strayKeys(page) {
   await waitView(mp, 'ticket');
   await flushed(mp);
   ok('Mobile: còn 1 buổi → đặt đúng 1 buổi → phiếu, sổ giả 1 dòng', (await soOf(mp, 'B802DY')).length === 1);
+  /* mobile · gói 1:2: lời mời trong cửa sổ đáy → Tập cùng → đặt → dòng Tập đôi trên phiếu → cửa sổ Tập đôi */
+  await signOut(mp);
+  await login(m, 'uyen nhi', 'T. Uyển Nhi', '5555');
+  await waitView(mp, 'book');
+  await mp.waitForSelector('#mNote .mnt');
+  ok('Mobile: lời mời hiện ở dòng thông báo trên bảng', /Tuấn Kiệt mời bạn tập đôi · T3 17:00/.test(await mp.textContent('#mNote')), await mp.textContent('#mNote'));
+  await mp.locator('#mNote .mnt').click();
+  await mp.waitForSelector('#sheet.on [data-a="invok"]');
+  await mp.locator('#sheet [data-a="invok"]').click();
+  await mp.waitForSelector('#sheet', { state: 'hidden' });
+  ok('Mobile: Tập cùng → cửa sổ đóng, chọn sẵn T3 17:00', JSON.stringify(await mp.evaluate(() => window.__lt.S.picks)) === '[{"date":"2026-10-20","h":17}]');
+  await book(m, [['2026-10-21', 9]]);
+  await waitView(mp, 'ticket');
+  await flushed(mp);
+  ok('Mobile: phiếu có dòng Tập đôi (lời mời của Thảo Vy)', /Thảo Vy mời bạn tập đôi/.test(await mp.textContent('#prLine')));
+  await mp.locator('#prLine .prl').click();
+  await mp.waitForSelector('#sheet.on');
+  ok('Mobile: cửa sổ Tập đôi: lời mời + 2 buổi (T3 tập đôi cùng Tuấn Kiệt · T4 chờ bạn tập)',
+     await mp.evaluate(() => { const t = document.querySelector('#sheet').textContent; return /Tập đôi tuần 43/.test(t) && /Tập đôi cùng Tuấn Kiệt/.test(t) && /Chờ bạn tập/.test(t) && document.querySelectorAll('#sheet [data-a="invok"]').length === 1; }));
+  await mp.locator('#sheet .sh-h [data-a="closesheet"]').click();
+  await mp.waitForSelector('#sheet', { state: 'hidden' });
   ok('Mobile: không lệnh nào ra máy chủ thật', m.hits === 0, m.hits);
   ok('Mobile: khoá thật nguyên vẹn', await realKeys(mp));
   ok('0 lỗi console / pageerror (mobile)', m.errs.length === 0, m.errs);

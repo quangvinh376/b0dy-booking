@@ -355,7 +355,10 @@ console.log('\n== 8. Đặt muộn (T2–T7): khung phải cách ≥ 24 giờ ==
   let r = await call(t, { action: 'lt_book', tok: s.tok, rid: rid(), week: '2026-W43', picks: [{ date: '2026-10-20', h: 9 }, { date: '2026-10-21', h: 9 }] });
   ok('T3 09:00 (23 giờ nữa) → duoi_24h', r.why === 'duoi_24h', r.why);
   r = await call(t, { action: 'lt_book', tok: s.tok, rid: rid(), week: '2026-W43', picks: [{ date: '2026-10-20', h: 10 }, { date: '2026-10-21', h: 9 }] });
-  ok('T3 10:00 (đúng 24 giờ) → ok', r.ok, r.error || r.why);
+  ok('Gói 1:2 chọn T3 10:00 (không phải khung ghép 09 · 11 · 15 · 17 · 19) → gio_ghep, chỉ đúng khung đó', r.error === 'khong_hop_le' && r.why === 'gio_ghep' && r.date === '2026-10-20' && r.h === 10, r.why);
+  t.clock.now = vn('2026-10-19', '11:00');
+  r = await call(t, { action: 'lt_book', tok: s.tok, rid: rid(), week: '2026-W43', picks: [{ date: '2026-10-20', h: 11 }, { date: '2026-10-21', h: 9 }] });
+  ok('T2 11:00 đặt T3 11:00 (đúng 24 giờ) → ok', r.ok, r.error || r.why);
   ok('Điểm danh SESSION LOG: T2 19.10 "Vắng" không nằm trong phiếu nên không hiện', r.mine.sessions.every(x => x.date !== '2026-10-19'));
 }
 

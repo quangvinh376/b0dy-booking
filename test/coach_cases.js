@@ -1,5 +1,7 @@
-/* Kịch bản luật "mỗi coach một suất mỗi khung" (chủ studio chốt 18/10) — dùng chung cho test/gas_lt.js (Apps Script giả) và
-   worker/test/parity.mjs (Apps Script + Worker, so từng phản hồi). Dữ liệu bịa của baSheets() trong hai file đó:
+/* Kịch bản luật "mỗi coach một suất mỗi khung" (chủ studio chốt 18/10 11:52) và ghép lớp 1:2 (chốt 18/10 14:13: khung ghép
+   09 · 11 · 15 · 17 · 19, thấy tên bạn tập, mời bạn cùng coach, dời buổi đang lẻ vào cặp không tính lượt đổi) — dùng chung cho
+   test/gas_lt.js (Apps Script giả) và worker/test/parity.mjs (Apps Script + Worker, so từng phản hồi). Dữ liệu bịa của baSheets()
+   trong hai file đó:
    Quyết: H. Đức Nam 1:1 · K. Thứ Một 1:1 · Ngọc Nam 1:2 · K. Cặp Một 1:2 · K. Cặp Hai 1:2
    Mai: K. Thứ Hai 1:1 · T. Thị Mỹ Linh 1:2 (hết hạn 21.10) · Khải: K. Thứ Ba 1:1 · Lâm: K. Thứ Tư 1:1 · Ngọc: P. Thị Hà 1:1 (từ 21.10)
    h = { setup(now, opts), call(t, body), login(t, q, pin), logRows(t), ok(label, cond, extra), rid(), vn(iso, hm) } — call / login
@@ -11,10 +13,16 @@ async function coachCases(h) {
   const W = '2026-W43';
   const book = (t, s, picks) => call(t, { action: 'lt_book', tok: s.tok, rid: rid(), week: W, picks: picks.map(p => ({ date: p[0], h: p[1] })) });
   const change = (t, s, from, to) => call(t, { action: 'lt_change', tok: s.tok, rid: rid(), week: W, from: { date: from[0], h: from[1] }, to: { date: to[0], h: to[1] } });
+  const invite = (t, s, slot, id, r0) => call(t, { action: 'lt_invite', tok: s.tok, rid: r0 || rid(), week: W, date: slot[0], h: slot[1], to: id });
+  const decline = (t, s, slot) => call(t, { action: 'lt_decline', tok: s.tok, rid: rid(), week: W, date: slot[0], h: slot[1] });
   const boot = async (t, s) => { const b = await call(t, { action: 'lt_boot', tok: s.tok }); b.tok = s.tok; return b; };
   const at = (r, k) => (r.coachAt || {})[k];
   const rowsAt = (t, date, hh) => logRows(t).filter(x => x[4] === date && x[6] === (hh < 10 ? '0' : '') + hh + ':00' && x[11] === 'Đã đặt');
   const fullOnly = (r, date, hh) => r.ok === false && r.error === 'het_cho' && Array.isArray(r.full) && r.full.length === 1 && r.full[0].date === date && r.full[0].h === hh;
+  const duo = r => r.duo || {};
+  const peer = (r, short) => ((duo(r).peers || []).find(p => p.short === short) || {}).id;
+  const inv = r => JSON.stringify(duo(r).invIn || []);
+  const rowsOf = (t, kh, st) => logRows(t).filter(x => x[16] === kh && (!st || x[11] === st));
 
   console.log('\n== 13. Mỗi coach một suất mỗi khung · ghép 1:2 cùng coach (luật 18/10) ==');
   {
@@ -24,6 +32,7 @@ async function coachCases(h) {
     let r = await book(t, nam, [['2026-10-19', 6], ['2026-10-21', 18]]);
     ok('H. Đức Nam (Quyết · 1:1) đặt T2 06:00 + T4 18:00', r.ok, r.error || r.why);
     ok('… khung của chính mình không bị đánh dấu coach bận; state có coachAt (đối tượng)', r.coachAt && typeof r.coachAt === 'object' && !at(r, '2026-10-19|6'), r.coachAt);
+    ok('… khách 1:1 không có phần gói 1:2 (duo)', !('duo' in r), Object.keys(r));
     const mot = await login(t, 'thu mot', '0021');
     ok('K. Thứ Một (cùng coach Quyết · 1:1) thấy T2 06:00 "busy", phòng mới 1 suất', at(mot, '2026-10-19|6') === 'busy' && mot.taken['2026-10-19|6'] === 1, [mot.coachAt, mot.taken]);
     ok('… coachAt chỉ nói về coach của chính hội viên, không lộ tên ai', JSON.stringify(mot.coachAt).indexOf('Nam') < 0 && Object.values(mot.coachAt).every(v => v === 'busy' || v === 'join'), mot.coachAt);
@@ -35,25 +44,26 @@ async function coachCases(h) {
     r = await book(t, hai, [['2026-10-19', 6], ['2026-10-20', 6]]);
     ok('… đặt T2 06:00 → ok, phòng 2 suất (2 coach)', r.ok && r.taken['2026-10-19|6'] === 2, r.error || r.why);
 
-    /* B · 1:2 cùng coach ghép cặp */
+    /* B · 1:2 cùng coach ghép cặp (khung ghép 11:00) */
     const nn = await login(t, 'ngoc nam', '0002');
     ok('Ngọc Nam (Quyết · 1:2) thấy T2 06:00 "busy" (Quyết đang dạy 1:1, nhóm 1:2 không vào)', at(nn, '2026-10-19|6') === 'busy', nn.coachAt);
-    r = await book(t, nn, [['2026-10-20', 7], ['2026-10-23', 7]]);
-    ok('Ngọc Nam đặt T3 07:00 + T6 07:00 một mình → ok, mỗi khung 1 suất', r.ok && r.taken['2026-10-20|7'] === 1 && r.taken['2026-10-23|7'] === 1, r.error || r.why);
+    ok('… state gói 1:2 có khung ghép 09 · 11 · 15 · 17 · 19', JSON.stringify(duo(nn).duoHours) === '[9,11,15,17,19]', duo(nn).duoHours);
+    r = await book(t, nn, [['2026-10-20', 11], ['2026-10-23', 11]]);
+    ok('Ngọc Nam đặt T3 11:00 + T6 11:00 một mình → ok, mỗi khung 1 suất', r.ok && r.taken['2026-10-20|11'] === 1 && r.taken['2026-10-23|11'] === 1, r.error || r.why);
     const c1 = await login(t, 'cap mot', '0025');
-    ok('K. Cặp Một (Quyết · 1:2) thấy T3 07:00 "join"', at(c1, '2026-10-20|7') === 'join', c1.coachAt);
-    r = await book(t, c1, [['2026-10-20', 7], ['2026-10-21', 7]]);
-    ok('… ghép vào T3 07:00 → ok, cặp vẫn 1 suất (2 người)', r.ok && r.taken['2026-10-20|7'] === 1 && rowsAt(t, '2026-10-20', 7).length === 2, r.error || r.why);
+    ok('K. Cặp Một (Quyết · 1:2) thấy T3 11:00 "join" + tên người đang chờ (Ngọc Nam)', at(c1, '2026-10-20|11') === 'join' && duo(c1).wait['2026-10-20|11'] === 'Ngọc Nam', [c1.coachAt, duo(c1).wait]);
+    r = await book(t, c1, [['2026-10-20', 11], ['2026-10-21', 11]]);
+    ok('… ghép vào T3 11:00 → ok, cặp vẫn 1 suất (2 người), thấy tên bạn tập', r.ok && r.taken['2026-10-20|11'] === 1 && rowsAt(t, '2026-10-20', 11).length === 2 && duo(r).pairs['2026-10-20|11'] === 'Ngọc Nam', r.error || r.why || duo(r));
     const c2 = await login(t, 'cap hai', '0026');
-    ok('Cặp T3 07:00 đã đủ 2 → khách 1:2 thứ ba (K. Cặp Hai) thấy "busy"', at(c2, '2026-10-20|7') === 'busy', c2.coachAt);
-    r = await book(t, c2, [['2026-10-20', 7], ['2026-10-22', 7]]);
-    ok('… chọn T3 07:00 → het_cho', fullOnly(r, '2026-10-20', 7), r);
+    ok('Cặp T3 11:00 đã đủ 2 → khách 1:2 thứ ba (K. Cặp Hai) thấy "busy", không có tên chờ', at(c2, '2026-10-20|11') === 'busy' && !duo(c2).wait['2026-10-20|11'], [c2.coachAt, duo(c2).wait]);
+    r = await book(t, c2, [['2026-10-20', 11], ['2026-10-22', 11]]);
+    ok('… chọn T3 11:00 → het_cho', fullOnly(r, '2026-10-20', 11), r);
     const mot2 = await boot(t, mot);
-    ok('K. Thứ Một (1:1) thấy T6 07:00 "busy": Quyết có một khách 1:2 ở đó, khách 1:1 không ghép vào nhóm 1:2', at(mot2, '2026-10-23|7') === 'busy', mot2.coachAt);
+    ok('K. Thứ Một (1:1) thấy T6 11:00 "busy": Quyết có một khách 1:2 ở đó, khách 1:1 không ghép vào nhóm 1:2', at(mot2, '2026-10-23|11') === 'busy', mot2.coachAt);
     const linh = await login(t, 'my linh', '0003');
-    ok('T. Thị Mỹ Linh (1:2 · Mai) không ghép với nhóm của Quyết: T3 07:00 không "join"', !at(linh, '2026-10-20|7'), linh.coachAt);
-    r = await book(t, linh, [['2026-10-20', 7], ['2026-10-21', 7]]);
-    ok('… đặt T3 07:00 → ok, phòng 2 suất (nhóm Quyết + Mai)', r.ok && r.taken['2026-10-20|7'] === 2, r.error || r.why);
+    ok('T. Thị Mỹ Linh (1:2 · Mai) không ghép với nhóm của Quyết: T3 11:00 không "join", không thấy tên khách của Quyết', !at(linh, '2026-10-20|11') && !Object.keys(duo(linh).wait || {}).length, [linh.coachAt, duo(linh).wait]);
+    r = await book(t, linh, [['2026-10-20', 11], ['2026-10-21', 11]]);
+    ok('… đặt T3 11:00 → ok, phòng 2 suất (nhóm Quyết + Mai)', r.ok && r.taken['2026-10-20|11'] === 2, r.error || r.why);
 
     /* C · phòng đủ 4 coach: khách 1:2 vẫn vào nhóm có sẵn của coach mình */
     r = await book(t, c2, [['2026-10-22', 9], ['2026-10-23', 9]]);
@@ -83,14 +93,19 @@ async function coachCases(h) {
     /* D · đổi lịch theo cùng luật */
     r = await book(t, mot2, [['2026-10-19', 7], ['2026-10-21', 8]]);
     ok('K. Thứ Một đặt T2 07:00 + T4 08:00 → ok', r.ok, r.error || r.why);
-    r = await change(t, mot2, ['2026-10-21', 8], ['2026-10-23', 7]);
-    ok('K. Thứ Một (1:1) đổi T4 08:00 → T6 07:00 (Quyết có khách 1:2) → het_cho, không ghi', fullOnly(r, '2026-10-23', 7) && logRows(t).filter(x => x[16] === 'B921DY').length === 2, r);
-    r = await change(t, nn2, ['2026-10-23', 7], ['2026-10-21', 7]);
-    ok('Ngọc Nam (1:2) đổi T6 07:00 → T4 07:00 (K. Cặp Một 1:2 đang một mình) → ok, ghép thành cặp', r.ok && r.taken['2026-10-21|7'] === 2 && !r.taken['2026-10-23|7'], r.error || r.why);
+    r = await change(t, mot2, ['2026-10-21', 8], ['2026-10-23', 11]);
+    ok('K. Thứ Một (1:1) đổi T4 08:00 → T6 11:00 (Quyết có khách 1:2) → het_cho, không ghi', fullOnly(r, '2026-10-23', 11) && logRows(t).filter(x => x[16] === 'B921DY').length === 2, r);
+    r = await change(t, nn2, ['2026-10-23', 11], ['2026-10-21', 11]);
+    ok('Ngọc Nam (1:2) dời T6 11:00 (đang lẻ) → T4 11:00 (K. Cặp Một 1:2 đang một mình) → ok, ghép thành cặp, phòng T4 11:00 hai suất (cặp Quyết + Mai)',
+       r.ok && r.taken['2026-10-21|11'] === 2 && r.taken['2026-10-23|11'] === 1 && duo(r).pairs['2026-10-21|11'] === 'Cặp Một', r.error || r.why || [r.taken, duo(r).pairs]);
+    ok('… là "Ghép": không tính lượt đổi (còn 2), phiếu lên bản 2', r.ok && r.mine.changes === 0 && r.mine.changesLeft === 2 && r.mine.ver === 2, r.mine);
+    const gh = rowsOf(t, 'B902DY').filter(x => x[4] === '2026-10-21' || x[4] === '2026-10-23');
+    ok('… sổ: dòng mới "Ghép" + "Ghép từ T6 23.10 · 11:00", dòng cũ "Đã đổi" + "Ghép sang T4 21.10 · 11:00"',
+       gh.some(x => x[11] === 'Đã đặt' && x[12] === 'Ghép' && x[13] === 'Ghép từ T6 23.10 · 11:00') && gh.some(x => x[11] === 'Đã đổi' && x[13] === 'Ghép sang T4 21.10 · 11:00'), gh.map(x => [x[4], x[11], x[12], x[13]]));
     const mot3 = await boot(t, mot2);
-    ok('Quyết rời T6 07:00 → K. Thứ Một thấy T6 07:00 rảnh', !at(mot3, '2026-10-23|7'), mot3.coachAt);
-    r = await change(t, mot3, ['2026-10-21', 8], ['2026-10-23', 7]);
-    ok('… đổi T4 08:00 → T6 07:00 → ok', r.ok && r.mine.sessions.some(x => x.date === '2026-10-23' && x.h === 7), r.error || r.why);
+    ok('Quyết rời T6 11:00 → K. Thứ Một thấy T6 11:00 rảnh', !at(mot3, '2026-10-23|11'), mot3.coachAt);
+    r = await change(t, mot3, ['2026-10-21', 8], ['2026-10-23', 11]);
+    ok('… đổi T4 08:00 → T6 11:00 → ok', r.ok && r.mine.sessions.some(x => x.date === '2026-10-23' && x.h === 11), r.error || r.why);
     const lim = await boot(t, c2);
     ok('Giới hạn số ngày tính theo luật mới: K. Cặp Hai còn thêm được 2 buổi', lim.limits.add === 2, lim.limits);
   }
@@ -111,6 +126,154 @@ async function coachCases(h) {
     const ba = await login(t, 'thu ba', '0023');
     r = await book(t, ba, [['2026-10-23', 20], ['2026-10-22', 20]]);
     ok('K. Thứ Ba (Khải) chọn T6 20:00 → het_cho (không bao giờ nhét thêm người)', fullOnly(r, '2026-10-23', 20), r);
+  }
+
+  console.log('\n== 15. Ghép lớp 1:2: khung ghép · tên bạn tập · mời / từ chối · dời vào cặp không tính lượt đổi (chốt 18/10 14:13) ==');
+  {
+    const t = await setup(vn('2026-10-18', '07:00'));
+    const nn = await login(t, 'ngoc nam', '0002'), mot = await login(t, 'thu mot', '0021'), linh = await login(t, 'my linh', '0003');
+    ok('Danh sách mời của Ngọc Nam = hai khách 1:2 khác của Quyết, xếp theo tên ngắn, chỉ id + tên (không Mã KH)',
+       JSON.stringify((duo(nn).peers || []).map(p => p.short)) === '["K. Cặp Hai","K. Cặp Một"]' && duo(nn).peers.every(p => /^[A-Za-z0-9_-]{18}$/.test(p.id) && !('key' in p) && p.call) &&
+       JSON.stringify(nn).indexOf('B925DY') < 0 && JSON.stringify(nn).indexOf('B926DY') < 0, duo(nn).peers);
+    ok('Khách 1:1 không có danh sách / tên khách 1:2 nào', !('duo' in mot), Object.keys(mot));
+    ok('Mỹ Linh (1:2 · Mai) không thấy khách 1:2 của Quyết trong danh sách mời', JSON.stringify(duo(linh).peers) === '[]', duo(linh).peers);
+    let r = await book(t, nn, [['2026-10-19', 10], ['2026-10-20', 15]]);
+    ok('Gói 1:2 chọn T2 10:00 (ngoài khung ghép) → gio_ghep, không ghi gì', r.error === 'khong_hop_le' && r.why === 'gio_ghep' && r.date === '2026-10-19' && r.h === 10 && !rowsOf(t, 'B902DY').length, r.why);
+    r = await book(t, nn, [['2026-10-20', 15], ['2026-10-22', 15]]);
+    ok('Ngọc Nam đặt T3 15:00 + T5 15:00 (một mình) → ok, chưa có cặp, chưa mời ai', r.ok && !Object.keys(duo(r).pairs).length && !Object.keys(duo(r).invOut).length, r.error || r.why || duo(r));
+    const c1id = peer(r, 'K. Cặp Một'), c2id = peer(r, 'K. Cặp Hai');
+    let c2 = await login(t, 'cap hai', '0026');
+    ok('K. Cặp Hai thấy tên người đang chờ ghép ở T3 15:00 và T5 15:00, chưa có lời mời', duo(c2).wait['2026-10-20|15'] === 'Ngọc Nam' && duo(c2).wait['2026-10-22|15'] === 'Ngọc Nam' && inv(c2) === '[]', duo(c2));
+    ok('… và chỉ khung còn tới: không hiện tên ở khung đã qua / của coach khác', Object.keys(duo(c2).wait).length === 2, duo(c2).wait);
+
+    /* mời */
+    r = await invite(t, nn, ['2026-10-20', 15], c1id);
+    ok('Ngọc Nam mời K. Cặp Một vào T3 15:00 → ok, phiếu giữ bản 1, thấy "đã mời Cặp Một · chờ"', r.ok && r.mine.ver === 1 && JSON.stringify(duo(r).invOut['2026-10-20|15']) === '{"to":"Cặp Một","st":"wait"}', r.error || r.why || duo(r).invOut);
+    let mv = rowsOf(t, 'B902DY', 'Mời');
+    ok('… sổ: một dòng "Mời" ở T3 15:00, ghi chú "Mời K. Cặp Một · B925DY", không phải buổi tập', mv.length === 1 && mv[0][4] === '2026-10-20' && mv[0][6] === '15:00' && mv[0][12] === 'Mời' && mv[0][13] === 'Mời K. Cặp Một · B925DY', mv);
+    r = await invite(t, nn, ['2026-10-20', 15], c1id);
+    ok('… mời lại đúng người đang được mời → ok, không ghi thêm dòng', r.ok && rowsOf(t, 'B902DY', 'Mời').length === 1, rowsOf(t, 'B902DY', 'Mời').length);
+    let c1 = await login(t, 'cap mot', '0025');
+    ok('K. Cặp Một mở trang → thấy lời mời của Ngọc Nam ở T3 15:00', inv(c1) === '[{"date":"2026-10-20","h":15,"from":"Ngọc Nam"}]', duo(c1).invIn);
+    c2 = await boot(t, c2);
+    ok('K. Cặp Hai không thấy lời mời gửi người khác', inv(c2) === '[]', duo(c2).invIn);
+    const f = await call(t, { action: 'lt_find', q: 'thu mot' }), motId = f.results && f.results[0] && f.results[0].id;
+    r = await invite(t, nn, ['2026-10-20', 15], motId);
+    ok('Mời khách 1:1 (K. Thứ Một, id lấy từ tìm tên) → khong_hop_le nguoi_moi', r.ok === false && r.error === 'khong_hop_le' && r.why === 'nguoi_moi', r.error || r.why);
+    r = await invite(t, nn, ['2026-10-20', 15], 'khongcoaiCoIdNay123');
+    ok('Mời id không tồn tại → khong_hop_le nguoi_moi', r.ok === false && r.why === 'nguoi_moi', r);
+    r = await invite(t, nn, ['2026-10-21', 15], c1id);
+    ok('Mời ở khung mình không có buổi → khong_co_buoi', r.ok === false && r.why === 'khong_co_buoi', r.why);
+    r = await invite(t, nn, ['2026-10-20', 16], c1id);
+    ok('Mời ở khung không phải khung ghép → khung', r.ok === false && r.why === 'khung', r.why);
+    r = await invite(t, mot, ['2026-10-20', 15], c1id);
+    ok('Khách 1:1 gửi lời mời → khong_hop_le goi', r.ok === false && r.why === 'goi', r.why);
+
+    /* từ chối · mời lại · đổi người · huỷ */
+    r = await decline(t, c1, ['2026-10-20', 15]);
+    ok('K. Cặp Một bấm "Không, cảm ơn" → ok, lời mời biến mất', r.ok && inv(r) === '[]', r.error || r.why || duo(r).invIn);
+    const dv = rowsOf(t, 'B925DY', 'Từ chối');
+    ok('… sổ: dòng "Từ chối" của Cặp Một ở T3 15:00, ghi chú nhắc người mời + Mã KH của họ', dv.length === 1 && dv[0][4] === '2026-10-20' && dv[0][6] === '15:00' && dv[0][12] === 'Từ chối' && /^Từ chối lời mời của .\. Ngọc Nam · B902DY$/.test(dv[0][13]), dv);
+    r = await decline(t, c1, ['2026-10-20', 15]);
+    ok('… bấm lại → ok, không ghi thêm', r.ok && rowsOf(t, 'B925DY', 'Từ chối').length === 1);
+    let nnb = await boot(t, nn);
+    ok('Ngọc Nam thấy Cặp Một không tham gia (st "no") để mời người khác', JSON.stringify(duo(nnb).invOut['2026-10-20|15']) === '{"to":"Cặp Một","st":"no"}', duo(nnb).invOut);
+    r = await invite(t, nn, ['2026-10-20', 15], c1id);
+    c1 = await boot(t, c1);
+    ok('Mời lại Cặp Một sau khi bị từ chối → ghi dòng mới, Cặp Một thấy lại lời mời', r.ok && rowsOf(t, 'B902DY', 'Mời').length === 2 && inv(c1).indexOf('"h":15') > 0, [rowsOf(t, 'B902DY', 'Mời').length, duo(c1).invIn]);
+    r = await invite(t, nn, ['2026-10-20', 15], c2id);
+    c1 = await boot(t, c1); c2 = await boot(t, c2);
+    ok('Đổi sang mời Cặp Hai → Cặp Một hết thấy, Cặp Hai thấy lời mời', r.ok && duo(r).invOut['2026-10-20|15'].to === 'Cặp Hai' && inv(c1) === '[]' && inv(c2) === '[{"date":"2026-10-20","h":15,"from":"Ngọc Nam"}]', [duo(c1).invIn, duo(c2).invIn]);
+    r = await invite(t, nn, ['2026-10-20', 15], '');
+    c2 = await boot(t, c2);
+    const hm = rowsOf(t, 'B902DY', 'Mời');
+    ok('Huỷ lời mời → dòng "Huỷ mời", Cặp Hai hết thấy', r.ok && hm[hm.length - 1][13] === 'Huỷ mời' && inv(c2) === '[]' && !duo(r).invOut['2026-10-20|15'], [hm.map(x => x[13]), duo(c2).invIn]);
+    r = await invite(t, nn, ['2026-10-20', 15], '');
+    ok('… huỷ khi không còn mời ai → ok, không ghi thêm', r.ok && rowsOf(t, 'B902DY', 'Mời').length === hm.length);
+
+    /* nhận lời bằng cách đặt */
+    await invite(t, nn, ['2026-10-20', 15], c2id);
+    c2 = await boot(t, c2);
+    r = await book(t, c2, [['2026-10-20', 15], ['2026-10-21', 17]]);
+    ok('Cặp Hai nhận lời: đặt T3 15:00 + T4 17:00 → ok, thấy tập đôi cùng Ngọc Nam, lời mời tự hết', r.ok && duo(r).pairs['2026-10-20|15'] === 'Ngọc Nam' && inv(r) === '[]', r.error || r.why || duo(r));
+    nnb = await boot(t, nn);
+    ok('Ngọc Nam thấy tập đôi cùng Cặp Hai ở T3 15:00, không còn "đã mời"', duo(nnb).pairs['2026-10-20|15'] === 'Cặp Hai' && !duo(nnb).invOut['2026-10-20|15'], duo(nnb));
+    r = await invite(t, nn, ['2026-10-20', 15], c1id);
+    ok('Mời ở buổi đã có cặp → da_ghep', r.ok === false && r.error === 'da_ghep', r.error);
+
+    /* dời buổi đang lẻ vào cặp: trong cùng ngày, không tính lượt đổi, kể cả khi đã hết lượt */
+    r = await book(t, c1, [['2026-10-22', 17], ['2026-10-23', 17]]);
+    ok('Cặp Một đặt T5 17:00 + T6 17:00 (một mình) → ok', r.ok, r.error || r.why);
+    ok('… thấy Ngọc Nam đang chờ ở T5 15:00 (cùng ngày)', duo(r).wait['2026-10-22|15'] === 'Ngọc Nam', duo(r).wait);
+    c1 = Object.assign(r, { tok: c1.tok });
+    r = await change(t, c1, ['2026-10-22', 17], ['2026-10-22', 15]);
+    ok('Cặp Một dời T5 17:00 → T5 15:00 (cùng ngày, vào cặp với Ngọc Nam) → ok, "Ghép", còn 2 lượt đổi', r.ok && r.mine.changesLeft === 2 && duo(r).pairs['2026-10-22|15'] === 'Ngọc Nam' && rowsOf(t, 'B925DY').some(x => x[12] === 'Ghép' && x[13] === 'Ghép từ T5 22.10 · 17:00'), r.error || r.why || r.mine);
+    r = await change(t, c1, ['2026-10-23', 17], ['2026-10-19', 17]);
+    ok('Cặp Một đổi thường T6 17:00 → T2 17:00 (khung trống) → "Đổi", còn 1 lượt', r.ok && r.mine.changesLeft === 1, r.error || r.why);
+    r = await change(t, c1, ['2026-10-19', 17], ['2026-10-19', 19]);
+    ok('… đổi thường trong cùng ngày (T2 17:00 → T2 19:00, không phải vào cặp) → cung_ngay', r.ok === false && r.why === 'cung_ngay', r.why);
+    r = await change(t, c1, ['2026-10-19', 17], ['2026-10-21', 19]);
+    ok('… đổi thường T2 17:00 → T4 19:00 → ok, hết lượt đổi', r.ok && r.mine.changesLeft === 0, r.error || r.why);
+    r = await change(t, c1, ['2026-10-21', 19], ['2026-10-19', 19]);
+    ok('Hết lượt: đổi thường T4 19:00 → T2 19:00 → het_luot_doi', r.ok === false && r.error === 'het_luot_doi', r.error);
+    r = await change(t, c1, ['2026-10-21', 19], ['2026-10-21', 10]);
+    ok('Hết lượt: dời vào khung ngoài khung ghép (không thể là cặp) → het_luot_doi', r.ok === false && r.error === 'het_luot_doi', r.error || r.why);
+    r = await change(t, c1, ['2026-10-21', 19], ['2026-10-21', 17]);
+    ok('Hết lượt vẫn dời được buổi đang lẻ vào cặp: T4 19:00 → T4 17:00 (Cặp Hai đang chờ) → ok, vẫn 0 lượt, thấy tập đôi cùng Cặp Hai',
+       r.ok && r.mine.changesLeft === 0 && r.mine.changes === 2 && duo(r).pairs['2026-10-21|17'] === 'Cặp Hai', r.error || r.why || r.mine);
+    /* rời một cặp để vào cặp khác: tính lượt đổi như thường */
+    c2 = await boot(t, c2);
+    r = await change(t, c2, ['2026-10-20', 15], ['2026-10-19', 15]);
+    ok('Cặp Hai rời cặp T3 15:00 sang T2 15:00 (trống) → "Đổi", còn 1 lượt', r.ok && r.mine.changesLeft === 1 && !rowsOf(t, 'B926DY').some(x => x[12] === 'Ghép'), r.error || r.why);
+    const c2x = r;
+    nnb = await boot(t, nn);
+    ok('… Ngọc Nam ở T3 15:00 thành lẻ (không còn tên bạn), Cặp Hai đang chờ ở T2 15:00', !duo(nnb).pairs['2026-10-20|15'] && duo(nnb).wait['2026-10-19|15'] === 'Cặp Hai', duo(nnb));
+    ok('… lời mời Ngọc Nam gửi Cặp Hai ở T3 15:00 đã xong (Cặp Hai đã vào rồi rời đi): Ngọc Nam không còn "đã mời", Cặp Hai không thấy lại lời mời',
+       !duo(nnb).invOut['2026-10-20|15'] && inv(c2x).indexOf('"date":"2026-10-20"') < 0, [duo(nnb).invOut, duo(c2x).invIn]);
+    r = await decline(t, c2, ['2026-10-20', 15]);
+    ok('… Cặp Hai bấm "Không, cảm ơn" với lời mời đã xong → ok, không ghi dòng "Từ chối"', r.ok && !rowsOf(t, 'B926DY', 'Từ chối').length, rowsOf(t, 'B926DY', 'Từ chối').length);
+    r = await invite(t, nn, ['2026-10-20', 15], c2id);
+    c2 = await boot(t, c2);
+    ok('… Ngọc Nam mời lại Cặp Hai → dòng "Mời" mới, "đã mời Cặp Hai · chờ", Cặp Hai thấy lại lời mời',
+       r.ok && JSON.stringify(duo(r).invOut['2026-10-20|15']) === '{"to":"Cặp Hai","st":"wait"}' && inv(c2).indexOf('{"date":"2026-10-20","h":15,"from":"Ngọc Nam"}') >= 0, [duo(r).invOut, duo(c2).invIn]);
+    r = await change(t, nnb, ['2026-10-22', 15], ['2026-10-19', 15]);
+    ok('Ngọc Nam dời buổi ĐANG TẬP ĐÔI (T5 15:00 cùng Cặp Một) vào cặp chờ T2 15:00 → "Đổi" (tính lượt), không phải "Ghép"', r.ok && r.mine.changesLeft === 1 && duo(r).pairs['2026-10-19|15'] === 'Cặp Hai' &&
+       rowsOf(t, 'B902DY').filter(x => x[12] === 'Đổi').length === 1, r.error || r.why || r.mine);
+  }
+
+  console.log('\n== 16. Lời mời cũ không sống lại · dưới 24 giờ · giới hạn số lần mời ==');
+  {
+    const t = await setup(vn('2026-10-18', '07:00'));
+    const nn = await login(t, 'ngoc nam', '0002');
+    let r = await book(t, nn, [['2026-10-20', 15], ['2026-10-22', 15]]);
+    const c1id = peer(r, 'K. Cặp Một'), c2id = peer(r, 'K. Cặp Hai');
+    let c1 = await login(t, 'cap mot', '0025');
+    r = await invite(t, nn, ['2026-10-20', 15], c1id);
+    c1 = await boot(t, c1);
+    ok('Ngọc Nam mời Cặp Một ở T3 15:00 → Cặp Một thấy lời mời', r.ok && inv(c1).indexOf('"h":15') > 0, duo(c1).invIn);
+    r = await change(t, nn, ['2026-10-20', 15], ['2026-10-21', 15]);
+    c1 = await boot(t, c1);
+    ok('Ngọc Nam dời khỏi T3 15:00 → lời mời hết hiệu lực', r.ok && inv(c1) === '[]', duo(c1).invIn);
+    r = await change(t, nn, ['2026-10-21', 15], ['2026-10-20', 15]);
+    c1 = await boot(t, c1);
+    ok('… dời về lại T3 15:00 → lời mời cũ KHÔNG sống lại (ghi trước lượt đặt hiện tại)', r.ok && inv(c1) === '[]' && !duo(r).invOut['2026-10-20|15'], [duo(c1).invIn, duo(r).invOut]);
+    r = await invite(t, nn, ['2026-10-20', 15], c1id);
+    c1 = await boot(t, c1);
+    ok('… mời lại → Cặp Một thấy lời mời mới', r.ok && inv(c1).indexOf('"h":15') > 0, duo(c1).invIn);
+    /* giới hạn: 20 dòng mời + từ chối / hội viên / tuần — đổi qua lại hai người cho tới đủ 20 dòng, lần sau bị chặn */
+    let n = rowsOf(t, 'B902DY', 'Mời').length;
+    for (let i = 0; n < 20 && i < 40; i++) { await invite(t, nn, ['2026-10-22', 15], i % 2 ? c1id : c2id); n = rowsOf(t, 'B902DY', 'Mời').length; }
+    const lastNote = rowsOf(t, 'B902DY', 'Mời').slice(-1)[0][13];
+    r = await invite(t, nn, ['2026-10-22', 15], lastNote.indexOf('B925DY') > 0 ? c2id : c1id);
+    ok('Mời / đổi người tới 20 lần trong tuần → lần sau qua_luot_moi, không ghi thêm', n === 20 && r.ok === false && r.error === 'qua_luot_moi' && rowsOf(t, 'B902DY', 'Mời').length === 20, [n, r.error]);
+    /* dưới 24 giờ (đặt muộn) */
+    const t2 = await setup(vn('2026-10-19', '10:00'));
+    const nn2 = await login(t2, 'ngoc nam', '0002');
+    r = await book(t2, nn2, [['2026-10-20', 11], ['2026-10-21', 9]]);
+    ok('T2 10:00 đặt muộn T3 11:00 + T4 09:00 → ok', r.ok, r.error || r.why);
+    t2.clock.now = vn('2026-10-19', '12:00');
+    r = await invite(t2, nn2, ['2026-10-20', 11], peer(r, 'K. Cặp Một'));
+    ok('T2 12:00 mời vào T3 11:00 (còn 23 giờ) → duoi_24h', r.ok === false && r.why === 'duoi_24h', r.why);
   }
 }
 

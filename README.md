@@ -6,6 +6,8 @@ Hội viên tìm tên (gõ tới đâu ra tới đó: vài chữ của tên đ�
 → xác minh 4 số cuối điện thoại (nhớ máy 60 ngày) →
 chọn 2–4 buổi trên bảng tuần → nhận phiếu. Trong tuần: thêm buổi, đổi buổi (tối đa 2 lần, trước 24 giờ). Mở đặt 06:00 Chủ Nhật.
 Mỗi khung giờ mỗi coach dạy một suất (một khách 1:1, hoặc hai khách gói 1:2 của cùng coach đó); phòng tối đa `Sức chứa` suất (⚙️ 2).
+Gói 1:2 đặt ở các khung ghép 09 · 11 · 15 · 17 · 19, thấy tên gọi bạn cùng coach đang chờ, mời được một bạn vào buổi đang chờ,
+và dời buổi đang chờ vào cặp có sẵn không tính lượt đổi.
 
 ## Thành phần
 
@@ -33,6 +35,7 @@ npm i playwright   # một lần; Chromium có sẵn trong máy test
 node test/gas_lt.js                 # luật + Apps Script
 node test/ui_states.js              # 97 kiểm tra trạng thái giao diện (E01–E12, desktop + mobile)
 node test/ui_qc.js                  # chế độ QC: kịch bản, hội viên thử, gây lỗi, không gọi mạng, không chạm bộ nhớ trang thật
+node test/ui_duo.js                 # gói 1:2: nhận lời mời bằng dời trong ngày, Ghép khác ngày, rời cặp tính lượt (desktop + mobile)
 node test/ui_smoke.js && node test/ui_sw.js && node test/ui_tk3d.js all && node test/ui_png.js all && node test/b0b_check.js
 node test/rv_h6_rid_discard.js      # … và các rv_*.js: tái hiện lỗi đã sửa (mất phản hồi, máy dùng chung, 06:00, …)
 node test/rv_find_dynamic.js        # tìm tên gõ tới đâu ra tới đó: tô phần khớp, more, giữ danh sách khi chờ, máy chủ cũ (need: 2)
