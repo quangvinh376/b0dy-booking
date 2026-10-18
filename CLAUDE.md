@@ -26,22 +26,19 @@ ID hai file Google Sheets: `BA_ID` (file BA: MEMBERS · SESSION LOG · TRIAL · 
 6. Sau mỗi lần đẩy: xác minh commit bằng hash và SHA-256 từng tệp trên `raw.githubusercontent.com/quangvinh376/b0dy-booking/<commit>/…`.
 7. Chỉ MỘT tiến trình Playwright / Chromium một lúc (máy test nhỏ từng hết RAM).
 
-## Đang ở đâu (18/10/2026)
+## Đang ở đâu (18/10/2026, 23:45)
 
-- Trang **v1.0.11** (`08f2c74`) trên GitHub Pages `main`. Worker `b0dy-booking-api` chạy `worker/src` của `08f2c74`
-  (deploy 16:50 18/10): luật suất coach + ghép lớp 1:2 đã có hiệu lực.
-- **`Sổ đặt lịch` tuần 43 (19–24/10) là dữ liệu MÔ PHỎNG**: 120 dòng, Mã yêu cầu `mophong43-001…046`, ghi chú "Mô phỏng · …".
-  Xoá trước khi dùng thật. Khôi phục bản trước: Lịch sử phiên bản của sheet (trước 17:19 18/10).
-- Chủ studio đã quyết (18/10): (1) khách tập thử đã có "Coach tiếp nhận" chiếm suất của coach đó — **làm ở 1.0.12**
-  (`trialsFrom` / `ltTrials_` trả `{khung: [coach, …]}` → `roomOf` / `ltRoom_`), trang 1.0.12 chỉ tăng VER để `?qc` nạp lại
-  `worker/src`; **Worker chưa deploy** → luật chỉ có hiệu lực sau khi deploy (cần câu đồng ý); (2) giữ tối thiểu 2 buổi;
-  (3) buổi 1:2 lẻ giờ cao điểm: chưa làm, đo sau tuần 44. **Sức chứa 4 → 5 suất / khung** (5 coach: 5 khách 1:1 hay 10 khách
-  1:2) — chỉ đổi ô dữ liệu BA `' ⚙️ 2'!C27` (18/10), không đổi mã; `LT.CAP` = 4 chỉ là dự phòng khi không đọc được ô đó.
-  Thế giới giả `?qc` vẫn sức chứa 4 (`qc.js` · cfg + BUSY).
-- **1.0.13** (chủ studio 18/10, trên nhánh, chưa lên `main`): (1) tên = 2 chữ cuối, chữ trước viết tắt — tên ngắn "N. G. Bảo Linh",
-  tên gọi "Bảo Linh" / "Văn Hưng" / "Thị Hà" (bỏ luật cũ bỏ Thị/Văn) — `short` / `callName` = `ltShort_` / `ltCall_`, cần **deploy
-  Worker** (sổ, `_dữ liệu`, phiếu); tìm tên không đổi (gõ tên đệm hiện tắt vẫn ra), trang tô chữ tắt; (2) ô Đầy + coach bận = một
-  ô gạch X, không chữ, không lý do (chú thích: X "Đầy", xám "Không chọn được" / "Đã có buổi"); (3) mobile ô Ghép = icon + tên gọi 2 chữ. Khách 1:2 của Lâm → Ngọc: chủ studio tự đổi trong BA. Tuần 44 chạy thử nội bộ, ra mắt chính thức tháng 11.
+- Trang **v1.0.13** (`1f83687`) trên GitHub Pages `main` (live, SHA-256 khớp). Worker `b0dy-booking-api` chạy `worker/src` của
+  `1f83687` (chủ studio deploy bằng `tools/worker_deploy_snippet.mjs` tối 18/10; `lt_ping` `pending 0`, `lastError` rỗng; `lt_find`
+  trả tên ≥ 4 chữ dạng mới 11/11). Có hiệu lực: luật suất coach + ghép lớp 1:2 (1.0.8–1.0.11) · khách tập thử có "Coach tiếp nhận"
+  chiếm suất của coach đó (1.0.12) · tên = 2 chữ cuối, chữ trước viết tắt + ô Đầy / coach bận gạch X + ô Ghép mobile icon + tên (1.0.13).
+- **Sức chứa 5 suất / khung** (5 coach: 5 khách 1:1 hay 10 khách 1:2) — ô dữ liệu BA `' ⚙️ 2'!C27` (đổi 18/10), không phải mã;
+  `LT.CAP` = 4 chỉ là dự phòng khi không đọc được ô đó. Thế giới giả `?qc` vẫn sức chứa 4 (`qc.js` · cfg + BUSY).
+- **`Sổ đặt lịch` tuần 43 (19–24/10) là dữ liệu MÔ PHỎNG**: 120 dòng, Mã yêu cầu `mophong43-001…046`, ghi chú "Mô phỏng · …"
+  (tên ngắn trên các dòng này còn kiểu cũ). Xoá trước khi dùng thật. Khôi phục bản trước: Lịch sử phiên bản (trước 17:19 18/10).
+- Chủ studio đã quyết (18/10): giữ tối thiểu 2 buổi; buổi 1:2 lẻ giờ cao điểm: chưa làm, đo sau tuần 44. Tìm tên không đổi
+  (gõ tên đệm hiện tắt vẫn ra). Khách 1:2 của Lâm → Ngọc: chủ studio tự đổi trong BA. Tuần 44 chạy thử nội bộ, ra mắt chính thức tháng 11.
+- Apps Script dự phòng vẫn V36 (cũ hơn repo nhiều bản) — đưa V37 lên chỉ khi cần và được duyệt, chạy parity trước.
 
 ## Phiên bản trang
 
