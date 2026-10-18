@@ -3,7 +3,7 @@
    test/gas_lt.js (Apps Script giả) và worker/test/parity.mjs (Apps Script + Worker, so từng phản hồi). Dữ liệu bịa của baSheets()
    trong hai file đó:
    Quyết: H. Đức Nam 1:1 · K. Thứ Một 1:1 · Ngọc Nam 1:2 · K. Cặp Một 1:2 · K. Cặp Hai 1:2
-   Mai: K. Thứ Hai 1:1 · T. Thị Mỹ Linh 1:2 (hết hạn 21.10) · Khải: K. Thứ Ba 1:1 · Lâm: K. Thứ Tư 1:1 · Ngọc: P. Thị Hà 1:1 (từ 21.10)
+   Mai: K. Thứ Hai 1:1 · T. T. Mỹ Linh 1:2 (hết hạn 21.10) · Khải: K. Thứ Ba 1:1 · Lâm: K. Thứ Tư 1:1 · Ngọc: P. Thị Hà 1:1 (từ 21.10)
    h = { setup(now, opts), call(t, body), login(t, q, pin), logRows(t), ok(label, cond, extra), rid(), vn(iso, hm) } — call / login
    có thể đồng bộ (Apps Script giả) hoặc trả Promise (parity): mọi chỗ đều await. */
 'use strict';
@@ -61,7 +61,7 @@ async function coachCases(h) {
     const mot2 = await boot(t, mot);
     ok('K. Thứ Một (1:1) thấy T6 11:00 "busy": Quyết có một khách 1:2 ở đó, khách 1:1 không ghép vào nhóm 1:2', at(mot2, '2026-10-23|11') === 'busy', mot2.coachAt);
     const linh = await login(t, 'my linh', '0003');
-    ok('T. Thị Mỹ Linh (1:2 · Mai) không ghép với nhóm của Quyết: T3 11:00 không "join", không thấy tên khách của Quyết', !at(linh, '2026-10-20|11') && !Object.keys(duo(linh).wait || {}).length, [linh.coachAt, duo(linh).wait]);
+    ok('T. T. Mỹ Linh (1:2 · Mai) không ghép với nhóm của Quyết: T3 11:00 không "join", không thấy tên khách của Quyết', !at(linh, '2026-10-20|11') && !Object.keys(duo(linh).wait || {}).length, [linh.coachAt, duo(linh).wait]);
     r = await book(t, linh, [['2026-10-20', 11], ['2026-10-21', 11]]);
     ok('… đặt T3 11:00 → ok, phòng 2 suất (nhóm Quyết + Mai)', r.ok && r.taken['2026-10-20|11'] === 2, r.error || r.why);
 

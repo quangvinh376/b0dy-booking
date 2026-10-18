@@ -202,7 +202,8 @@ async function strayKeys(page) {
      /Tuấn Kiệt mời bạn tập đôi/.test(await page.textContent('.floor')) && (await page.locator('.floor [data-a="invok"]').count()) === 1 && (await page.locator('.floor [data-a="invno"]').count()) === 1);
   const cls = k => page.evaluate(k => { const [d, h] = k.split('|'); const c = document.querySelector('#wkb .c[data-d="' + d + '"][data-h="' + h + '"]'); return c ? c.className + ' · ' + c.textContent : 'none'; }, k);
   ok('T3 17:00 phòng đầy vẫn ghép được: ô "Ghép · Tuấn Kiệt" + chấm lời mời', /join/.test(await cls('2026-10-20|17')) && /inv/.test(await cls('2026-10-20|17')) && /Tuấn Kiệt/.test(await cls('2026-10-20|17')), await cls('2026-10-20|17'));
-  ok('T2 15:00 cặp 1:2 của Lâm đã đủ → "Coach bận"', /Coach bận/.test(await cls('2026-10-19|15')), await cls('2026-10-19|15'));
+  ok('T2 15:00 cặp 1:2 của Lâm đã đủ → ô gạch X, không chữ (không nói lý do)', /\bfull\b/.test(await cls('2026-10-19|15')) && / · $/.test(await cls('2026-10-19|15')) &&
+     await page.evaluate(() => !!document.querySelector('#wkb .c[data-d="2026-10-19"][data-h="15"] svg.gx')), await cls('2026-10-19|15'));
   ok('T2 10:00 (ngoài khung ghép) không có trên bảng', (await cls('2026-10-19|10')) === 'none');
   await page.locator('.floor [data-a="invok"]').click();
   ok('Tập cùng → chọn sẵn T3 17:00', JSON.stringify(await page.evaluate(() => window.__lt.S.picks)) === '[{"date":"2026-10-20","h":17}]', await page.evaluate(() => window.__lt.S.picks));

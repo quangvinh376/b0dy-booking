@@ -348,6 +348,7 @@ button.stepn .ic{width:16px;height:16px}
 .sw.k-doi::before{content:'';position:absolute;inset:0;border:1px dashed var(--muc);border-radius:2px}
 .sw.k-tap{background:var(--giay2);box-shadow:none}
 .sw.k-tap svg{width:10px;height:10px;stroke:var(--da);stroke-width:1.5;fill:none}
+.sw.k-day{background:var(--suong);box-shadow:none;overflow:hidden}
 
 /* bảng tuần */
 .wk{--tc:48px;--g:4px;--rh:clamp(30px,calc((100dvh - 354px)/13),42px);--lh:24px;display:flex;flex-direction:column;gap:8px;min-width:0}
@@ -373,6 +374,11 @@ button.stepn .ic{width:16px;height:16px}
 .c>span{position:relative;white-space:nowrap;overflow:hidden;text-overflow:clip}
 .c .ic{position:relative;width:14px;height:14px;stroke:currentColor;stroke-width:1.5}
 .c.full,.c.lock{background:var(--suong);box-shadow:none;color:var(--da)}
+/* ô Đầy (phòng đầy hay coach bận, không nói lý do): gạch chéo X góc tới góc — nét 1 px dù ô rộng hay hẹp (non-scaling-stroke),
+   ô cắt theo bo góc. Cùng nét ở ô chú thích */
+.c.full{overflow:hidden}
+.gx{position:absolute;inset:0;width:100%;height:100%;fill:none;stroke:var(--tro);stroke-width:1;pointer-events:none}
+.gx path{vector-effect:non-scaling-stroke}
 .c.past{background:var(--giay2);box-shadow:none;color:var(--da)}
 .c.sel{background:var(--muc);box-shadow:none;color:var(--giay);font-size:14px;line-height:17px;letter-spacing:0}
 .c.sel.pop>span{animation:pop .22s var(--eo) both}
@@ -651,8 +657,10 @@ button.stepn .ic{width:16px;height:16px}
   .tl{font-size:9px;line-height:11px;letter-spacing:.06em}
   .tl .d,.c .d{display:none}
   .c .m{display:inline}
-  .c .m.cb{line-height:10px;text-align:center}    /* "Coach / bận" hai dòng như cột "Coach / nghỉ" */
-  .c .m.jn{line-height:10px;text-align:center}    /* "Ghép / Vy" hai dòng */
+  /* ô Ghép: icon ghép + tên gọi 2 chữ ("Bảo Linh") chữ thường như desktop, xuống dòng giữa hai chữ khi ô hẹp, tối đa 2 dòng */
+  .c .m.jn{display:flex;flex-direction:column;align-items:center;gap:3px;max-width:100%}
+  .c .m.jn .jm{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;max-width:100%;overflow:hidden;white-space:normal;text-align:center;
+               font-family:var(--sans);font-size:11px;line-height:13px;letter-spacing:-.01em;text-transform:none;color:var(--muc)}
   .wk.duo{--rh:clamp(44px,calc((100svh - 560px)/var(--n,5)),58px)}
   .c.inv::after{top:3px;right:3px;width:5px;height:5px}
   .lg-m .sw.k-ghep svg{width:9px;height:9px}

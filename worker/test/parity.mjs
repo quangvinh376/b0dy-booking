@@ -166,9 +166,13 @@ console.log('\n== 2. Tên · đọc MEMBERS · gộp gói ==');
 {
   const t = setup(vn('2026-10-18', '07:00'));
   const e = t.env;
-  const names = ['Hoàng Đức Nam', 'Đỗ Văn Hưng', 'Trần Thị Mỹ Linh', 'Thử Thị Hà', 'Thử Quang Minh', 'Mẫu Sao Băng', 'An', '  Bùi   Thị  Ánh  Dương ', 'Ðặng Ðức Ðạt'];
-  ok('Tên ngắn / tên chào / fold giống Apps Script (9 tên, có Đ kiểu Ð)', names.every(n => e.ltShort_(n) === C.short(n) && e.ltCall_(n) === C.callName(n) && e.ltName_(n) === C.nameKey(n) && e.ltFold_(n) === C.fold(n)));
-  ok('Tên ngắn và tên chào', C.short('Hoàng Đức Nam') === 'H. Đức Nam' && C.callName('Hoàng Đức Nam') === 'Đức Nam' && C.callName('Đỗ Văn Hưng') === 'Hưng' && C.callName('Trần Thị Mỹ Linh') === 'Mỹ Linh' && C.callName('Thử Thị Hà') === 'Hà' && C.callName('Trần Gia Bảo Linh') === 'Gia Bảo Linh' && C.callName('Nguyễn Thị Mỹ Ngọc') === 'Mỹ Ngọc');
+  const names = ['Hoàng Đức Nam', 'Đỗ Văn Hưng', 'Trần Thị Mỹ Linh', 'Thử Thị Hà', 'Thử Quang Minh', 'Mẫu Sao Băng', 'An', '  Bùi   Thị  Ánh  Dương ', 'Ðặng Ðức Ðạt',
+                 'Thử Gia Bảo Linh', 'Thử Nữ Thị Minh Châu', 'Thử Nam'];
+  ok('Tên ngắn / tên gọi / fold giống Apps Script (12 tên, có Đ kiểu Ð, tên 2 · 4 · 5 chữ)', names.every(n => e.ltShort_(n) === C.short(n) && e.ltCall_(n) === C.callName(n) && e.ltName_(n) === C.nameKey(n) && e.ltFold_(n) === C.fold(n)));
+  ok('Tên ngắn và tên gọi: 2 chữ cuối, chữ trước viết tắt (luật 18/10)', C.short('Hoàng Đức Nam') === 'H. Đức Nam' && C.short('Thử Gia Bảo Linh') === 'T. G. Bảo Linh' &&
+     C.short('Thử Nữ Thị Minh Châu') === 'T. N. T. Minh Châu' && C.short('Thử Nam') === 'T. Nam' && C.short('An') === 'An' &&
+     C.callName('Hoàng Đức Nam') === 'Đức Nam' && C.callName('Đỗ Văn Hưng') === 'Văn Hưng' && C.callName('Trần Thị Mỹ Linh') === 'Mỹ Linh' && C.callName('Thử Thị Hà') === 'Thị Hà' &&
+     C.callName('Thử Gia Bảo Linh') === 'Bảo Linh' && C.callName('Thử Nam') === 'Nam');
   ok('Bỏ hậu tố coach · viết tắt coach', C.coachName('Hiền Mai (giai đoạn 1)') === 'Hiền Mai' && C.initials('Quyết Hán') === 'QH');
   const gasP = e.ltPersons_(e.ltMemberRows_(), '2026-10-18');
   await t.wk.loadBA();
@@ -506,13 +510,14 @@ console.log('\n== 12. Tìm tên gõ tới đâu ra tới đó: ma trận chữ g
        r.results.every(x => Object.keys(x).sort().join() === 'coach,id,short'), r);
     return r;
   };
-  const NAM3 = ['H. Đức Nam', 'T. Ngọc Nam', 'K. Thử Nam Phong'], DANH = ['K. Thử Đức Anh', 'K. Thử Đức Anh'];
-  const TH6 = ['Thửnghiệm', 'K. Thử An', 'K. Thử Anh', 'K. Thứ Ba'].concat(DANH);
+  /* tên ngắn luật 18/10: 2 chữ cuối giữ nguyên, chữ trước viết tắt — đồng hạng thì xếp theo tên ngắn ("K. T. …" trước "K. Thử …") */
+  const NAM3 = ['H. Đức Nam', 'T. Ngọc Nam', 'K. T. Nam Phong'], DANH = ['K. T. Đức Anh', 'K. T. Đức Anh'];
+  const TH6 = ['Thửnghiệm'].concat(DANH, ['K. T. N. Bảo Anh', 'K. T. Nam Phong', 'K. Thử An']);
   /* rỗng / chỉ dấu câu */
   for (const q of ['', '   ', '...', '?! 🙂']) await chk(q, [], 'Không có chữ nào → rỗng');
   /* 1 ký tự: chỉ khớp ĐẦU chữ của tên đệm + tên; chữ cuối rơi vào tên gọi xếp trước */
-  await chk('n', ['H. Đức Nam', 'T. Ngọc Nam', 'K. Thử Nam Phong', 'K. Thử Ngọc Bảo Anh', 'M. Thử Ngọc Ánh'], '1 ký tự, tên gọi bắt đầu bằng N xếp trước');
-  await chk('N', ['H. Đức Nam', 'T. Ngọc Nam', 'K. Thử Nam Phong', 'K. Thử Ngọc Bảo Anh', 'M. Thử Ngọc Ánh'], 'Chữ hoa như chữ thường');
+  await chk('n', ['H. Đức Nam', 'T. Ngọc Nam', 'K. T. N. Bảo Anh', 'K. T. Nam Phong', 'M. T. Ngọc Ánh'], '1 ký tự, tên gọi bắt đầu bằng N xếp trước');
+  await chk('N', ['H. Đức Nam', 'T. Ngọc Nam', 'K. T. N. Bảo Anh', 'K. T. Nam Phong', 'M. T. Ngọc Ánh'], 'Chữ hoa như chữ thường');
   await chk('k', ['K. Thử Khôi', 'B. Không Số'], '1 ký tự: họ "Khách" không tính, tên gọi Khôi trước tên đệm Không');
   await chk('o', [], '1 ký tự không khớp giữa chữ (Khôi không ra)');
   let r = await chk('đ', ['H. Đức Nam'].concat(DANH), 'đ = d');
@@ -521,14 +526,14 @@ console.log('\n== 12. Tìm tên gõ tới đâu ra tới đó: ma trận chữ g
   /* 2 ký tự trở lên · more khi hơn 6 người */
   await chk('th', TH6, 'Tên một chữ (Thửnghiệm) là tên gọi → xếp đầu; 16 người → 6 + more', true);
   await chk('thu', TH6, '"thu": họ "Thử" của T. Ngọc Nam không tính; 14 người → 6 + more', true);
-  await chk('an', ['K. Thử An', 'K. Thử Anh'].concat(DANH, ['K. Thử Ngọc Bảo Anh', 'M. Thử Ngọc Ánh']), 'Trùng trọn chữ (An) trước gõ dở (Anh); người thứ 7 (Văn, khớp giữa chữ) → more', true);
+  await chk('an', ['K. Thử An'].concat(DANH, ['K. T. N. Bảo Anh', 'K. Thử Anh', 'M. T. Ngọc Ánh']), 'Trùng trọn chữ (An) trước gõ dở (Anh); người thứ 7 (Văn, khớp giữa chữ) → more', true);
   await chk('nam', NAM3, 'Tên gọi Nam trước tên đệm Nam (dù K < T)');
   /* nhiều chữ: bậc 0 (phần cuối họ tên) > bậc 1 (đầu chữ, đúng thứ tự, được bỏ chữ giữa) */
   await chk('d nam', ['H. Đức Nam'], 'Đầu chữ đúng thứ tự: "d nam"');
-  await chk('thu nam', ['K. Thử Nam Phong'], 'Họ "Thử" (T. Ngọc Nam) không ghép được với tên');
-  await chk('ngoc anh', ['M. Thử Ngọc Ánh', 'K. Thử Ngọc Bảo Anh'], 'Khớp liền phần cuối xếp trước khớp có bỏ chữ giữa (dù K < M)');
-  await chk('thu an', ['K. Thử An', 'K. Thử Anh'].concat(DANH, ['K. Thử Ngọc Bảo Anh', 'M. Thử Ngọc Ánh']), 'Đúng 6 người → không có more');
-  await chk('thi linh', ['T. Thị Mỹ Linh'], 'Bỏ tên đệm ở giữa: "thi linh"');
+  await chk('thu nam', ['K. T. Nam Phong'], 'Họ "Thử" (T. Ngọc Nam) không ghép được với tên');
+  await chk('ngoc anh', ['M. T. Ngọc Ánh', 'K. T. N. Bảo Anh'], 'Khớp liền phần cuối xếp trước khớp có bỏ chữ giữa (dù K < M)');
+  await chk('thu an', ['K. Thử An', 'K. Thử Anh'].concat(DANH, ['K. T. N. Bảo Anh', 'M. T. Ngọc Ánh']), 'Đúng 6 người → không có more');
+  await chk('thi linh', ['T. T. Mỹ Linh'], 'Bỏ tên đệm ở giữa: "thi linh" (tên đệm hiện tắt vẫn tìm được)');
   await chk('linh thi', [], 'Sai thứ tự → không ra');
   /* chỉ gõ họ → không ai (họ chỉ hiện chữ cái đầu) */
   for (const q of ['khach', 'mau', 'hoang', 'tran', 'phan', 'le', 'Bùi']) await chk(q, [], 'Chỉ gõ họ');
@@ -548,7 +553,7 @@ console.log('\n== 12. Tìm tên gõ tới đâu ra tới đó: ma trận chữ g
   await chk('hoi', ['K. Thử Khôi'], 'Giữa chữ: "hoi" → Khôi');
   await chk('oi', ['K. Thử Khôi'], 'Giữa chữ, 2 ký tự');
   await chk('ung', ['Đ. Văn Hưng', 'Thửnghiệm'], 'Giữa chữ: "ung" → Hưng, Thửnghiệm');
-  await chk('ong', ['K. Thử Nam Phong', 'L. Gia Phong', 'B. Không Số'], 'Giữa chữ: tên gọi trước tên đệm (dù B < K)');
+  await chk('ong', ['K. T. Nam Phong', 'L. Gia Phong', 'B. Không Số'], 'Giữa chữ: tên gọi trước tên đệm (dù B < K)');
   await chk('nghiem', ['Thửnghiệm'], 'Giữa chữ của tên một chữ');
   await chk('hoi nam', [], 'Hai chữ thì không khớp giữa chữ');
   /* dài quá 60 ký tự: cắt ở 60 như trước */

@@ -105,15 +105,18 @@ export function fold(s) {
 export function hdr(s) { return fold(s).replace(/\s+/g, ' ').trim(); }
 export function nameKey(s) { return fold(s).replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim(); }
 export function words(s) { return String(s == null ? '' : s).trim().split(/\s+/).filter(x => !!x); }
-/** "Hoàng Đức Nam" → "H. Đức Nam" (họ viết tắt — tên hiện công khai) */
-export function short(name) { const w = words(name); return w.length < 2 ? w.join(' ') : w[0].charAt(0).toUpperCase() + '. ' + w.slice(1).join(' '); }
-/** Tên để chào: bỏ họ ("Đức Nam", "Gia Bảo Linh"); tên đệm Thị/Văn đứng đầu thì bỏ luôn ("Hưng", "Hà", "Mỹ Ngọc"). */
-export function callName(name) {
+/** Tên hiện công khai (chủ studio chốt 18/10): tên gọi (2 chữ cuối) giữ nguyên, mọi chữ trước viết tắt — "H. Đức Nam",
+    "N. G. Bảo Linh"; tên 2 chữ: "N. Nam" (họ luôn viết tắt). */
+export function short(name) {
   const w = words(name);
   if (w.length < 2) return w.join(' ');
-  let rest = w.slice(1);
-  while (rest.length > 1 && /^(thi|van)$/.test(nameKey(rest[0]))) rest = rest.slice(1);
-  return rest.join(' ');
+  const k = Math.max(1, w.length - 2);
+  return w.slice(0, k).map(x => x.charAt(0).toUpperCase() + '.').join(' ') + ' ' + w.slice(k).join(' ');
+}
+/** Tên gọi (chào, bạn tập đôi): 2 chữ cuối, không bao giờ có họ — "Đức Nam", "Bảo Linh", "Văn Hưng", "Thị Hà"; tên 2 chữ: "Nam". */
+export function callName(name) {
+  const w = words(name);
+  return w.length < 2 ? w.join(' ') : w.slice(Math.max(1, w.length - 2)).join(' ');
 }
 export function coachName(c) { return String(c == null ? '' : c).replace(/\s*\(.*\)\s*$/, '').trim(); }
 /** Khoá so sánh coach (bỏ hậu tố, bỏ dấu, chữ thường): dòng sổ sửa tay lệch dấu / hoa thường vẫn là cùng coach. */
@@ -165,7 +168,8 @@ export function prefixFit(q, V) {
 
 /**
  * Tìm tên — gõ tới đâu ra tới đó. q = các chữ đã gõ (nameKey rồi tách), toks = các chữ của họ tên (nameKey).
- * Chỉ so với phần tên hiện công khai V = tên đệm + tên (họ chỉ hiện chữ cái đầu "H.", nên gõ riêng họ không ra ai):
+ * Chỉ so với V = tên đệm + tên (họ chỉ hiện chữ cái đầu "H.", nên gõ riêng họ không ra ai; tên đệm hiện tắt — "N. G. Bảo Linh" —
+ * vẫn tìm được bằng chữ đầy đủ "gia"):
  *  · bậc 0 — luật cũ match(): ≥ 2 chữ khớp liền phần CUỐI của họ tên (kể cả họ), chữ cuối được gõ dở;
  *  · bậc 1 — mỗi chữ gõ là ĐẦU của một chữ khác nhau trong V, đúng thứ tự, được bỏ qua chữ ở giữa (1 ký tự là đủ);
  *  · bậc 2 — đúng một chữ, từ 2 ký tự, nằm GIỮA một chữ của V ("hoi" → Khôi).

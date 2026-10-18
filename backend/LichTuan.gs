@@ -103,15 +103,18 @@ function ltFold_(s) {   /* bỏ dấu, đ → d, chữ thường */
 function ltHdr_(s) { return ltFold_(s).replace(/\s+/g, ' ').trim(); }
 function ltName_(s) { return ltFold_(s).replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim(); }
 function ltWords_(s) { return String(s == null ? '' : s).trim().split(/\s+/).filter(function (x) { return !!x; }); }
-/** "Hoàng Đức Nam" → "H. Đức Nam" (họ viết tắt — tên hiện công khai) */
-function ltShort_(name) { var w = ltWords_(name); return w.length < 2 ? w.join(' ') : w[0].charAt(0).toUpperCase() + '. ' + w.slice(1).join(' '); }
-/** Tên để chào: bỏ họ ("Đức Nam", "Gia Bảo Linh"); tên đệm Thị/Văn đứng đầu thì bỏ luôn ("Hưng", "Hà", "Mỹ Ngọc"). */
-function ltCall_(name) {
+/** Tên hiện công khai (chủ studio chốt 18/10): tên gọi (2 chữ cuối) giữ nguyên, mọi chữ trước viết tắt — "H. Đức Nam",
+    "N. G. Bảo Linh"; tên 2 chữ: "N. Nam" (họ luôn viết tắt). */
+function ltShort_(name) {
   var w = ltWords_(name);
   if (w.length < 2) return w.join(' ');
-  var rest = w.slice(1);
-  while (rest.length > 1 && /^(thi|van)$/.test(ltName_(rest[0]))) rest = rest.slice(1);
-  return rest.join(' ');
+  var k = Math.max(1, w.length - 2);
+  return w.slice(0, k).map(function (x) { return x.charAt(0).toUpperCase() + '.'; }).join(' ') + ' ' + w.slice(k).join(' ');
+}
+/** Tên gọi (chào, bạn tập đôi): 2 chữ cuối, không bao giờ có họ — "Đức Nam", "Bảo Linh", "Văn Hưng", "Thị Hà"; tên 2 chữ: "Nam". */
+function ltCall_(name) {
+  var w = ltWords_(name);
+  return w.length < 2 ? w.join(' ') : w.slice(Math.max(1, w.length - 2)).join(' ');
 }
 function ltCoach_(c) { return String(c == null ? '' : c).replace(/\s*\(.*\)\s*$/, '').trim(); }
 /** Khoá so sánh coach (bỏ hậu tố, bỏ dấu, chữ thường): dòng sổ sửa tay lệch dấu / hoa thường vẫn là cùng coach. */

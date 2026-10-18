@@ -37,7 +37,11 @@ ID hai file Google Sheets: `BA_ID` (file BA: MEMBERS · SESSION LOG · TRIAL · 
   `worker/src`; **Worker chưa deploy** → luật chỉ có hiệu lực sau khi deploy (cần câu đồng ý); (2) giữ tối thiểu 2 buổi;
   (3) buổi 1:2 lẻ giờ cao điểm: chưa làm, đo sau tuần 44. **Sức chứa 4 → 5 suất / khung** (5 coach: 5 khách 1:1 hay 10 khách
   1:2) — chỉ đổi ô dữ liệu BA `' ⚙️ 2'!C27` (18/10), không đổi mã; `LT.CAP` = 4 chỉ là dự phòng khi không đọc được ô đó.
-  Thế giới giả `?qc` vẫn sức chứa 4 (`qc.js` · cfg + BUSY). Khách 1:2 của Lâm → Ngọc: chủ studio tự đổi trong BA. Tuần 44 chạy thử nội bộ, ra mắt chính thức tháng 11.
+  Thế giới giả `?qc` vẫn sức chứa 4 (`qc.js` · cfg + BUSY).
+- **1.0.13** (chủ studio 18/10, trên nhánh, chưa lên `main`): (1) tên = 2 chữ cuối, chữ trước viết tắt — tên ngắn "N. G. Bảo Linh",
+  tên gọi "Bảo Linh" / "Văn Hưng" / "Thị Hà" (bỏ luật cũ bỏ Thị/Văn) — `short` / `callName` = `ltShort_` / `ltCall_`, cần **deploy
+  Worker** (sổ, `_dữ liệu`, phiếu); tìm tên không đổi (gõ tên đệm hiện tắt vẫn ra), trang tô chữ tắt; (2) ô Đầy + coach bận = một
+  ô gạch X, không chữ, không lý do (chú thích: X "Đầy", xám "Không chọn được" / "Đã có buổi"); (3) mobile ô Ghép = icon + tên gọi 2 chữ. Khách 1:2 của Lâm → Ngọc: chủ studio tự đổi trong BA. Tuần 44 chạy thử nội bộ, ra mắt chính thức tháng 11.
 
 ## Phiên bản trang
 

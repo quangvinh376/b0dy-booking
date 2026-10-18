@@ -9,7 +9,7 @@
 'use strict';
 
 /* ============================== CẤU HÌNH ============================== */
-var VER = '1.0.12';
+var VER = '1.0.13';
 var API_URL = 'https://b0dy-booking-api.little-bonus-1d87.workers.dev/';
 var API_SLOW = false;                 /* true khi chạy Apps Script (chậm hơn nhiều) → nới thời gian chờ */
 /* chế độ QC (?qc): máy chủ giả chạy ngay trên máy (qc.js, đúng mã của Worker) với dữ liệu giả — không gọi mạng,
@@ -238,6 +238,8 @@ var IC = {
   pair: '<circle cx="8.5" cy="12" r="5.5"/><circle cx="15.5" cy="12" r="5.5"/>'
 };
 function ico(n, cls) { return '<svg class="ic' + (cls ? ' ' + cls : '') + '" viewBox="0 0 24 24" aria-hidden="true">' + IC[n] + '</svg>'; }
+/* ô Đầy (phòng hết suất hoặc coach bận — chủ studio 18/10: không cần nói lý do): gạch chéo X góc tới góc, giãn theo ô */
+var XCELL = '<svg class="gx" viewBox="0 0 10 10" preserveAspectRatio="none" aria-hidden="true"><path d="M0 0L10 10M10 0L0 10"/></svg>';
 var WM_SVG = '<svg viewBox="0 0 359 115" aria-hidden="true"><use href="#wordmark"/></svg>';
 
 /* ============================== TRẠNG THÁI ============================== */
@@ -874,20 +876,22 @@ function search(k) {
     S.qState = 'err'; S.qErr = 'Chưa kết nối được. Kiểm tra mạng rồi thử lại.'; renderFind();
   });
 }
-/* Cách khớp tốt nhất của các chữ gõ q vào ĐẦU các chữ của V, đúng thứ tự — chép nguyên prefixFit của máy chủ (core.js)
-   để tô đúng những chữ máy chủ đã khớp. Trả {last, eq, at} hoặc null. */
-function prefixFit(q, V) {
+/* Cách khớp tốt nhất của các chữ gõ q vào ĐẦU các chữ của V, đúng thứ tự — chép prefixFit của máy chủ (core.js)
+   để tô đúng những chữ máy chủ đã khớp. ini[j]: V[j] là chữ hiện tắt ("G." của "N. G. Bảo Linh" — chữ đầy đủ chỉ máy chủ biết)
+   → chữ gõ khớp khi bắt đầu bằng chữ cái đó. Trả {last, eq, at} hoặc null. */
+function prefixFit(q, V, ini) {
   var n = q.length, m = V.length, f = [], i, j, b;
+  var fit = function (x, j) { return ini && ini[j] ? x.charAt(0) === V[j] : V[j].indexOf(x) === 0; };
   if (!n || n > m) return null;
   for (i = 0; i <= n; i++) { f.push([]); for (j = 0; j <= m; j++) f[i].push(i ? -1 : 0); }
   for (i = 1; i <= n; i++) {
     for (j = i; j <= m; j++) {
       b = f[i][j - 1];
-      if (f[i - 1][j - 1] >= 0 && V[j - 1].indexOf(q[i - 1]) === 0) b = Math.max(b, f[i - 1][j - 1] + (V[j - 1] === q[i - 1] ? 1 : 0));
+      if (f[i - 1][j - 1] >= 0 && fit(q[i - 1], j - 1)) b = Math.max(b, f[i - 1][j - 1] + (V[j - 1] === q[i - 1] ? 1 : 0));
       f[i][j] = b;
     }
   }
-  var last = V[m - 1].indexOf(q[n - 1]) === 0 && f[n - 1][m - 1] >= 0 ? 1 : 0;
+  var last = fit(q[n - 1], m - 1) && f[n - 1][m - 1] >= 0 ? 1 : 0;
   i = last ? n - 1 : n; j = last ? m - 1 : m;
   if (f[i][j] < 0) return null;
   var at = [], eq = f[i][j] + (last && V[m - 1] === q[n - 1] ? 1 : 0);
@@ -895,20 +899,20 @@ function prefixFit(q, V) {
   while (i > 0) { if (f[i][j - 1] === f[i][j]) j--; else { at[i - 1] = j - 1; i--; j--; } }
   return { last: last, eq: eq, at: at };
 }
-/* Tô phần khớp của tên ngắn ("H. Đức Nam") với các chữ gõ q: gập dấu TỪNG ký tự bằng fold() (tiếng Việt: 1 ký tự → 1 ký tự)
-   nên vị trí trên chuỗi gập trỏ đúng ký tự đang hiện; rồi khớp lại theo ba bậc của máy chủ (core.js · findRank):
-   0 · liền phần cuối họ tên (họ chỉ hiện chữ cái đầu: gõ cả họ thì tô chữ cái đó) · 1 · đầu chữ, đúng thứ tự · 2 · giữa một chữ.
-   Phần khớp bọc <span class="hit">; mọi chữ đều qua esc(). */
+/* Tô phần khớp của tên ngắn ("H. Đức Nam", "N. G. Bảo Linh") với các chữ gõ q: gập dấu TỪNG ký tự bằng fold() (tiếng Việt:
+   1 ký tự → 1 ký tự) nên vị trí trên chuỗi gập trỏ đúng ký tự đang hiện; rồi khớp lại theo ba bậc của máy chủ (core.js · findRank):
+   0 · liền phần cuối họ tên · 1 · đầu chữ, đúng thứ tự · 2 · giữa một chữ. Chữ hiện tắt (một chữ cái + dấu chấm: họ, và tên đệm
+   của tên từ 4 chữ) khớp khi chữ gõ bắt đầu bằng chữ cái đó → tô chữ cái đó. Phần khớp bọc <span class="hit">; mọi chữ đều qua esc(). */
 function hitHTML(short, q) {
   var s = String(short == null ? '' : short), f = '', at = [], hit = [], R = [], T = [], re = /[a-z0-9]+/g, i, j, c, m, x;
   for (i = 0; i < s.length; i++) { c = fold(s[i]); for (j = 0; j < c.length; j++) { f += /[a-z0-9]/.test(c[j]) ? c[j] : ' '; at.push(i); } }
-  while ((m = re.exec(f))) T.push({ t: m[0], a: m.index });
-  /* "H. Đức Nam": chữ cái đầu là họ; phần còn lại là tên đệm + tên (V của máy chủ) */
-  var fam = s.charAt(1) === '.' && s.charAt(2) === ' ' && T.length && at[T[0].a] === 0 ? T[0] : null;
+  while ((m = re.exec(f))) T.push({ t: m[0], a: m.index, ini: m[0].length === 1 && s.charAt(at[m.index] + 1) === '.' });
+  /* chữ hiện tắt đứng đầu là họ; phần còn lại là tên đệm + tên (V của máy chủ) */
+  var fam = T.length && T[0].ini && at[T[0].a] === 0 ? T[0] : null;
   var V = fam ? T.slice(1) : T, n = q.length, off = T.length - n, ok = n >= 2 && off >= 0;
-  for (i = 0; ok && i < n; i++) { x = T[off + i]; ok = x === fam ? q[i].indexOf(x.t) === 0 : i < n - 1 ? q[i] === x.t : x.t.indexOf(q[i]) === 0; }
-  if (ok) for (i = 0; i < n; i++) { x = T[off + i]; R.push([x.a, x.a + (x === fam ? x.t.length : q[i].length)]); }
-  else if ((m = prefixFit(q, V.map(function (v) { return v.t; })))) m.at.forEach(function (k, qi) { R.push([V[k].a, V[k].a + q[qi].length]); });
+  for (i = 0; ok && i < n; i++) { x = T[off + i]; ok = x.ini ? q[i].indexOf(x.t) === 0 : i < n - 1 ? q[i] === x.t : x.t.indexOf(q[i]) === 0; }
+  if (ok) for (i = 0; i < n; i++) { x = T[off + i]; R.push([x.a, x.a + (x.ini ? 1 : q[i].length)]); }
+  else if ((m = prefixFit(q, V.map(function (v) { return v.t; }), V.map(function (v) { return v.ini; })))) m.at.forEach(function (k, qi) { R.push([V[k].a, V[k].a + (V[k].ini ? 1 : q[qi].length)]); });
   else if (n === 1 && q[0].length >= 2) for (i = V.length - 1; i >= 0; i--) { j = V[i].t.indexOf(q[0], 1); if (j > 0) { R.push([V[i].a + j, V[i].a + j + q[0].length]); break; } }
   R.forEach(function (r) { for (var k = r[0]; k < r[1]; k++) hit[at[k]] = 1; });
   for (i = 1; i < s.length; i++) if (hit[i - 1] && !hit[i] && fold(s[i]) === '') hit[i] = 1;   /* dấu viết rời (NFD) đi theo chữ trước */
@@ -1188,8 +1192,8 @@ function gridRows() {
 function waitName(iso, h) { var d = duoSt(); return d && d.wait ? d.wait[iso + '|' + h] || '' : ''; }
 function pairName(iso, h) { var d = duoSt(); return d && d.pairs ? d.pairs[iso + '|' + h] || '' : ''; }
 function invFor(iso, h) { var d = duoSt(); return d && d.invIn ? d.invIn.filter(function (x) { return x.date === iso && +x.h === +h; })[0] || null : null; }
-/* chữ cuối của tên gọi ("Thảo Vy" → "Vy") cho ô bảng mobile */
-function given(n) { var w = String(n || '').trim().split(/\s+/); return w[w.length - 1] || ''; }
+/* tên gọi = 2 chữ cuối (luật tên 18/10; máy chủ cũ còn gửi "Gia Bảo Linh" cho tên 4 chữ) */
+function call2(n) { return String(n || '').trim().split(/\s+/).slice(-2).join(' '); }
 function hoursTxt() { var d = duoSt(); return d ? d.duoHours.map(hm).join(', ').replace(/, ([^,]*)$/, ' hoặc $1') : ''; }
 /* dời buổi `from` (đang lẻ) vào khung `to` có một khách 1:2 cùng coach đang chờ → "Ghép": không tính lượt đổi, dời được trong ngày */
 function pairMove(from, to) { return !!(duoSt() && from && to && coachAt(to.date, to.h) === 'join' && coachAt(from.date, from.h) === ''); }
@@ -1293,8 +1297,7 @@ function cellModel(mode) {
           if (left === 1) m.html = '<span class="d">Còn 1</span><span class="m">1</span>';
         }
         m.can = true;
-      } else if (wy === 'day') { m.cls = 'full'; m.html = '<span>Đầy</span>'; m.aria = label + 'đầy'; }
-      else if (wy === 'coach_ban') { m.cls = 'full'; m.html = '<span class="d">Coach bận</span><span class="m cb">Coach<br>bận</span>'; m.aria = label + 'coach của bạn đã có lịch dạy'; }
+      } else if (isFull(wy)) { m.cls = 'full'; m.html = XCELL; m.aria = label + 'đầy'; }
       else if (wy === 'qua') { m.cls = 'past'; m.aria = label + 'đã qua'; }
       else {
         m.cls = 'lock';
@@ -1315,11 +1318,12 @@ function cellModel(mode) {
   });
   return out;
 }
-/* ô có một khách 1:2 cùng coach đang chờ ghép: tên gọi người đó (desktop) · "GHÉP / tên" hai dòng (mobile). Có lời mời gửi mình → chấm Acid */
+/* ô có một khách 1:2 cùng coach đang chờ ghép: "Ghép" + tên gọi người đó (desktop) · icon ghép + tên gọi 2 chữ, ≤ 2 dòng (mobile).
+   Có lời mời gửi mình → chấm Acid */
 function joinModel(at, label) {
   var n = waitName(at.date, at.h), iv = invFor(at.date, at.h);
   return { cls: 'free join' + (iv ? ' inv' : ''), can: false,
-           html: '<span class="d jn"><span class="jk">' + ico('pair') + 'Ghép</span><span class="jt">' + esc(n) + '</span></span><span class="m jn">Ghép<br>' + esc(given(n)) + '</span>',
+           html: '<span class="d jn"><span class="jk">' + ico('pair') + 'Ghép</span><span class="jt">' + esc(n) + '</span></span><span class="m jn">' + ico('pair') + '<span class="jm">' + esc(call2(n)) + '</span></span>',
            aria: label + n + ' đang chờ ghép' + (iv ? ', ' + n + ' mời bạn' : '') + ', chọn để tập đôi' };
 }
 /* ô đang chọn: giờ; vào cặp → thêm tên bạn (desktop) */
@@ -1555,35 +1559,34 @@ function bookSub() {
 }
 function legendHTML(kind) {
   var it = {
-    trong: ['', '', 'Trống'], con1: ['', '1', 'Còn 1 chỗ'], day: ['k-khoa', '', 'Đầy'], dayban: ['k-khoa', '', 'Đầy · coach bận'], chon: ['k-chon', '', 'Đã chọn'], trua: ['k-qua', '', 'Nghỉ trưa'],
-    khong: ['k-khoa', '', 'Không chọn được'], dayle: ['k-khoa', '', 'Đầy · nghỉ lễ'], them: ['k-chon', '', 'Buổi thêm'], dat: ['k-dat', '', 'Đã đặt'], daybuoi: ['k-khoa', '', 'Đầy · đã có buổi'],
+    trong: ['', '', 'Trống'], con1: ['', '1', 'Còn 1 chỗ'], day: ['k-day', '', 'Đầy'], chon: ['k-chon', '', 'Đã chọn'], trua: ['k-qua', '', 'Nghỉ trưa'],
+    khong: ['k-khoa', '', 'Không chọn được'], them: ['k-chon', '', 'Buổi thêm'], dat: ['k-dat', '', 'Đã đặt'], kbuoi: ['k-khoa', '', 'Đã có buổi'],
     toi: ['', '', 'Chuyển tới được'], kchuyen: ['k-khoa', '', 'Không chuyển được'], tap: ['k-tap', '', 'Đã tập'], dangdoi: ['k-doi', '', 'Buổi đang đổi'], moi: ['k-chon', '', 'Buổi mới'], cuaban: ['k-dat', '', 'Buổi của bạn'],
     kthe: ['k-khoa', '', 'Không thể đổi'],
-    mtrong: ['', '', 'Trống'], mchon: ['k-chon', '', 'Đã chọn'], mcon1: ['', '1', 'Còn 1'], mday: ['k-khoa', '', 'Đầy'], mkhong: ['k-khoa', '', 'Không được'],
+    mtrong: ['', '', 'Trống'], mchon: ['k-chon', '', 'Đã chọn'], mcon1: ['', '1', 'Còn 1'], mday: ['k-day', '', 'Đầy'], mkhong: ['k-khoa', '', 'Không được'],
     mdoi: ['k-doi', '', 'Đang đổi'], mmoi: ['k-chon', '', 'Mới'], mcua: ['k-dat', '', 'Của bạn'], mtap: ['k-tap', '', 'Đã tập'], mthem: ['k-chon', '', 'Thêm'], mdat: ['k-dat', '', 'Đã đặt'],
     ghep: ['k-ghep', '', 'Ghép · bạn đang chờ'], mghep: ['k-ghep', '', 'Ghép']
   };
   var duo = !!duoSt();
   var w = S.st && S.st.week, hasClosed = w && w.closed && Object.keys(w.closed).length, phaseLate = w && w.phase === 'late';
   var exp = S.st && S.st.me.exp && w && S.st.me.exp < w.days[w.days.length - 1];
-  /* có ô "Coach bận" (coach của hội viên đã dạy người khác ở khung đó) → ô xám của chú thích gọi luôn tên đó */
-  var ban = w && w.days.some(function (d) { return SLOTS.some(function (h) { return why(d, h, leadBook()) === 'coach_ban'; }); });
-  /* gói 1:2: thêm ô "Ghép" (bạn cùng coach đang chờ) */
+  /* ô gạch X = Đầy (phòng đầy hay coach bận, không nói lý do) · ô xám = không chọn được (ngày nghỉ, ngoài gói, đặt muộn, ngày đã có buổi):
+     có ô xám thì thêm mục xám. Gói 1:2: thêm ô "Ghép" (bạn cùng coach đang chờ) */
+  var lock = hasClosed || phaseLate || exp;
   var sets = {
-    book: duo ? ['trong', 'chon', 'ghep', 'con1', 'trua', hasClosed ? 'dayle' : (phaseLate || exp ? 'khong' : (ban ? 'dayban' : 'day'))]
-      : ['trong', 'chon', 'con1', 'trua', hasClosed ? 'dayle' : (phaseLate || exp ? 'khong' : (ban ? 'dayban' : 'day'))],
-    'book-m': duo ? ['mtrong', 'mchon', 'mghep', phaseLate || exp ? 'mkhong' : 'mday'] : ['mtrong', 'mchon', 'mcon1', phaseLate || exp ? 'mkhong' : 'mday'],
-    add: duo ? ['trong', 'them', 'ghep', 'dat', 'daybuoi', 'trua'] : ['trong', 'them', 'con1', 'dat', 'daybuoi', 'trua'],
-    'add-m': duo ? ['mtrong', 'mthem', 'mghep', 'mdat', 'mday'] : ['mtrong', 'mthem', 'mcon1', 'mdat', 'mday'],
-    chg: duo ? ['toi', 'ghep', 'dangdoi', 'kchuyen', 'moi', 'cuaban'] : ['toi', 'dangdoi', 'kchuyen', 'moi', 'tap', 'cuaban'],
-    'chg-m': duo ? ['mdoi', 'mmoi', 'mghep', 'mcua', 'mkhong'] : ['mdoi', 'mmoi', 'mcua', 'mkhong', 'mtap'],
+    book: (duo ? ['trong', 'chon', 'ghep', 'con1', 'trua', 'day'] : ['trong', 'chon', 'con1', 'trua', 'day']).concat(lock ? ['khong'] : []),
+    'book-m': (duo ? ['mtrong', 'mchon', 'mghep', 'mday'] : ['mtrong', 'mchon', 'mcon1', 'mday']).concat(lock ? ['mkhong'] : []),
+    add: duo ? ['trong', 'them', 'ghep', 'dat', 'day', 'kbuoi', 'trua'] : ['trong', 'them', 'con1', 'dat', 'day', 'kbuoi', 'trua'],
+    'add-m': duo ? ['mtrong', 'mthem', 'mghep', 'mdat', 'mday', 'mkhong'] : ['mtrong', 'mthem', 'mcon1', 'mdat', 'mday', 'mkhong'],
+    chg: duo ? ['toi', 'ghep', 'dangdoi', 'kchuyen', 'day', 'moi', 'cuaban'] : ['toi', 'dangdoi', 'kchuyen', 'day', 'moi', 'tap', 'cuaban'],
+    'chg-m': duo ? ['mdoi', 'mmoi', 'mghep', 'mcua', 'mkhong', 'mday'] : ['mdoi', 'mmoi', 'mcua', 'mkhong', 'mday', 'mtap'],
     nochg: ['kthe', 'cuaban', 'tap'],
     'nochg-m': ['mcua', 'mkhong', 'mtap']
   };
   var list = sets[kind] || sets.book, cls = /-m$/.test(kind) ? '' : 'lg';
   return (cls ? '<div class="lg">' : '') + list.map(function (k) {
     var x = it[k]; return '<span class="lgi"><i class="sw ' + x[0] + '">' + (k === 'tap' || k === 'mtap' ? '<svg viewBox="0 0 10 10"><path d="M1.5 5.2L4 7.6L8.6 2.6"/></svg>'
-      : k === 'ghep' || k === 'mghep' ? '<svg viewBox="0 0 24 24">' + IC.pair + '</svg>' : esc(x[1])) + '</i>' + esc(x[2]) + '</span>';
+      : k === 'ghep' || k === 'mghep' ? '<svg viewBox="0 0 24 24">' + IC.pair + '</svg>' : k === 'day' || k === 'mday' ? XCELL : esc(x[1])) + '</i>' + esc(x[2]) + '</span>';
   }).join('') + (cls ? '</div>' : '');
 }
 /* thanh đáy mobile · TUẦN CỦA BẠN: 7 ô thẳng hàng 7 cột ngày của bảng giờ ngay phía trên (cột giờ 22 px · khe 3 px như .wk), cùng ngôn ngữ ô

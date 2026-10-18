@@ -87,9 +87,9 @@ function oldServer(t) {
     await page.fill('#q', 'thu');
     await page.waitForFunction(m => document.querySelector('#qhint').textContent === m, MORE, { timeout: 5000 }).catch(() => {});
     rs = await rows(page);
-    R.ok('"thu" → 16 người: hiện 6 dòng + "' + MORE + '"', rs.length === 6 && (await hint(page)) === MORE && rs.every(r => r.hits.join() === 'Thử'), { n: rs.length, h: await hint(page) });
-    await page.fill('#q', 'thu muoi m'); await waitNames(page, ['K. Thử Mười Một']);
-    R.ok('Gõ thêm → còn 1 người, hết lời nhắc', (await names(page)).join() === 'K. Thử Mười Một' && (await hint(page)) === '', await hint(page));
+    R.ok('"thu" → 16 người: hiện 6 dòng + "' + MORE + '"', rs.length === 6 && (await hint(page)) === MORE && rs.every(r => r.hits.join() === 'Thử' || (r.t.indexOf('K. T. ') === 0 && r.hits.join() === 'T')), { n: rs.length, h: await hint(page), rs });
+    await page.fill('#q', 'thu muoi m'); await waitNames(page, ['K. T. Mười Một']);
+    R.ok('Gõ thêm → còn 1 người, hết lời nhắc', (await names(page)).join() === 'K. T. Mười Một' && (await hint(page)) === '', await hint(page));
 
     /* bàn phím: ↓ chọn dòng 2, Enter mở xác minh đúng người; Esc xoá ô */
     await page.fill('#q', 'n'); await waitNames(page, ['H. Đức Nam', 'H. Đức Nam', 'K. Thử Năm', 'L. Mỹ Ngọc']);
@@ -170,8 +170,10 @@ function oldServer(t) {
     await page.evaluate(() => { window.__ti = []; document.querySelector('#q').addEventListener('input', () => window.__ti.push(performance.now())); });
     await page.focus('#q');
     await page.keyboard.type('gia bao l', { delay: 30 });
-    const got2 = await waitNames(page, ['T. Gia Bảo Linh']);
+    const got2 = await waitNames(page, ['T. G. Bảo Linh']);
     await R.sleep(500);
+    const hl = (await rows(page))[0];
+    R.ok('Tên 4 chữ hiện "T. G. Bảo Linh" (luật 18/10); gõ "gia bao l" → tô chữ tắt G + Bảo + L', hl && JSON.stringify(hl.hits) === '["G","Bảo","L"]', hl);
     const ti = await page.evaluate(() => window.__ti), gaps = ti.slice(1).map((v, i) => v - ti[i]), slow = gaps.filter(g => g >= 120).length;
     const sent = finds(t).slice(before);
     R.info('gõ "gia bao l": ' + ti.length + ' lần gõ, khoảng nghỉ dài nhất ' + Math.round(Math.max.apply(null, gaps)) + ' ms, ' + slow + ' khoảng ≥ 120 ms, ' + sent.length + ' lượt tìm', sent.map(b => b.q));

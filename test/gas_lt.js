@@ -103,7 +103,9 @@ console.log('\n== 2. Tên · đọc MEMBERS · gộp gói ==');
 {
   const t = setup(vn('2026-10-18', '07:00'));
   const e = t.env;
-  ok('Tên ngắn và tên chào', e.ltShort_('Hoàng Đức Nam') === 'H. Đức Nam' && e.ltCall_('Hoàng Đức Nam') === 'Đức Nam' && e.ltCall_('Đỗ Văn Hưng') === 'Hưng' && e.ltCall_('Trần Thị Mỹ Linh') === 'Mỹ Linh' && e.ltCall_('Lò Thị Hà') === 'Hà');
+  ok('Tên ngắn và tên gọi: 2 chữ cuối, chữ trước viết tắt (luật 18/10)', e.ltShort_('Hoàng Đức Nam') === 'H. Đức Nam' && e.ltShort_('Thử Gia Bảo Linh') === 'T. G. Bảo Linh' &&
+     e.ltShort_('Thử Nam') === 'T. Nam' && e.ltCall_('Hoàng Đức Nam') === 'Đức Nam' && e.ltCall_('Đỗ Văn Hưng') === 'Văn Hưng' && e.ltCall_('Trần Thị Mỹ Linh') === 'Mỹ Linh' &&
+     e.ltCall_('Lò Thị Hà') === 'Thị Hà' && e.ltCall_('Thử Gia Bảo Linh') === 'Bảo Linh' && e.ltCall_('Thử Nam') === 'Nam');
   ok('Bỏ hậu tố coach · viết tắt coach', e.ltCoach_('Hiền Mai (giai đoạn 1)') === 'Hiền Mai' && e.ltInitials_('Quyết Hán') === 'QH');
   const persons = e.ltPersons_(e.ltMemberRows_(), '2026-10-18');
   const keys = persons.map(p => p.key);
@@ -146,7 +148,7 @@ console.log('\n== 3. Tìm tên ==');
   r = call(t, { action: 'lt_find', q: 'ong' });
   ok('Giữa chữ "ong" → tên gọi Phong trước tên đệm Không', S(r) === 'L. Gia Phong | B. Không Số', r);
   r = call(t, { action: 'lt_find', q: 'th' });
-  ok('"th" → đúng 6 người (4 Thứ + 2 Thị) → không có more', r.results.length === 6 && !('more' in r) && r.results.every(x => /Th/.test(x.short)), r);
+  ok('"th" → đúng 6 người (4 Thứ + 2 Thị, "T. T. Mỹ Linh": Thị hiện tắt) → không có more', r.results.length === 6 && !('more' in r) && r.results.every(x => /Th|^T\. T\. /.test(x.short)), r);
   r = call(t, { action: 'lt_find', q: '  ...  ' });
   ok('Chỉ dấu câu → rỗng, không need', r.ok && r.results.length === 0 && !('need' in r) && !('more' in r), r);
   /* 300 lượt / máy / khung 10 phút */
@@ -170,20 +172,20 @@ console.log('\n== 3b. Tìm tên: xếp hạng · tối đa 6 người + more · 
     ['938', 'Khách Thử Đức Anh', 'Hiền Mai', '0900000038', 'B938DY']] });
   const S = x => x.results.map(y => y.short).join(' | ');
   let r = call(t, { action: 'lt_find', q: 'thu' });
-  ok('"thu" → 11 người (Thứ = Thử) → 6 + more',r.results.length === 6 && r.more === true && r.results.every(x => /Th[ứử]/.test(x.short)), r);
+  ok('"thu" → 11 người (Thứ = Thử; "K. T. …": Thử hiện tắt) → 6 + more', r.results.length === 6 && r.more === true && r.results.every(x => /Th[ứử]|^K\. T\. /.test(x.short)), r);
   r = call(t, { action: 'lt_find', q: 'an' });
-  ok('"an" → An (trùng trọn) trước Anh (gõ dở); người khớp giữa chữ (Văn) xếp cuối', S(r) === 'K. Thử An | K. Thử Anh | K. Thử Đức Anh | K. Thử Đức Anh | M. Thử Ngọc Ánh | Đ. Văn Hưng' && !('more' in r), r);
-  ok('… hai người trùng họ tên xếp theo Mã KH', r.results[2].id === t.env.ltIdOf_('B931DY') && r.results[3].id === t.env.ltIdOf_('B938DY'), r);
+  ok('"an" → An (trùng trọn) trước Anh (gõ dở); người khớp giữa chữ (Văn) xếp cuối', S(r) === 'K. Thử An | K. T. Đức Anh | K. T. Đức Anh | K. Thử Anh | M. T. Ngọc Ánh | Đ. Văn Hưng' && !('more' in r), r);
+  ok('… hai người trùng họ tên xếp theo Mã KH', r.results[1].id === t.env.ltIdOf_('B931DY') && r.results[2].id === t.env.ltIdOf_('B938DY'), r);
   r = call(t, { action: 'lt_find', q: 'nam' });
-  ok('"nam" → tên gọi Nam trước tên đệm Nam', S(r) === 'H. Đức Nam | N. Ngọc Nam | K. Thử Nam Phong', r);
+  ok('"nam" → tên gọi Nam trước tên đệm Nam', S(r) === 'H. Đức Nam | N. Ngọc Nam | K. T. Nam Phong', r);
   r = call(t, { action: 'lt_find', q: 'hoi' });
   ok('"hoi" (giữa chữ) → Khôi', S(r) === 'K. Thử Khôi', r);
   r = call(t, { action: 'lt_find', q: 'o' });
   ok('"o" (1 ký tự) → không khớp giữa chữ', r.results.length === 0, r);
   r = call(t, { action: 'lt_find', q: 'Khách Thử Đức Anh' });
-  ok('Đủ họ tên có dấu → hai người trùng', S(r) === 'K. Thử Đức Anh | K. Thử Đức Anh', r);
+  ok('Đủ họ tên có dấu → hai người trùng', S(r) === 'K. T. Đức Anh | K. T. Đức Anh', r);
   r = call(t, { action: 'lt_find', q: 'ngoc anh' });
-  ok('"ngoc anh" → khớp phần cuối (N. Ngọc Nam không có chữ Anh)', S(r) === 'M. Thử Ngọc Ánh', r);
+  ok('"ngoc anh" → khớp phần cuối (N. Ngọc Nam không có chữ Anh)', S(r) === 'M. T. Ngọc Ánh', r);
   r = call(t, { action: 'lt_find', q: 'mau' });
   ok('Chỉ gõ họ "mau" → không ai', r.results.length === 0, r);
 }
