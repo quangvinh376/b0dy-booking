@@ -28,7 +28,7 @@ ID hai file Google Sheets: `BA_ID` (file BA: MEMBERS · SESSION LOG · TRIAL · 
 
 ## Đang ở đâu (18/10/2026, 23:45)
 
-- Trang **v1.0.13** (`1f83687`) trên GitHub Pages `main` (live, SHA-256 khớp). Worker `b0dy-booking-api` chạy `worker/src` của
+- Trang **v1.0.14** (`9211a1f`, chú thích "Ghép nhóm", bỏ mục Nghỉ trưa) trên GitHub Pages `main` (live, SHA-256 khớp). Worker `b0dy-booking-api` chạy `worker/src` của
   `1f83687` (chủ studio deploy bằng `tools/worker_deploy_snippet.mjs` tối 18/10; `lt_ping` `pending 0`, `lastError` rỗng; `lt_find`
   trả tên ≥ 4 chữ dạng mới 11/11). Có hiệu lực: luật suất coach + ghép lớp 1:2 (1.0.8–1.0.11) · khách tập thử có "Coach tiếp nhận"
   chiếm suất của coach đó (1.0.12) · tên = 2 chữ cuối, chữ trước viết tắt + ô Đầy / coach bận gạch X + ô Ghép mobile icon + tên (1.0.13).
@@ -59,6 +59,8 @@ node test/ui_tk3d.js all && node test/ui_png.js all && node test/b0b_check.js &&
   Excel). Không có thì tự bỏ qua. Ra 0 hội viên xác minh được → cột SĐT trong bản xuất bị đổi định dạng.
 - `MINIFLARE=… node worker/test/workerd.mjs`: Worker thật trong workerd.
 - Phiếu 3D mặc định tắt trên WebGL bằng CPU → test dùng `?tk3d=1`. `b0b_check` đo khung hình, máy bận có thể trượt — chạy lại.
+  Tối 18/10 ca "Idle ~30 fps (≤ 36)" trượt liên tục (35–42 fps) cả trên bản không đổi `b0b.js` → nhiễu máy test, không phải lỗi;
+  bộ này chỉ nạp `test/b0b_demo.html` + `b0b.js`, sửa tệp khác không ảnh hưởng.
 
 ## Máy chủ
 
