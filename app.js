@@ -9,7 +9,7 @@
 'use strict';
 
 /* ============================== CẤU HÌNH ============================== */
-var VER = '1.0.9';
+var VER = '1.0.10';
 var API_URL = 'https://b0dy-booking-api.little-bonus-1d87.workers.dev/';
 var API_SLOW = false;                 /* true khi chạy Apps Script (chậm hơn nhiều) → nới thời gian chờ */
 /* chế độ QC (?qc): máy chủ giả chạy ngay trên máy (qc.js, đúng mã của Worker) với dữ liệu giả — không gọi mạng,
@@ -1217,7 +1217,7 @@ function closedLabel(reason) { var f = fold(reason); return /\ble\b|tet/.test(f)
 function gridHTML() {
   var w = S.st.week, days = w.days, sun = addD(days[0], 6), rows = gridRows(), duo = rows !== SLOTS;
   var am = rows.filter(function (x) { return x < 12; }).length, pm = rows.length - am;
-  var h = '<div class="wk' + (duo ? ' duo' : '') + '" id="wk"' + (duo ? ' data-n="' + rows.length + '"' : '') + '><div class="wk-head" aria-hidden="true"><div></div>';
+  var h = '<div class="wk' + (duo ? ' duo' : '') + '" id="wk" data-rows="' + rows.join(',') + '"' + (duo ? ' data-n="' + rows.length + '"' : '') + '><div class="wk-head" aria-hidden="true"><div></div>';
   days.forEach(function (d, i) { h += '<div class="dh" data-i="' + i + '"><span class="dh-d">' + DOW[dowOf(d)] + '</span><span class="dh-n"><span class="d">' + esc(ddmm(d)) + '</span><span class="m">' + esc(d.slice(8)) + '</span></span><i class="dh-bar"></i></div>'; });
   h += '<div class="dh off"><span class="dh-d">CN</span><span class="dh-n"><span class="d">' + esc(ddmm(sun)) + '</span><span class="m">' + esc(sun.slice(8)) + '</span></span></div></div>';
   /* gói 1:2: chỉ các khung ghép → số hàng sáng / chiều theo giờ thật, dải nghỉ trưa nằm giữa */
@@ -1232,6 +1232,11 @@ function gridHTML() {
   h += '<div class="now" id="now" hidden><i></i><span></span></div></div></div>';
   return h;
 }
+/* bảng đang hiện dựng theo bộ giờ cũ (vd state lưu trên máy từ trước khi máy chủ có gói 1:2 / một buổi ngoài khung ghép vừa dời đi)
+   → phải dựng lại cả màn, tô lại ô thôi là thiếu / thừa hàng */
+function gridStale() { var wk = S.page && S.page.querySelector('#wk'); return !!wk && wk.getAttribute('data-rows') !== gridRows().join(','); }
+function repaintBook() { if (gridStale()) go('book', 'fwd', { instant: true, noFocus: true }); else updateBook(); }
+function repaintChange() { if (gridStale()) go('change', 'fwd', { instant: true, noFocus: true }); else updateChange(); }
 /* mô hình ô theo màn: {cls, html, can, aria} */
 function cellModel(mode) {
   var st = S.st, w = st.week, out = {}, today = isoOf(now()), lead = mode === 'chg' ? LEAD : leadBook();
@@ -1765,7 +1770,7 @@ function onWrite(r, kind, p) {
   S.picks = S.picks.filter(function (x) { var w = why(x.date, x.h, leadBook()); return (!w || isFull(w)) && !(S.addMode && sessOn(x.date)); });
   S.notice = { tone: 'warn', title: msg.title, body: msg.body };
   tempMood('doubt', 3);
-  updateBook();
+  repaintBook();
 }
 function whyText(w, d, h) {
   var at = d ? dFull(d) + (h != null ? ' ' + hm(+h) : '') : 'Khung này';
@@ -1805,7 +1810,7 @@ function onFull(full) {
                sheet: { title: names[0] + ' vừa hết chỗ.', body: 'Có người xác nhận trước bạn vài giây.' + (rest ? ' ' + S.picks.map(function (p) { return dShort(p.date).split(' ')[0] + ' ' + hm(p.h); }).join(' và ') + ' vẫn nằm trong lựa chọn của bạn.' : ''),
                         label: f0 ? 'Chọn giờ khác cho ' + dFull(f0.date) : '', later: 'Để sau, chọn trên bảng' } };
   tempMood('doubt', 3.5);
-  updateBook();
+  repaintBook();
   $$('#wkb .c.gone').forEach(function (c) { if (!rm()) { c.classList.add('flash'); setTimeout(function () { c.classList.remove('flash'); }, 950); } });
   if (!desk()) openSheet(noticeForErr(S.notice));
 }
@@ -1982,7 +1987,7 @@ function chgError(r) {
     S.chg = { from: null, to: null };
   }
   tempMood('doubt', 3);
-  updateChange();
+  repaintChange();
 }
 
 /* ============================== 04 · 05 · 05B · PHIẾU ============================== */
@@ -2961,12 +2966,16 @@ function applyAuthed(r, quiet) {
   if (prevView === 'loading' || prevView === 'fail' || prevView === 'find' || prevView === 'verify') { routeAuthed('fwd'); return; }
   if (st.week.phase === 'before') { if (prevView !== 'closed') go('closed', 'fwd'); return; }
   if (prevView === 'book') {
-    if (st.mode === 'book' && !S.addMode) { dropInvalid(); updateBook(); return; }
-    if (S.addMode && st.mode === 'ticket') { dropInvalid(); if (st.limits.add > 0) { updateBook(); return; } S.addMode = false; go('ticket', 'fwd', { variant: 'home' }); return; }
+    if (st.mode === 'book' && !S.addMode) { dropInvalid(); repaintBook(); return; }
+    if (S.addMode && st.mode === 'ticket') {
+      dropInvalid();
+      if (st.limits.add > 0) { repaintBook(); return; }
+      S.addMode = false; go('ticket', 'fwd', { variant: 'home' }); return;
+    }
     if (st.mode === 'ticket') { S.picks = []; toast('Bạn đã có lịch tuần này.'); go('ticket', 'fwd', { variant: 'home' }); return; }
     go('closed', 'fwd'); return;
   }
-  if (prevView === 'change') { if (st.mode === 'ticket') { updateChange(); return; } routeAuthed('fwd'); return; }
+  if (prevView === 'change') { if (st.mode === 'ticket') { repaintChange(); return; } routeAuthed('fwd'); return; }
   if (prevView === 'ticket') {
     if (st.mode !== 'ticket') { routeAuthed('fwd'); return; }
     if (!quiet) go('ticket', 'fwd', { variant: S.tkVariant, instant: true });

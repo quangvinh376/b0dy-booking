@@ -40,6 +40,20 @@ async function run(browser, server, mobile) {
   const openPairs = async () => { await page.locator('#prLine .prl').click(); await page.waitForSelector(mobile ? '#sheet.on' : '#drawer.on'); await sleep(300); };
   const host = mobile ? '#sheet' : '#drawer';
 
+  /* 0 · state lưu trên máy từ trước khi máy chủ có gói 1:2 (lần mở đầu sau khi deploy Worker): bảng 13 giờ từ bộ nhớ, làm mới xong
+       phải dựng lại 5 khung ghép (tô lại ô thôi là còn thừa hàng) — mạng chậm 2 s để thấy được cả hai lúc */
+  await login('uyen nhi', '5555'); await waitView(page, 'book');
+  await page.evaluate(() => { for (const s of [localStorage, sessionStorage]) { const v = s.getItem('qc:lt_st'); if (v) { const o = JSON.parse(v); delete o.st.duo; s.setItem('qc:lt_st', JSON.stringify(o)); } } });
+  const qcSlow = async () => { await page.click('.qc-tab'); await page.waitForSelector('#qcp:not([hidden])'); await page.click('#qcp [data-qc="slow"]'); await page.focus('#qcT'); await page.keyboard.press('Escape'); await page.waitForSelector('#qcp', { state: 'hidden' }); };
+  await qcSlow();
+  await page.reload(); await page.waitForSelector('.qc-tab'); await waitView(page, 'book');
+  const hrs = () => page.evaluate(() => Array.from(new Set(Array.from(document.querySelectorAll('#wkb .c')).map(c => +c.dataset.h))).join(','));
+  const rows0 = await hrs();
+  await page.waitForFunction(() => Array.from(new Set(Array.from(document.querySelectorAll('#wkb .c')).map(c => +c.dataset.h))).join(',') === '9,11,15,17,19', null, { timeout: 8000 }).catch(() => {});
+  const rows1 = await hrs();
+  ok('State cũ trên máy (chưa có gói 1:2): bảng 13 giờ → làm mới xong dựng lại đúng 5 khung ghép', rows0.split(',').length === 13 && rows1 === '9,11,15,17,19', [rows0, rows1]);
+  await qcSlow();
+  await signOut();
   /* 1 */
   await login('thuc quyen', '1212'); await book([['2026-10-21', 11], ['2026-10-22', 11]]);
   ok('Thục Quyên đặt T4 11:00 + T5 11:00', (await so('B811DY')).length === 2, await so('B811DY'));
