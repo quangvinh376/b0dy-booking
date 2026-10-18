@@ -22,6 +22,7 @@ và dời buổi đang chờ vào cặp có sẵn không tính lượt đổi.
 | `backend/LichTuan.gs` | Cùng hợp đồng API trên Apps Script (máy chủ dự phòng); parity test so từng phản hồi với Worker |
 | `test/` | Test Playwright (giả máy chủ bằng chính `LichTuan.gs`), test Apps Script, test B0B |
 | `tools/bang_lich_tap.py` | Dựng tab `Bảng lịch tập` theo bảng giờ của trang (requests cho `spreadsheets.batchUpdate`, xem đầu tệp) |
+| `tools/ba_fixture.py` · `tools/sim_week*.{mjs,py}` · `tools/worker_deploy_snippet.mjs` | BA xuất Excel → fixture riêng tư (`.local/`, không đẩy lên repo) · mô phỏng cả phòng đặt tuần tới theo lịch tập tuần trước (đúng luật máy chủ) + ghi / kiểm sổ · đoạn deploy Worker từ dashboard. Xem `CLAUDE.md` |
 
 Dữ liệu vào: file BA (MEMBERS, TRIAL, B0B, ⚙️ 2, SESSION LOG). Dữ liệu ra: sheet *[B0DY Studio] Lịch tập tuần* —
 tab `Sổ đặt lịch` (mỗi buổi một dòng) và `Bảng lịch tập` (bảng tuần cho coach, tự tính).

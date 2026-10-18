@@ -1,7 +1,7 @@
-/* Test 3 · DỮ LIỆU THẬT (chỉ đọc): file BA thật (bản xuất cục bộ ở scratchpad, KHÔNG nằm trong repo) đi qua
+/* Test 3 · DỮ LIỆU THẬT (chỉ đọc): file BA thật (bản xuất cục bộ ở .local/ — thư mục bị .gitignore, KHÔNG nằm trong repo) đi qua
    Sheets API giả (ngày → serial, giờ → phần lẻ của ngày như Google thật) vào Worker, so với LichTuan.gs đọc cùng
    dữ liệu. Không in tên, SĐT hay bất kỳ dữ liệu cá nhân nào — chỉ in số đếm và đúng/sai.
-   Chạy: node test/realdata.mjs [đường dẫn fixture]   (mặc định: scratchpad/ba/fixture_ba.json; không có thì bỏ qua) */
+   Chạy: node test/realdata.mjs [đường dẫn fixture]   (mặc định: $BA_FIXTURE hoặc .local/fixture_ba.json; không có thì bỏ qua) */
 import fs from 'fs';
 import { createRequire } from 'module';
 import * as C from '../src/core.js';
@@ -10,7 +10,7 @@ import { FakeGoogle, FakeStorage, fakeServiceAccount } from './fake_google.mjs';
 const require = createRequire(import.meta.url);
 const { makeEnv, Spreadsheet, dateIn } = require('../../test/gas_env.js');
 
-const FX = process.argv[2] || '/tmp/claude-0/-home-claude/aacecc6b-f573-51ba-b532-f34e18112e07/scratchpad/ba/fixture_ba.json';
+const FX = process.argv[2] || process.env.BA_FIXTURE || new URL('../../.local/fixture_ba.json', import.meta.url).pathname;
 if (!fs.existsSync(FX)) { console.log('Không có fixture dữ liệu thật → bỏ qua (0 PASS, 0 FAIL)'); process.exit(0); }
 const fx = JSON.parse(fs.readFileSync(FX, 'utf8'));
 

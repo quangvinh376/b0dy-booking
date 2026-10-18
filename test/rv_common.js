@@ -4,7 +4,7 @@ const { chromium } = require('playwright');
 const fs = require('fs');
 const path = require('path');
 const H = require('./ui_harness');
-const EXE = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
+const EXE = require('./pw_exe');
 const ARGS = ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'];
 const SHOTS = process.env.SHOTS || path.join(require('os').tmpdir(), 'b0dy-rv-shots');
 const sleep = ms => new Promise(r => setTimeout(r, ms));

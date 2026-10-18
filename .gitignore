@@ -1,0 +1,8 @@
+# Dữ liệu thật / riêng tư — KHÔNG BAO GIỜ đưa lên repo công khai
+.local/
+
+# Máy
+node_modules/
+worker/.wrangler/
+worker/dist/
+.DS_Store

@@ -8,7 +8,7 @@ const path = require('path');
 const { startServer, backend, attach, vn } = require('./ui_harness');
 
 const SHOTS = path.join(process.env.SHOTS || path.join(require('os').tmpdir(), 'b0dy-ui'), 'states');
-const EXE = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
+const EXE = require('./pw_exe');
 const ARGS = ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'];
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let pass = 0, fail = 0;

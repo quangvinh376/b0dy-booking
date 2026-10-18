@@ -14,7 +14,7 @@ const { execFileSync } = require('child_process');
 
 const OUT = process.env.B0B_OUT || path.join(require('os').tmpdir(), 'b0dy-b0b');
 const DEMO = 'file://' + path.resolve(__dirname, 'b0b_demo.html');
-const EXE = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
+const EXE = require('./pw_exe');
 const ARGS = ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'];
 const MOODS = ['observe', 'greet', 'done', 'doubt', 'sleep', 'alert'];
 const REF = ['observe', 'greet', 'doubt', 'sleep'];

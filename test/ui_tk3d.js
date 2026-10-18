@@ -18,7 +18,7 @@ const path = require('path');
 const { startServer, backend, attach, vn } = require('./ui_harness');
 
 const SHOTS = path.join(process.env.SHOTS || path.join(require('os').tmpdir(), 'b0dy-ui'), 'tk3d');
-const EXE = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
+const EXE = require('./pw_exe');
 const ARGS = ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'];
 const DESK = { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 };
 const MOB = { viewport: { width: 393, height: 764 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true };
