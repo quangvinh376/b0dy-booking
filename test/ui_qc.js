@@ -107,6 +107,8 @@ async function strayKeys(page) {
 
   /* đặt lịch: Trịnh Minh Khôi · 1111 → T2 18:00 + T4 07:00 */
   await login(t, 'minh khoi', 'T. Minh Khôi', '1111');
+  ok('Khách tập thử T3 07:00 do Quyết tiếp nhận → Minh Khôi (Quyết) thấy khung đó "Coach bận", phòng 1 suất',
+     await page.evaluate(() => { const s = window.__lt.S.st; return s.coachAt['2026-10-20|7'] === 'busy' && s.taken['2026-10-20|7'] === 1; }));
   await book(t, [['2026-10-19', 18], ['2026-10-21', 7]]);
   await waitView(page, 'ticket');
   await flushed(page);

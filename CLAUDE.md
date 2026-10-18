@@ -32,9 +32,10 @@ ID hai file Google Sheets: `BA_ID` (file BA: MEMBERS · SESSION LOG · TRIAL · 
   (deploy 16:50 18/10): luật suất coach + ghép lớp 1:2 đã có hiệu lực.
 - **`Sổ đặt lịch` tuần 43 (19–24/10) là dữ liệu MÔ PHỎNG**: 120 dòng, Mã yêu cầu `mophong43-001…046`, ghi chú "Mô phỏng · …".
   Xoá trước khi dùng thật. Khôi phục bản trước: Lịch sử phiên bản của sheet (trước 17:19 18/10).
-- Chờ chủ studio quyết: (1) tập thử đã có coach có chặn suất của coach đó không (`trialsFrom` → `roomOf`, sửa cả Worker +
-  `LichTuan.gs`); (2) giữ tối thiểu 2 buổi hay cho 1; (3) buổi 1:2 lẻ giờ cao điểm (tuỳ chọn "mỗi coach một khung chờ mỗi ngày").
-  Khách 1:2 của Lâm → Ngọc: chủ studio tự đổi trong BA. Tuần 44 chạy thử nội bộ, ra mắt chính thức tháng 11.
+- Chủ studio đã quyết (18/10): (1) khách tập thử đã có "Coach tiếp nhận" chiếm suất của coach đó — **làm ở 1.0.12**
+  (`trialsFrom` / `ltTrials_` trả `{khung: [coach, …]}` → `roomOf` / `ltRoom_`), trang 1.0.12 chỉ tăng VER để `?qc` nạp lại
+  `worker/src`; **Worker chưa deploy** → luật chỉ có hiệu lực sau khi deploy (cần câu đồng ý); (2) giữ tối thiểu 2 buổi;
+  (3) buổi 1:2 lẻ giờ cao điểm: chưa làm, đo sau tuần 44. Khách 1:2 của Lâm → Ngọc: chủ studio tự đổi trong BA. Tuần 44 chạy thử nội bộ, ra mắt chính thức tháng 11.
 
 ## Phiên bản trang
 

@@ -57,7 +57,7 @@ for (let k = -6; k <= 2; k++) weeks.push(C.weekCtx(NOW + k * 7 * 864e5));
 for (const w of weeks) {
   const a = env.ltTrials_(w.days), b = C.trialsFrom(wk.ba.trialRows, w.days);
   if (canon(a) !== canon(b)) trialSame = false;
-  trialN += Object.values(b).reduce((s, n) => s + n, 0);
+  trialN += Object.values(b).reduce((s, a) => s + a.length, 0);
 }
 ok('Tập thử chiếm chỗ (giờ hẹn kiểu giá trị giờ) giống hệt ở 9 tuần (' + trialN + ' lượt)', trialSame);
 await wk.loadMarks();

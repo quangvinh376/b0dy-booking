@@ -13,7 +13,7 @@ const d = iso => dateIn(LA, iso);                          /* ô ngày của fil
 const vn = (iso, hm) => dateIn(VN, iso, hm).getTime();     /* thời điểm theo giờ Việt Nam */
 
 /** extra: hội viên bịa thêm [số, họ tên, coach, SĐT, Mã KH] (gói 48 buổi còn 20, hạn 2027) — dùng cho phần tìm tên */
-function baSheets(extra) {
+function baSheets(extra, trials) {
   const H = ['', '#', 'Tên', 'Gói', 'Số buổi', 'Loại', 'Đơn giá buổi', 'Coach', 'SĐT', 'Người bán gói', 'Ngày ký', 'Ghi chú', 'Đã tập', 'Còn lại', 'Trạng thái', 'Ngày bắt đầu', 'Ngày kết thúc', 'Ngày hết hạn', 'Mã KH', '_key'];
   const m = (no, name, pkg, kind, coach, phone, left, start, exp, code) =>
     ['', no, name, pkg, parseInt(pkg, 10), kind, 300000, coach, phone, '', '', '', 0, left, '', start ? d(start) : '', '', exp === '' ? '' : (typeof exp === 'string' && exp.indexOf('/') > 0 ? exp : d(exp)), code, name + '|' + start];
@@ -47,7 +47,7 @@ function baSheets(extra) {
   const trial = [['', '— TRIAL'], ['', 'test'], [], TH,
     ['', '01', d('2026-10-20'), '18:00', 'Khách tập thử', '0911111111', '', 'Chờ xác nhận', ''],
     ['', '02', d('2026-10-20'), '18:00', 'Khách huỷ', '0911111112', '', 'Đã hủy', ''],
-    ['', '03', d('2026-10-27'), '18:00', 'Tuần sau', '0911111113', '', 'Chờ xác nhận', '']];
+    ['', '03', d('2026-10-27'), '18:00', 'Tuần sau', '0911111113', '', 'Chờ xác nhận', '']].concat(trials || []);
   const b0b = [['', '— B0B'], [], ['', 'CA', 'GIỜ', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'], ['', 'A', '08:00', 2, 2, 2, 2, 2, 2, ''],
     [], ['', 'LÝ DO ĐÓNG CỬA', 'NGÀY'], ['', 'Nghỉ lễ thử', '24/10/26'], ['', 'Tết', '01/01/27']];
   const cfg = [['', '— CONFIG 2'], [], [], ['', 'Coach', 'Giai đoạn', '% Com'], ['', 'Quyết Hán', '', 0.23],
@@ -65,7 +65,7 @@ function outSheets(log) {
 }
 function setup(nowMs, opts) {
   const clock = { now: nowMs };
-  const files = { BA: new Spreadsheet('BA', LA, baSheets(opts && opts.members)), OUT: new Spreadsheet('OUT', 'Asia/Saigon', outSheets(opts && opts.log)) };
+  const files = { BA: new Spreadsheet('BA', LA, baSheets(opts && opts.members, opts && opts.trials)), OUT: new Spreadsheet('OUT', 'Asia/Saigon', outSheets(opts && opts.log)) };
   files.OUT.title = '[B0DY Studio] Lịch tập tuần';
   const env = makeEnv(files, clock, Object.assign({ props: { BA_ID: 'BA', LT_OUT_ID: 'OUT' } }, opts || {}));
   return { env, clock, files, log: files.OUT.getSheetByName('Sổ đặt lịch') };

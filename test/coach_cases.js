@@ -275,6 +275,43 @@ async function coachCases(h) {
     r = await invite(t2, nn2, ['2026-10-20', 11], peer(r, 'K. Cặp Một'));
     ok('T2 12:00 mời vào T3 11:00 (còn 23 giờ) → duoi_24h', r.ok === false && r.why === 'duoi_24h', r.why);
   }
+
+  console.log('\n== 17. Khách tập thử đã có coach tiếp nhận chiếm suất của coach đó (chốt 18/10) ==');
+  {
+    const tr = (no, date, hh, st, coach) => ['', no, date, hh, 'Khách Thử ' + no, '09111111' + no, '', st, coach];
+    const t = await setup(vn('2026-10-18', '07:00'), { trials: [
+      tr('11', '2026-10-21', '20:00', 'Chờ xác nhận', 'Quyết Hán'),
+      tr('12', '2026-10-22', '09:00', 'Chờ xác nhận', 'quyet han (giai đoạn 2)'),
+      tr('13', '2026-10-23', '07:00', 'Đã hủy', 'Quyết Hán'),
+      tr('14', '2026-10-23', '06:00', 'Chờ xác nhận', '')
+    ] });
+    let nam = await login(t, 'duc nam', '0001');
+    ok('H. Đức Nam (Quyết · 1:1) thấy T4 20:00 "busy" — Quyết nhận khách tập thử, phòng 1 suất', at(nam, '2026-10-21|20') === 'busy' && nam.taken['2026-10-21|20'] === 1, [nam.coachAt, nam.taken]);
+    ok('… dòng tập thử đã huỷ (T6 07:00) không chiếm gì', !at(nam, '2026-10-23|7') && !nam.taken['2026-10-23|7'], [nam.coachAt, nam.taken]);
+    ok('… tập thử chưa giao coach (T6 06:00): một suất riêng như trước, không làm coach nào bận', !at(nam, '2026-10-23|6') && nam.taken['2026-10-23|6'] === 1, [nam.coachAt, nam.taken]);
+    let r = await book(t, nam, [['2026-10-21', 20], ['2026-10-23', 20]]);
+    ok('… chọn T4 20:00 + T6 20:00 → het_cho chỉ ra T4 20:00, không ghi dòng nào', fullOnly(r, '2026-10-21', 20) && rowsOf(t, 'B901DY').length === 0, r);
+    r = await book(t, nam, [['2026-10-20', 20], ['2026-10-23', 20]]);
+    ok('… đặt T3 20:00 + T6 20:00 → ok', r.ok, r.error || r.why);
+    nam = await boot(t, nam);
+    r = await change(t, nam, ['2026-10-20', 20], ['2026-10-21', 20]);
+    ok('… đổi T3 20:00 → T4 20:00 (giờ tập thử của Quyết) → het_cho, không ghi thêm dòng', fullOnly(r, '2026-10-21', 20) && rowsOf(t, 'B901DY').length === 2, r);
+    const hai = await login(t, 'thu hai', '0022');
+    ok('K. Thứ Hai (coach Mai) không bị chặn ở T4 20:00', !at(hai, '2026-10-21|20'), hai.coachAt);
+    r = await book(t, hai, [['2026-10-21', 20], ['2026-10-22', 20]]);
+    ok('… đặt T4 20:00 → ok, phòng 2 suất (tập thử của Quyết + Mai)', r.ok && r.taken['2026-10-21|20'] === 2, r.error || r.why);
+    r = await book(t, await login(t, 'thu ba', '0023'), [['2026-10-21', 20], ['2026-10-23', 10]]);
+    ok('K. Thứ Ba (Khải) đặt T4 20:00 → ok, 3 suất', r.ok && r.taken['2026-10-21|20'] === 3, r.error || r.why);
+    r = await book(t, await login(t, 'thu tu', '0024'), [['2026-10-21', 20], ['2026-10-23', 11]]);
+    ok('K. Thứ Tư (Lâm) đặt T4 20:00 → ok, 4 suất = đầy (khách tập thử tính đúng một suất)', r.ok && r.taken['2026-10-21|20'] === 4, r.error || r.why);
+    const nn = await login(t, 'ngoc nam', '0002');
+    ok('Ngọc Nam (Quyết · 1:2) thấy T5 09:00 "busy" (coach ghi chữ thường + hậu tố vẫn là Quyết), không có ai "chờ ghép" ở đó', at(nn, '2026-10-22|9') === 'busy' && !duo(nn).wait['2026-10-22|9'], [nn.coachAt, duo(nn).wait]);
+    ok('… state không mang gì của khách tập thử', JSON.stringify(nn).indexOf('Thử 1') < 0 && JSON.stringify(nn).indexOf('09111111') < 0);
+    r = await book(t, nn, [['2026-10-22', 9], ['2026-10-23', 9]]);
+    ok('… chọn T5 09:00 + T6 09:00 → het_cho chỉ ra T5 09:00 (khách tập thử không phải bạn ghép)', fullOnly(r, '2026-10-22', 9), r);
+    r = await decline(t, nn, ['2026-10-22', 9]);
+    ok('… "Từ chối" ở T5 09:00 → không có lời mời nào, không ghi', r.ok && rowsOf(t, 'B902DY', 'Từ chối').length === 0, r);
+  }
 }
 
 module.exports = { coachCases };

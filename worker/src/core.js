@@ -337,17 +337,19 @@ export function marksFrom(cols, days) {
   return out;
 }
 
-/** TRIAL (cả tab, tối đa 30 cột) → số khách tập thử chiếm chỗ mỗi khung trong tuần (dòng Huỷ / Loại không tính). */
+/** TRIAL (cả tab, tối đa 30 cột) → khách tập thử chiếm chỗ mỗi khung trong tuần: {"yyyy-MM-dd|h": [coach tiếp nhận, …]}, mỗi khách
+    một mục theo thứ tự dòng ("" = chưa giao coach). Dòng Huỷ / Loại không tính. */
 export function trialsFrom(vals, days) {
   const out = {};
   const v = vals.map(r => (r || []).slice(0, 30));
   if (v.length < 2) return out;
   const hd = headRow(v.slice(0, 10), ['trang thai']);
   if (!hd) return out;
-  let cD = -1, cT = -1;
+  let cD = -1, cT = -1, cC = -1;
   hd.h.forEach((x, i) => {
     if (cD < 0 && x.indexOf('ngay hen') >= 0) cD = i;
     if (cT < 0 && x.indexOf('gio hen') >= 0) cT = i;
+    if (cC < 0 && x.indexOf('coach') >= 0) cC = i;
   });
   const cS = hd.h.indexOf('trang thai');
   if (cD < 0 || cT < 0) return out;
@@ -360,7 +362,7 @@ export function trialsFrom(vals, days) {
     if (/huy|\bloai\b/.test(nameKey(cell(row, cS)))) continue;
     const h = cellHour(cell(row, cT));
     if (LT.SLOTS.indexOf(h) < 0) continue;
-    out[iso + '|' + h] = (out[iso + '|' + h] || 0) + 1;
+    (out[iso + '|' + h] || (out[iso + '|' + h] = [])).push(cC < 0 ? '' : coachName(cell(row, cC)));
   }
   return out;
 }
@@ -473,11 +475,13 @@ export function fromNote(note, ctx) {
 /**
  * Phòng ở từng khung, tính theo SUẤT COACH (chủ studio chốt 18/10): mỗi coach mỗi khung một suất — một khách 1:1, hoặc một
  * nhóm 1:2 (tối đa 2 khách gói 1:2 của CÙNG coach đó). Phòng tối đa `cap` suất (= số coach dạy cùng lúc): 4 khách 1:1,
- * hay 8 khách 1:2, hay 3 khách 1:1 + một cặp 1:2 = 5 người — đều là đầy. Khách tập thử và dòng sổ không ghi coach:
- * mỗi người một suất riêng. Sổ lệch luật (một coach hai khách 1:1, hoặc 1:1 lẫn 1:2 — dòng sửa tay / ghi trước luật)
+ * hay 8 khách 1:2, hay 3 khách 1:1 + một cặp 1:2 = 5 người — đều là đầy. Khách tập thử đã có coach tiếp nhận chiếm suất của
+ * coach đó như một khách 1:1 (chủ studio chốt 18/10 — coach không dạy hai việc một lúc); khách tập thử chưa giao coach và dòng
+ * sổ không ghi coach: mỗi người một suất riêng. Sổ lệch luật (một coach hai khách 1:1, hoặc 1:1 lẫn 1:2 — dòng sửa tay / ghi trước luật)
  * vẫn tính đủ từng suất, không bao giờ nhét thêm người vào phòng.
  * Trả {"yyyy-MM-dd|h": {u: số suất đã chiếm, x: số suất không coach, c: {khoá coach: [{kh: Mã KH, duo: gói 1:2, name: họ tên trên sổ,
- * i: thứ tự dòng trong sổ}]}}} — i để biết một lời mời có ghi SAU lượt đặt hiện tại của người mời không.
+ * i: thứ tự dòng trong sổ}]}}} — i để biết một lời mời có ghi SAU lượt đặt hiện tại của người mời không. Khách tập thử trong nhóm
+ * coach: {kh: '', duo: false, name: '', i: -1} — không bao giờ là bạn tập / người được mời, chỉ làm coach bận.
  */
 export function roomOf(rows, ctx, trials) {
   const o = {};
@@ -488,7 +492,11 @@ export function roomOf(rows, ctx, trials) {
     if (!ck) { s.x++; return; }
     (s.c[ck] || (s.c[ck] = [])).push({ kh: r.kh, duo: isDuo(r.kind), name: r.name, i: i });
   });
-  for (const k in trials) at(k).x += trials[k];
+  for (const k in trials) trials[k].forEach(c => {
+    const s = at(k), ck = coachKey(c);
+    if (!ck) { s.x++; return; }
+    (s.c[ck] || (s.c[ck] = [])).push({ kh: '', duo: false, name: '', i: -1 });
+  });
   for (const k in o) {
     const s = o[k];
     let u = s.x;

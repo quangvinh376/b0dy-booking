@@ -68,7 +68,7 @@ const QH = 'Quyết Hán', HM = 'Hiền Mai', KP = 'Khải Phan', LN = 'Lâm Ngu
 /* Hội viên thử (chủ studio đăng nhập bằng tên + 4 số cuối điện thoại). Tên bịa, đã so với file BA thật:
    không trùng họ tên, không trùng tên đệm + tên của hội viên nào. SĐT bịa. */
 const PERSONAS = [
-  { code: 'B801DY', name: 'Trịnh Minh Khôi', pkg: 48, kind: '1:1', coach: QH, phone: '0900001111', left: 30, start: '2026-08-03', exp: '2027-03-01', test: 'Đặt mới 2–4 buổi, đổi lịch, thêm buổi · "Coach bận" ở khung Quyết đang dạy (T6 07:00)' },
+  { code: 'B801DY', name: 'Trịnh Minh Khôi', pkg: 48, kind: '1:1', coach: QH, phone: '0900001111', left: 30, start: '2026-08-03', exp: '2027-03-01', test: 'Đặt mới 2–4 buổi, đổi lịch, thêm buổi · "Coach bận" ở khung Quyết đang dạy (T6 07:00) và khung Quyết nhận khách tập thử (T3 07:00)' },
   { code: 'B802DY', name: 'Vũ Thanh Hằng', pkg: 24, kind: '1:1', coach: HM, phone: '0900002222', left: 1, start: '2026-06-01', exp: '2026-12-31', test: 'Còn 1 buổi · chỉ đặt được 1 buổi' },
   { code: 'B803DY', name: 'Đặng Quốc Bảo', pkg: 24, kind: '1:1', coach: KP, phone: '0900003333', left: 6, start: '2026-07-01', exp: '2026-10-21', test: 'Gói hết hạn T4 21.10 · từ T5 bị khoá' },
   { code: 'B804DY', name: 'Lương Thùy Dung', pkg: 36, kind: '1:1', coach: BN, phone: '0900004444', left: 36, start: '2026-10-21', exp: '2027-04-30', test: 'Gói bắt đầu T4 21.10 · T2, T3 bị khoá' },
@@ -93,7 +93,8 @@ const BG = ['Âu Bảo Châu', 'Bạch Gia Hân', 'Doãn Khánh Ly', 'Hứa Tư�
    'LN22' = cặp 1:2 của Lâm (hai người, một suất). Không đụng khung của hội viên thử đã đặt sẵn (Diệu Linh, Hữu Tâm) và các khung
    test/ui_qc.js đặt. Khách 1:2 chỉ đặt khung ghép 09 · 11 · 15 · 17 · 19 (chủ studio chốt 18/10) nên suất 1:2 nằm ở các giờ đó.
    Chỗ để thử: T3 17:00 đầy nhưng Tạ Uyển Nhi (1:2 · Lâm) ghép được với Tuấn Kiệt · T7 15:00 ghép với Thảo Vy không tốn suất ·
-   T2 15:00 cặp của Lâm đã đủ → "Coach bận" · T6 15:00 Lâm đang dạy 1:1 (phòng đầy) · T6 07:00 Quyết bận với Trịnh Minh Khôi. */
+   T2 15:00 cặp của Lâm đã đủ → "Coach bận" · T6 15:00 Lâm đang dạy 1:1 (phòng đầy) · T6 07:00 Quyết bận với Trịnh Minh Khôi.
+   Khách tập thử T3 07:00 (tab TRIAL) do Quyết tiếp nhận → khung đó Quyết cũng bận (luật 18/10). */
 const BUSY = [
   [0, 10, ['QH', 'HM', 'KP', 'BN']], [2, 10, ['QH', 'HM', 'KP', 'LN']], [2, 15, ['QH', 'HM', 'KP', 'BN']], [4, 15, ['QH', 'KP', 'LN', 'BN']],
   [1, 17, ['QH', 'HM', 'KP', 'LN2']], [3, 18, ['QH', 'HM', 'LN', 'BN']], [4, 18, ['QH', 'HM', 'KP', 'BN']],
@@ -102,7 +103,7 @@ const BUSY = [
   [0, 15, ['LN22']]];
 const TAG = { QH: QH, HM: HM, KP: KP, LN: LN, BN: BN };
 /* Đổi dữ liệu thế giới giả (người tập nền, khung bận) → tăng số này: máy đã mở ?qc trước đó dựng lại thế giới mới khi tải trang. */
-const WORLD_V = 3;
+const WORLD_V = 4;
 /* Phòng nghỉ T7 24.10 (bật / tắt trong bảng QC) — dòng của khối "LÝ DO ĐÓNG CỬA" trên tab B0B */
 const NGHI = ['', 'Bảo trì phòng tập', '24/10/26'];
 
@@ -200,7 +201,7 @@ function buildFiles(key, nghi) {
     [BA_ID]: [
       { id: 101, title: 'MEMBERS', rows: members },
       { id: 102, title: 'SESSION LOG', rows: [['', '— SESSION LOG'], ['', 'QC · dữ liệu giả'], [], LH].concat(marksBefore(sc.at, writes)) },
-      { id: 103, title: 'TRIAL', rows: [['', '— TRIAL'], ['', 'QC · dữ liệu giả'], [], TH, ['', '01', serial(day(1)), '07:00', 'Khách tập thử', '0911110001', '', 'Chờ xác nhận', '']] },
+      { id: 103, title: 'TRIAL', rows: [['', '— TRIAL'], ['', 'QC · dữ liệu giả'], [], TH, ['', '01', serial(day(1)), '07:00', 'Khách tập thử', '0911110001', '', 'Chờ xác nhận', QH]] },
       { id: 104, title: 'B0B', rows: b0b },
       { id: 105, title: ' ' + C.GEAR + String.fromCharCode(0xFE0F) + ' 2', rows: cfg }
     ],

@@ -330,17 +330,19 @@ function ltMarks_(days) {
   return out;
 }
 
-/** TRIAL → số khách tập thử chiếm chỗ mỗi khung trong tuần (dòng Huỷ / Loại không tính). */
+/** TRIAL → khách tập thử chiếm chỗ mỗi khung trong tuần: {"yyyy-MM-dd|h": [coach tiếp nhận, …]}, mỗi khách một mục theo thứ tự
+    dòng ("" = chưa giao coach). Dòng Huỷ / Loại không tính. */
 function ltTrials_(days) {
   var ss = ltBa_(), sh = ss.getSheetByName('TRIAL'), out = {};
   if (!sh) return out;
   var tz = ss.getSpreadsheetTimeZone(), lastR = sh.getLastRow(), lastC = Math.min(sh.getLastColumn(), 30);
   if (lastR < 2) return out;
-  var hd = ltHeadRow_(sh.getRange(1, 1, Math.min(10, lastR), lastC).getValues(), ['trang thai']), cD = -1, cT = -1, cS = -1;
+  var hd = ltHeadRow_(sh.getRange(1, 1, Math.min(10, lastR), lastC).getValues(), ['trang thai']), cD = -1, cT = -1, cS = -1, cC = -1;
   if (!hd) return out;
   hd.h.forEach(function (x, i) {
     if (cD < 0 && x.indexOf('ngay hen') >= 0) cD = i;
     if (cT < 0 && x.indexOf('gio hen') >= 0) cT = i;
+    if (cC < 0 && x.indexOf('coach') >= 0) cC = i;
   });
   cS = hd.h.indexOf('trang thai');
   if (cD < 0 || cT < 0) return out;
@@ -354,7 +356,7 @@ function ltTrials_(days) {
     if (/huy|\bloai\b/.test(ltName_(v[i][cS]))) continue;
     var h = ltCellHour_(v[i][cT], tz);
     if (LT.SLOTS.indexOf(h) < 0) continue;
-    out[iso + '|' + h] = (out[iso + '|' + h] || 0) + 1;
+    (out[iso + '|' + h] || (out[iso + '|' + h] = [])).push(cC < 0 ? '' : ltCoach_(v[i][cC]));
   }
   return out;
 }
@@ -470,11 +472,13 @@ function ltFromNote_(note, ctx) {
 /**
  * Phòng ở từng khung, tính theo SUẤT COACH (chủ studio chốt 18/10): mỗi coach mỗi khung một suất — một khách 1:1, hoặc một
  * nhóm 1:2 (tối đa 2 khách gói 1:2 của CÙNG coach đó). Phòng tối đa `cap` suất (= số coach dạy cùng lúc): 4 khách 1:1,
- * hay 8 khách 1:2, hay 3 khách 1:1 + một cặp 1:2 = 5 người — đều là đầy. Khách tập thử và dòng sổ không ghi coach:
- * mỗi người một suất riêng. Sổ lệch luật (một coach hai khách 1:1, hoặc 1:1 lẫn 1:2 — dòng sửa tay / ghi trước luật)
+ * hay 8 khách 1:2, hay 3 khách 1:1 + một cặp 1:2 = 5 người — đều là đầy. Khách tập thử đã có coach tiếp nhận chiếm suất của
+ * coach đó như một khách 1:1 (chủ studio chốt 18/10 — coach không dạy hai việc một lúc); khách tập thử chưa giao coach và dòng
+ * sổ không ghi coach: mỗi người một suất riêng. Sổ lệch luật (một coach hai khách 1:1, hoặc 1:1 lẫn 1:2 — dòng sửa tay / ghi trước luật)
  * vẫn tính đủ từng suất, không bao giờ nhét thêm người vào phòng.
  * Trả {"yyyy-MM-dd|h": {u: số suất đã chiếm, x: số suất không coach, c: {khoá coach: [{kh: Mã KH, duo: gói 1:2, name: họ tên trên sổ,
- * i: thứ tự dòng trong sổ}]}}} — i để biết một lời mời có ghi SAU lượt đặt hiện tại của người mời không.
+ * i: thứ tự dòng trong sổ}]}}} — i để biết một lời mời có ghi SAU lượt đặt hiện tại của người mời không. Khách tập thử trong nhóm
+ * coach: {kh: '', duo: false, name: '', i: -1} — không bao giờ là bạn tập / người được mời, chỉ làm coach bận.
  */
 function ltRoom_(rows, ctx, trials) {
   var o = {};
@@ -485,7 +489,11 @@ function ltRoom_(rows, ctx, trials) {
     if (!ck) { s.x++; return; }
     (s.c[ck] || (s.c[ck] = [])).push({ kh: r.kh, duo: ltIsDuo_(r.kind), name: r.name, i: i });
   });
-  for (var k in trials) at(k).x += trials[k];
+  for (var k in trials) trials[k].forEach(function (c) {
+    var s = at(k), ck = ltCoachKey_(c);
+    if (!ck) { s.x++; return; }
+    (s.c[ck] || (s.c[ck] = [])).push({ kh: '', duo: false, name: '', i: -1 });
+  });
   for (var k2 in o) {
     var s = o[k2], u = s.x;
     for (var ck in s.c) {
@@ -838,7 +846,7 @@ function ltEnv_(ctx, rows, trials, closed, cap) {
 function ltLoadState_(ctx, person, persons) {
   var closed = ltClosedNow_(), cap = ltCapNow_();
   var rows = ltLogRows_(ltLogSheet_());
-  var trials = ltCached_('lt:tr:' + ctx.key, 30, function () { return ltTrials_(ctx.days); });
+  var trials = ltCached_('lt:tr2:' + ctx.key, 30, function () { return ltTrials_(ctx.days); });   /* tr2: mỗi khung là danh sách coach (bản cũ: số) */
   var marks = ltCached_('lt:mk:' + ctx.key, 60, function () { return ltMarks_(ctx.days); });
   if (persons) ltSnapshot_(persons, cap, ctx.now);
   return ltPeerIds_(ltStateOf_(ctx, person, ltEnv_(ctx, rows, trials, closed, cap), ltMine_(rows, person, ctx), marks, persons));

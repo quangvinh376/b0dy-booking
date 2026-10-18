@@ -9,7 +9,7 @@
 'use strict';
 
 /* ============================== CẤU HÌNH ============================== */
-var VER = '1.0.11';
+var VER = '1.0.12';
 var API_URL = 'https://b0dy-booking-api.little-bonus-1d87.workers.dev/';
 var API_SLOW = false;                 /* true khi chạy Apps Script (chậm hơn nhiều) → nới thời gian chờ */
 /* chế độ QC (?qc): máy chủ giả chạy ngay trên máy (qc.js, đúng mã của Worker) với dữ liệu giả — không gọi mạng,

@@ -21,8 +21,9 @@ Máy chủ của trang **booking.b0dy.studio**, thay cho Apps Script để mọi
 - **Sức chứa tính theo suất coach** (`core.js` · `roomOf` / `coachAt` = `LichTuan.gs` · `ltRoom_` / `ltCoachAt_`, từ 18/10): mỗi coach mỗi khung
   một suất — một khách 1:1, hoặc một nhóm 1:2 (tối đa 2 khách gói 1:2 của cùng coach). Phòng tối đa `Sức chứa` suất (⚙️ 2): 4 khách 1:1,
   8 khách 1:2, hay 3 khách 1:1 + một cặp 1:2 đều là đầy. Khách 1:2 vào nhóm 1:2 có sẵn của coach mình không tốn suất (phòng đầy vẫn vào
-  được); coach đã có suất ở khung đó với người khác → `coach_ban` (trả `het_cho` như phòng đầy). Tập thử và dòng không có coach: mỗi
-  người một suất. State có `coachAt: {"yyyy-MM-dd|h": "busy" | "join"}` — chỉ về coach của chính hội viên, không lộ ai đặt.
+  được); coach đã có suất ở khung đó với người khác → `coach_ban` (trả `het_cho` như phòng đầy). Khách tập thử đã có "Coach tiếp nhận"
+  (TRIAL) chiếm suất của coach đó như một khách 1:1 (`trialsFrom` = `ltTrials_` trả `{khung: [coach, …]}`, chốt 18/10); tập thử chưa
+  giao coach và dòng sổ không có coach: mỗi người một suất riêng. State có `coachAt: {"yyyy-MM-dd|h": "busy" | "join"}` — chỉ về coach của chính hội viên, không lộ ai đặt.
 - **Ghép lớp 1:2** (chủ studio chốt 18/10 14:13; `core.js` · `duoState` / `pairMove` / `checkInvite` / `checkDecline` = `LichTuan.gs` ·
   `ltDuoState_` / `ltPairMove_` / `ltCheckInvite_` / `ltCheckDecline_`, parity so từng phản hồi):
   - Gói 1:2 chỉ đặt ở **khung ghép** `LT.DUO_HOURS` = 09 · 11 · 15 · 17 · 19 (giờ khác → `khong_hop_le` / `gio_ghep`).
