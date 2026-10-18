@@ -9,7 +9,7 @@
 'use strict';
 
 /* ============================== CẤU HÌNH ============================== */
-var VER = '1.0.13';
+var VER = '1.0.14';
 var API_URL = 'https://b0dy-booking-api.little-bonus-1d87.workers.dev/';
 var API_SLOW = false;                 /* true khi chạy Apps Script (chậm hơn nhiều) → nới thời gian chờ */
 /* chế độ QC (?qc): máy chủ giả chạy ngay trên máy (qc.js, đúng mã của Worker) với dữ liệu giả — không gọi mạng,
@@ -1559,13 +1559,13 @@ function bookSub() {
 }
 function legendHTML(kind) {
   var it = {
-    trong: ['', '', 'Trống'], con1: ['', '1', 'Còn 1 chỗ'], day: ['k-day', '', 'Đầy'], chon: ['k-chon', '', 'Đã chọn'], trua: ['k-qua', '', 'Nghỉ trưa'],
+    trong: ['', '', 'Trống'], con1: ['', '1', 'Còn 1 chỗ'], day: ['k-day', '', 'Đầy'], chon: ['k-chon', '', 'Đã chọn'],
     khong: ['k-khoa', '', 'Không chọn được'], them: ['k-chon', '', 'Buổi thêm'], dat: ['k-dat', '', 'Đã đặt'], kbuoi: ['k-khoa', '', 'Đã có buổi'],
     toi: ['', '', 'Chuyển tới được'], kchuyen: ['k-khoa', '', 'Không chuyển được'], tap: ['k-tap', '', 'Đã tập'], dangdoi: ['k-doi', '', 'Buổi đang đổi'], moi: ['k-chon', '', 'Buổi mới'], cuaban: ['k-dat', '', 'Buổi của bạn'],
     kthe: ['k-khoa', '', 'Không thể đổi'],
     mtrong: ['', '', 'Trống'], mchon: ['k-chon', '', 'Đã chọn'], mcon1: ['', '1', 'Còn 1'], mday: ['k-day', '', 'Đầy'], mkhong: ['k-khoa', '', 'Không được'],
     mdoi: ['k-doi', '', 'Đang đổi'], mmoi: ['k-chon', '', 'Mới'], mcua: ['k-dat', '', 'Của bạn'], mtap: ['k-tap', '', 'Đã tập'], mthem: ['k-chon', '', 'Thêm'], mdat: ['k-dat', '', 'Đã đặt'],
-    ghep: ['k-ghep', '', 'Ghép · bạn đang chờ'], mghep: ['k-ghep', '', 'Ghép']
+    ghep: ['k-ghep', '', 'Ghép nhóm'], mghep: ['k-ghep', '', 'Ghép']
   };
   var duo = !!duoSt();
   var w = S.st && S.st.week, hasClosed = w && w.closed && Object.keys(w.closed).length, phaseLate = w && w.phase === 'late';
@@ -1574,9 +1574,9 @@ function legendHTML(kind) {
      có ô xám thì thêm mục xám. Gói 1:2: thêm ô "Ghép" (bạn cùng coach đang chờ) */
   var lock = hasClosed || phaseLate || exp;
   var sets = {
-    book: (duo ? ['trong', 'chon', 'ghep', 'con1', 'trua', 'day'] : ['trong', 'chon', 'con1', 'trua', 'day']).concat(lock ? ['khong'] : []),
+    book: (duo ? ['trong', 'chon', 'ghep', 'con1', 'day'] : ['trong', 'chon', 'con1', 'day']).concat(lock ? ['khong'] : []),
     'book-m': (duo ? ['mtrong', 'mchon', 'mghep', 'mday'] : ['mtrong', 'mchon', 'mcon1', 'mday']).concat(lock ? ['mkhong'] : []),
-    add: duo ? ['trong', 'them', 'ghep', 'dat', 'day', 'kbuoi', 'trua'] : ['trong', 'them', 'con1', 'dat', 'day', 'kbuoi', 'trua'],
+    add: duo ? ['trong', 'them', 'ghep', 'dat', 'day', 'kbuoi'] : ['trong', 'them', 'con1', 'dat', 'day', 'kbuoi'],
     'add-m': duo ? ['mtrong', 'mthem', 'mghep', 'mdat', 'mday', 'mkhong'] : ['mtrong', 'mthem', 'mcon1', 'mdat', 'mday', 'mkhong'],
     chg: duo ? ['toi', 'ghep', 'dangdoi', 'kchuyen', 'day', 'moi', 'cuaban'] : ['toi', 'dangdoi', 'kchuyen', 'day', 'moi', 'tap', 'cuaban'],
     'chg-m': duo ? ['mdoi', 'mmoi', 'mghep', 'mcua', 'mkhong', 'mday'] : ['mdoi', 'mmoi', 'mcua', 'mkhong', 'mday', 'mtap'],
