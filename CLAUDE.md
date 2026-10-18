@@ -29,8 +29,9 @@ ID hai file Google Sheets: `BA_ID` (file BA: MEMBERS · SESSION LOG · TRIAL · 
 ## Đang ở đâu (18/10/2026, 23:45)
 
 - Trang **v1.0.14** (`9211a1f`, chú thích "Ghép nhóm", bỏ mục Nghỉ trưa) trên GitHub Pages `main` (live, SHA-256 khớp). Worker `b0dy-booking-api` chạy `worker/src` của
-  `1f83687` (chủ studio deploy bằng `tools/worker_deploy_snippet.mjs` tối 18/10; `lt_ping` `pending 0`, `lastError` rỗng; `lt_find`
-  trả tên ≥ 4 chữ dạng mới 11/11). Có hiệu lực: luật suất coach + ghép lớp 1:2 (1.0.8–1.0.11) · khách tập thử có "Coach tiếp nhận"
+  `1f83687` — deploy **23:42 18/10**, etag `05ace7dde3`: Claude chat (project "Vinh") chạy `tools/worker_deploy_snippet.mjs` qua Claude
+  in Chrome sau câu đồng ý của chủ studio; `lt_ping` `pending 0`, `lastError` rỗng; Claude Code kiểm lại 23:45 bằng `curl`: `lt_find`
+  trả tên ≥ 4 chữ dạng mới 11/11. Có hiệu lực: luật suất coach + ghép lớp 1:2 (1.0.8–1.0.11) · khách tập thử có "Coach tiếp nhận"
   chiếm suất của coach đó (1.0.12) · tên = 2 chữ cuối, chữ trước viết tắt + ô Đầy / coach bận gạch X + ô Ghép mobile icon + tên (1.0.13).
 - **Sức chứa 5 suất / khung** (5 coach: 5 khách 1:1 hay 10 khách 1:2) — ô dữ liệu BA `' ⚙️ 2'!C27` (đổi 18/10), không phải mã;
   `LT.CAP` = 4 chỉ là dự phòng khi không đọc được ô đó. Thế giới giả `?qc` vẫn sức chứa 4 (`qc.js` · cfg + BUSY).
@@ -39,6 +40,14 @@ ID hai file Google Sheets: `BA_ID` (file BA: MEMBERS · SESSION LOG · TRIAL · 
 - Chủ studio đã quyết (18/10): giữ tối thiểu 2 buổi; buổi 1:2 lẻ giờ cao điểm: chưa làm, đo sau tuần 44. Tìm tên không đổi
   (gõ tên đệm hiện tắt vẫn ra). Khách 1:2 của Lâm → Ngọc: chủ studio tự đổi trong BA. Tuần 44 chạy thử nội bộ, ra mắt chính thức tháng 11.
 - Apps Script dự phòng vẫn V36 (cũ hơn repo nhiều bản) — đưa V37 lên chỉ khi cần và được duyệt, chạy parity trước.
+
+## Phối hợp Claude Code ↔ Claude chat
+
+- Claude chat (project "Vinh") đọc repo này (GitHub gắn vào project) và tự gộp vào runbook / doc thiết kế trong project knowledge.
+  Sau mỗi thay đổi: **cập nhật mục "Đang ở đâu" trên `main`** rồi báo chủ studio — không cần gửi file runbook.
+- Claude chat có Claude in Chrome (tab dash.cloudflare.com, booking.b0dy.studio) → deploy Worker / kiểm trong tab do Claude chat chạy,
+  vẫn cần câu đồng ý của chủ studio cho từng lần. Máy cloud của Claude Code: không có trình duyệt hay token Cloudflare; gọi được
+  `workers.dev` bằng `curl` (Node `fetch` không đi qua proxy).
 
 ## Phiên bản trang
 
