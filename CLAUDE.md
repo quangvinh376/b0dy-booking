@@ -30,24 +30,27 @@ ID hai file Google Sheets: `BA_ID` (file BA: MEMBERS · SESSION LOG · TRIAL · 
 6. Sau mỗi lần đẩy: xác minh commit bằng hash và SHA-256 từng tệp trên `raw.githubusercontent.com/quangvinh376/b0dy-booking/<commit>/…`.
 7. Chỉ MỘT tiến trình Playwright / Chromium một lúc (máy test nhỏ từng hết RAM).
 
-## Đang ở đâu (19/10/2026, 18:05)
+## Đang ở đâu (19/10/2026, 18:35)
 
-- Trang **v1.2.1** (`944517f`) trên GitHub Pages `main` — live 18:03 19/10, 19 tệp tĩnh SHA-256 khớp (CSP có `wss://` của Worker). Worker
+- Trang **v1.2.2** (`29d7243`) trên GitHub Pages `main` — live 18:32 19/10, 19 tệp tĩnh SHA-256 khớp (CSP có `wss://` của Worker). Worker
   không đổi từ 1.2.0 — `b0dy-booking-api` chạy `worker/src` của `3f91f21` (7 module, có `live.js`) — deploy ~17:01 19/10 qua Claude chat
   (`tools/worker_deploy_snippet.mjs`; chủ studio đồng ý 19/10 và cho tự deploy từ nay — luật 3): `OK etag=c1dc6462b7`, 5 binding (DO `BOOK` ·
   `ALLOW_ORIGINS` · `BA_ID` · `OUT_ID` · secret `SA_JSON`), cron `* * * * *`, `lt_ping` `pending 0`. Claude Code kiểm 17:01–17:05
   bằng `curl`: `lt_ping` `pending 0`, `lastError` rỗng · tuần 43 trả 7 ngày · `/live` trả 101 + `{"t":"hi","r":0,"n":1}` · origin lạ 403.
+- **1.2.2 (chủ studio 19/10: "bỏ chấm, vòng sáng phát ra từ chính icon "i", lặp dày hơn")**: bỏ chấm Acid ở góc biểu tượng; vòng sáng
+  Acid 2 px = `::after` của khung biểu tượng, lùi 12,5 % mỗi cạnh = đúng đường tròn r 9 / 24 của "i" / "!", bắt đầu trùng đường tròn đó
+  lúc vạch quét qua (80 ms), loang 2,4 lần rồi tắt (780 ms); nhịp 4 s → **2 s** (0,8 s chuyển động · 1,2 s lặng). Thôi lặp khi đã đọc
+  như 1.2.1. `test/ui_notice.js` 41.
 - **1.2.1 (chủ studio 19/10: "không thấy hiệu ứng thẻ" · "không lặp thì sao gây chú ý")**: 1.2.0 chạy tín hiệu một lần ngay lúc thẻ vào
   DOM = giữa cảnh trang trượt vào → không thấy. Nay `sigWatch` (app.js) gắn `.sig-in` khi trang vào xong, sàn / thẻ hiện xong, không có
   cửa sổ / ngăn kéo che, tab đang mở, rồi lặng 160 ms; B0B quay nhìn đúng lúc đó. Rồi **lặp nhịp 4 s** (`.sig-loop`: vạch Acid quét mép
   trên + vòng sóng quanh chấm, 0,9 s chuyển động · 3,1 s lặng) tới khi đã đọc: chạm / bấm thẻ, hay rê chuột dừng trên thẻ ≥ 600 ms →
-  thôi lặp, chấm ở lại; "đã đọc" theo tiêu đề + thân thẻ, nhớ tới khi tải lại trang; thẻ mới lặp từ đầu; giảm chuyển động: không lặp.
-  Bỏ "chữ trồi" riêng của thẻ. Test `test/ui_notice.js` (37). Nhịp 4 s là chọn của Claude — chủ studio muốn dồn / thưa hơn thì đổi `4s`
-  trong `.sig-loop` (app.css) + mốc % keyframe `ntlineL` / `ntringL`.
+  thôi lặp; "đã đọc" theo tiêu đề + thân thẻ, nhớ tới khi tải lại trang; thẻ mới lặp từ đầu; giảm chuyển động: không lặp.
+  Bỏ "chữ trồi" riêng của thẻ. Đổi nhịp: `2s` trong `.sig-loop` (app.css) + tính lại mốc % keyframe `ntlineL` / `ntringL` (mốc theo
+  mili giây cố định: vạch 0–325–533–740, vòng 80–780).
 - **1.2.0 (chủ studio 19/10)**: (1) từ chối lời mời → người mời thấy "<tên> đã từ chối tham gia" + nút "Mời bạn khác" (bảng Tập đôi +
-  dòng Tập đôi trên phiếu, bấm mở thẳng phần chọn bạn) · (2) thẻ thông báo "tín hiệu đến" (sửa ở 1.2.1): vạch Acid quét mép trên + chấm Acid
-  viền Mực phát một vòng sóng; toast có vạch Acid mép dưới; B0B quay nhìn thẻ mới (3 điểm loại B chờ chủ studio xem trên máy thật:
-  vạch 740 ms, vòng sóng 640 ms, chấm từ 40 %) · (3) **kênh live mức 1**: WebSocket vào DO (`worker/src/live.js`), bảng tự cập nhật ~1 s
+  dòng Tập đôi trên phiếu, bấm mở thẳng phần chọn bạn) · (2) thẻ thông báo "tín hiệu đến" (nay như 1.2.2): vạch Acid quét mép trên + vòng sáng;
+  toast có vạch Acid mép dưới; B0B quay nhìn thẻ mới (vạch 740 ms, vòng 700 ms — dài hơn chuẩn 300 ms, chủ studio đã xem và yêu cầu lặp) · (3) **kênh live mức 1**: WebSocket vào DO (`worker/src/live.js`), bảng tự cập nhật ~1 s
   sau mỗi lượt đặt / đổi / mời của người khác (sửa tay trên sheet ≤ 1 phút), ô đang chọn bị lấy → báo trước khi bấm, B0B nhìn quanh +
   "N người đang xem" (ẩn danh, theo mã máy). Trang chỉ nối từ booking.b0dy.studio. Chi phí Cloudflare (bảng giá 19/10): mở kết nối =
   1 request, tin gửi đi miễn phí, tin nhận 20:1 — vài chục khách nằm gọn trong 1 triệu request / 400.000 GB-s có sẵn của gói Paid.
