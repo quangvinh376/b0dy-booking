@@ -26,13 +26,19 @@ ID hai file Google Sheets: `BA_ID` (file BA: MEMBERS · SESSION LOG · TRIAL · 
 6. Sau mỗi lần đẩy: xác minh commit bằng hash và SHA-256 từng tệp trên `raw.githubusercontent.com/quangvinh376/b0dy-booking/<commit>/…`.
 7. Chỉ MỘT tiến trình Playwright / Chromium một lúc (máy test nhỏ từng hết RAM).
 
-## Đang ở đâu (19/10/2026, 14:10)
+## Đang ở đâu (19/10/2026, 14:25)
 
-- Trang **v1.0.14** (`9211a1f`, chú thích "Ghép nhóm", bỏ mục Nghỉ trưa) trên GitHub Pages `main` (live, SHA-256 khớp). Worker `b0dy-booking-api` chạy `worker/src` của
-  `1f83687` — deploy **23:42 18/10**, etag `05ace7dde3`: Claude chat (project "Vinh") chạy `tools/worker_deploy_snippet.mjs` qua Claude
-  in Chrome sau câu đồng ý của chủ studio; `lt_ping` `pending 0`, `lastError` rỗng; Claude Code kiểm lại 23:45 bằng `curl`: `lt_find`
-  trả tên ≥ 4 chữ dạng mới 11/11. Có hiệu lực: luật suất coach + ghép lớp 1:2 (1.0.8–1.0.11) · khách tập thử có "Coach tiếp nhận"
-  chiếm suất của coach đó (1.0.12) · tên = 2 chữ cuối, chữ trước viết tắt + ô Đầy / coach bận gạch X + ô Ghép mobile icon + tên (1.0.13).
+- Trang **v1.1.0** (`39a9a30`, lịch coach + Chủ Nhật) trên GitHub Pages `main` — live 14:08 19/10, 10 tệp SHA-256 khớp. Worker
+  `b0dy-booking-api` chạy `worker/src` của `39a9a30` — deploy **~14:20 19/10**, etag `ae40402273` (Claude chat chạy
+  `tools/worker_deploy_snippet.mjs` qua Claude in Chrome sau câu đồng ý của chủ studio 14:07; 5 binding, cron `* * * * *`); `lt_ping`
+  `pending 0`, `lastError` rỗng; Claude Code kiểm lại 14:20 bằng `curl`: tuần 43 trả 7 ngày 19 → 25/10, `lt_find` bình thường.
+  Có hiệu lực: luật suất coach + ghép lớp 1:2 (1.0.8–1.0.11) · khách tập thử có "Coach tiếp nhận" chiếm suất coach (1.0.12) · tên = 2 chữ
+  cuối + ô Đầy / coach bận gạch X + ô Ghép mobile icon + tên (1.0.13) · chú thích "Ghép nhóm" (1.0.14) · **lịch coach + CN (1.1.0)**.
+- **1.1.0 (chủ studio chốt 19/10)**: ô X không chữ (= coach không nhận vì đã bận), ô xám giữ như cũ, chú thích luôn có mục xám khi bảng
+  có ô xám. Giờ / ngày coach nhận khách = tab `Lịch coach` (713, file Lịch tập tuần): ô tick từng giờ × T2–CN, ô ngoài lịch xám
+  "Coach nghỉ", ngày nghỉ trọn ngày = một khối cả cột; CN đặt được nếu coach tick. Tab tạo 19/10, **mặc định = luật cũ** (T2–T7 đủ,
+  CN trống) → hội viên chưa thấy gì khác cho tới khi chủ studio sửa ô tick (hiệu lực sau 1–2 phút). `Bảng lịch tập` dựng lại 19/10:
+  7 cột + hàng CN ở "Theo coach" + ô H2 "Xem tuần" (đọc ngược: 122 buổi · 46 hội viên · 0 khung đầy · 10 chưa đặt, giống trước khi dựng).
 - **Sức chứa 5 suất / khung** (5 coach: 5 khách 1:1 hay 10 khách 1:2) — ô dữ liệu BA `' ⚙️ 2'!C27` (đổi 18/10), không phải mã;
   `LT.CAP` = 4 chỉ là dự phòng khi không đọc được ô đó. Thế giới giả `?qc` vẫn sức chứa 4 (`qc.js` · cfg + BUSY).
 - **`Sổ đặt lịch` tuần 43 (19–24/10) là dữ liệu MÔ PHỎNG**: 120 dòng, Mã yêu cầu `mophong43-001…046`, ghi chú "Mô phỏng · …"
@@ -40,14 +46,6 @@ ID hai file Google Sheets: `BA_ID` (file BA: MEMBERS · SESSION LOG · TRIAL · 
 - Chủ studio đã quyết (18/10): giữ tối thiểu 2 buổi; buổi 1:2 lẻ giờ cao điểm: chưa làm, đo sau tuần 44. Tìm tên không đổi
   (gõ tên đệm hiện tắt vẫn ra). Khách 1:2 của Lâm → Ngọc: chủ studio tự đổi trong BA. Tuần 44 chạy thử nội bộ, ra mắt chính thức tháng 11.
 - Apps Script dự phòng vẫn V36 (cũ hơn repo nhiều bản) — đưa V37 lên chỉ khi cần và được duyệt, chạy parity trước.
-- **19/10 — 1.1.0 (lịch coach + Chủ Nhật)**: chủ studio đồng ý 14:07. **Trang 1.1.0 (`39a9a30`) live trên `main` 14:08** (10 tệp SHA-256
-  khớp). **Worker CHƯA deploy** — đang chờ Claude chat chạy `node tools/worker_deploy_snippet.mjs 39a9a30` (chỉ `booking.js` + `core.js`
-  đổi so với `1f83687`); tới lúc đó Worker cũ vẫn trả tuần 6 ngày, trang 1.1.0 vẽ như cũ (cột CN cố định). Chủ studio chốt 19/10: ô X không chữ (= coach không nhận vì đã bận), ô xám giữ như cũ, chú thích luôn có mục xám khi
-  bảng có ô xám; lịch nhận khách của coach = lưới ô tick từng giờ × 7 ngày ở tab mới `Lịch coach` (file Lịch tập tuần), ô ngoài lịch xám
-  "Coach nghỉ"; CN đặt được nếu coach tick; Bảng lịch tập = tuần này + ô chọn tuần. Đã làm trên sheet thật (được đồng ý 19/10): tạo tab
-  `Lịch coach` (713, mặc định = luật cũ → chưa đổi gì cho hội viên) · dựng lại `Bảng lịch tập` 7 cột + hàng CN ở "Theo coach" + ô H2
-  "Xem tuần" (đọc ngược: 122 buổi · 46 hội viên · 0 khung đầy · 10 chưa đặt, giống hệt trước khi dựng). Thứ tự đưa lên: trang trước
-  (trang 1.1.0 chạy được với Worker cũ), Worker sau (trang cũ gặp Worker mới vẽ thừa cột CN).
 
 ## Phối hợp Claude Code ↔ Claude chat
 
