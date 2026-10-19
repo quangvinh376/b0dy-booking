@@ -4,7 +4,9 @@ Trang đặt lịch cho hội viên B0DY Studio: https://booking.b0dy.studio (Gi
 
 Hội viên tìm tên (gõ tới đâu ra tới đó: vài chữ của tên đệm / tên gọi, có dấu hay không dấu đều được; gõ riêng họ không ra ai vì trang chỉ hiện chữ cái đầu của họ)
 → xác minh 4 số cuối điện thoại (nhớ máy 60 ngày) →
-chọn 2–4 buổi trên bảng tuần → nhận phiếu. Trong tuần: thêm buổi, đổi buổi (tối đa 2 lần, trước 24 giờ). Mở đặt 06:00 Chủ Nhật.
+chọn 2–4 buổi trên bảng tuần (T2–CN) → nhận phiếu. Trong tuần: thêm buổi, đổi buổi (tối đa 2 lần, trước 24 giờ). Mở đặt 06:00 Chủ Nhật.
+Giờ / ngày coach nhận khách: tab `Lịch coach` (file Lịch tập tuần, ô tick từng giờ × 7 ngày) — ô ngoài lịch hiện xám "Coach nghỉ",
+ngày nghỉ trọn ngày thành một khối; coach không có khối trong tab: T2–T7 đủ giờ, CN nghỉ (từ 1.1.0, chủ studio chốt 19/10).
 Mỗi khung giờ mỗi coach dạy một suất (một khách 1:1, hoặc hai khách gói 1:2 của cùng coach đó); phòng tối đa `Sức chứa` suất (⚙️ 2).
 Gói 1:2 đặt ở các khung ghép 09 · 11 · 15 · 17 · 19, thấy tên gọi bạn cùng coach đang chờ, mời được một bạn vào buổi đang chờ,
 và dời buổi đang chờ vào cặp có sẵn không tính lượt đổi.
@@ -22,10 +24,12 @@ và dời buổi đang chờ vào cặp có sẵn không tính lượt đổi.
 | `backend/LichTuan.gs` | Cùng hợp đồng API trên Apps Script (máy chủ dự phòng); parity test so từng phản hồi với Worker |
 | `test/` | Test Playwright (giả máy chủ bằng chính `LichTuan.gs`), test Apps Script, test B0B |
 | `tools/bang_lich_tap.py` | Dựng tab `Bảng lịch tập` theo bảng giờ của trang (requests cho `spreadsheets.batchUpdate`, xem đầu tệp) |
+| `tools/lich_coach.py` | Tạo tab `Lịch coach` (5 khối coach, mặc định T2–T7 tick đủ, CN trống = đúng luật cũ) — chỉ để tạo lần đầu |
 | `tools/ba_fixture.py` · `tools/sim_week*.{mjs,py}` · `tools/worker_deploy_snippet.mjs` | BA xuất Excel → fixture riêng tư (`.local/`, không đẩy lên repo) · mô phỏng cả phòng đặt tuần tới theo lịch tập tuần trước (đúng luật máy chủ) + ghi / kiểm sổ · đoạn deploy Worker từ dashboard. Xem `CLAUDE.md` |
 
-Dữ liệu vào: file BA (MEMBERS, TRIAL, B0B, ⚙️ 2, SESSION LOG). Dữ liệu ra: sheet *[B0DY Studio] Lịch tập tuần* —
-tab `Sổ đặt lịch` (mỗi buổi một dòng) và `Bảng lịch tập` (bảng tuần cho coach, tự tính).
+Dữ liệu vào: file BA (MEMBERS, TRIAL, B0B, ⚙️ 2, SESSION LOG) + tab `Lịch coach` của sheet *[B0DY Studio] Lịch tập tuần*.
+Dữ liệu ra (cùng sheet đó): tab `Sổ đặt lịch` (mỗi buổi một dòng) và `Bảng lịch tập` (bảng tuần T2–CN cho coach, tự tính;
+ô H2 "Xem tuần" chọn ngày để xem tuần khác, xoá ô = tuần này).
 
 Repo công khai: không có PIN, khoá, số điện thoại hay dữ liệu hội viên thật. Test chỉ dùng dữ liệu bịa.
 

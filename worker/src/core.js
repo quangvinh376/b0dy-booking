@@ -18,7 +18,7 @@ export const GEAR = String.fromCharCode(0x2699);
 export const LT = {
   OFF: 7 * 3600e3,                                   // giờ Việt Nam, không có giờ mùa hè
   SLOTS: [6, 7, 8, 9, 10, 11, 14, 15, 16, 17, 18, 19, 20], // 12:00–14:00 coach nghỉ trưa
-  NDAYS: 6,                                          // T2..T7 · Chủ Nhật phòng nghỉ
+  NDAYS: 7,                                          // T2..CN · ngày / giờ nhận khách của từng coach: tab "Lịch coach" (SCHED)
   OPEN_H: 6,                                         // lịch tuần sau mở lúc 06:00 Chủ Nhật
   LEAD: 24 * 3600e3,                                 // đặt muộn và đổi lịch: khung cách hiện tại ≥ 24 giờ
   MIN: 2, MAX: 4, CHANGES: 2,
@@ -27,7 +27,7 @@ export const LT = {
   FAILS: 5, LOCK_S: 15 * 60, MEMBER_FAILS: 20,       // sai 5 lần → khoá máy 15 phút · sai 20 lần/giờ trên một tên → khoá tên
   FIND_MAX: 300,                                     // lượt tìm tên / máy / khung 10 phút cố định (trang tìm theo từng chữ gõ: ~8 lượt / người)
   FIND_TOP: 6,                                       // tối đa 6 người mỗi lượt tìm; nhiều hơn → more: true
-  LOG: 'Sổ đặt lịch', DATA: '_dữ liệu',
+  LOG: 'Sổ đặt lịch', DATA: '_dữ liệu', SCHED: 'Lịch coach',
   ON: 'Đã đặt', MOVED: 'Đã đổi',
   /* Ghép lớp 1:2 (chủ studio chốt 18/10 14:13): gói 1:2 chỉ đặt ở các khung ghép cố định; người đặt trước mời được một bạn 1:2
      cùng coach (dòng sổ "Mời"), bạn kia nhận (đặt / thêm / dời vào) hoặc từ chối (dòng "Từ chối"); dời một buổi ĐANG LẺ vào cặp
@@ -409,6 +409,40 @@ export function capFrom(vals) {
   }
   return LT.CAP;
 }
+const DAY_KEYS = LT.DOW.map(d => nameKey(d));        /* 'cn', 't2' … 't7' — chỉ số = thứ trong tuần (0 = Chủ Nhật) */
+/** Ô tick của "Lịch coach": ô kiểm (true), hoặc gõ tay x / ✓ / 1 / TRUE. */
+function ticked(x) { return x === true || /^(true|x|v|1|\u2713|\u2714)$/i.test(String(x == null ? '' : x).trim()); }
+/**
+ * Tab "Lịch coach" (file Lịch tập tuần, chủ studio điền — chốt 19/10): mỗi coach một lưới — hàng tiêu đề "<tên coach> | T2 … T7 | CN",
+ * dưới đó mỗi hàng một khung giờ ("06:00" … "20:00") với ô tick ở từng thứ; hết hàng có giờ là hết lưới.
+ * Trả {khoá coach: {thứ (0 = CN … 6 = T7): {giờ: 1}}}. Coach không có lưới → không có khoá (offAt: T2–T7 nhận, CN nghỉ — như
+ * trước khi có tab). Lưới thứ hai của cùng coach bị bỏ.
+ */
+export function schedFrom(vals) {
+  const out = {}, v = (vals || []).map(r => (r || []).slice(0, 30));
+  for (let r = 0; r < v.length; r++) {
+    const cols = {};
+    let first = -1, nameC = -1;
+    for (let c = 0; c < v[r].length; c++) {
+      const d = DAY_KEYS.indexOf(nameKey(cell(v[r], c)));
+      if (d >= 0 && !Object.values(cols).includes(d)) { cols[c] = d; if (first < 0) first = c; }
+    }
+    if (Object.keys(cols).length < 7) continue;
+    for (let c = first - 1; c >= 0; c--) if (String(cell(v[r], c)).trim()) { nameC = c; break; }
+    const ck = nameC < 0 ? '' : coachKey(cell(v[r], nameC));
+    if (!ck || out[ck]) continue;
+    const g = {};
+    for (let d = 0; d < 7; d++) g[d] = {};
+    for (let i = r + 1; i < v.length; i++) {
+      const h = cellHour(cell(v[i], nameC));
+      if (h < 0) break;
+      if (LT.SLOTS.indexOf(h) < 0) continue;
+      for (const c in cols) if (ticked(cell(v[i], +c))) g[cols[c]][h] = 1;
+    }
+    out[ck] = g;
+  }
+  return out;
+}
 
 /* ================================================================== */
 /* Sổ đặt lịch                                                          */
@@ -518,10 +552,17 @@ export function taken(rows, ctx, trials) {
   for (const k in o) t[k] = o[k].u;
   return t;
 }
-export function envOf(ctx, rows, trials, closed, cap) {
+/** sched: lịch nhận khách của coach (schedFrom) — không có thì {} (mọi coach theo mặc định của offAt). */
+export function envOf(ctx, rows, trials, closed, cap, sched) {
   const room = roomOf(rows, ctx, trials), t = {};
   for (const k in room) t[k] = room[k].u;
-  return { closed: closed, cap: cap, taken: t, room: room, inv: invitesOf(rows, ctx) };
+  return { closed: closed, cap: cap, taken: t, room: room, inv: invitesOf(rows, ctx), sched: sched || {} };
+}
+/** Coach của hội viên không nhận khách ở khung này (tab "Lịch coach"). Coach chưa có lưới: T2–T7 nhận đủ giờ, CN nghỉ. */
+export function offAt(env, person, iso, h) {
+  const ck = coachKey(person.coach), g = env.sched && ck ? env.sched[ck] : null, d = dowOf(iso);
+  if (!g) return d === 0;
+  return !(g[d] && g[d][h]);
 }
 /** Mã KH ở cuối ghi chú dòng mời / từ chối: "Mời K. Cặp Hai · B926DY" → "B926DY"; "Huỷ mời" → "". */
 export function noteKey(note) { const s = String(note || ''), i = s.lastIndexOf(' · '); return i < 0 ? '' : s.slice(i + 3).trim(); }
@@ -587,6 +628,7 @@ export function why(ctx, person, env, iso, h, lead) {
   if (env.closed[iso] !== undefined) return 'nghi';
   if (person.start && iso < person.start) return 'chua_bat_dau';
   if (person.exp && iso > person.exp) return 'het_han';
+  if (offAt(env, person, iso, h)) return 'coach_nghi';                            /* ngoài lịch nhận khách của coach */
   if (isDuo(person.kind) && LT.DUO_HOURS.indexOf(h) < 0) return 'gio_ghep';     /* gói 1:2: chỉ các khung ghép cố định */
   const t = slotMs(iso, h);
   if (t <= ctx.now) return 'qua';
@@ -759,9 +801,9 @@ export function stateOf(ctx, person, env, m, marks, list) {
   ctx.days.forEach(d => {
     if (env.closed[d] !== undefined) closed[d] = env.closed[d] || 'Phòng nghỉ';
     LT.SLOTS.forEach(h => {
-      const k = d + '|' + h, n = env.taken[k] || 0, c = coachAt(env, person, k);
+      const k = d + '|' + h, n = env.taken[k] || 0, c = offAt(env, person, d, h) ? 'off' : coachAt(env, person, k);
       if (n) tk[k] = n;
-      if (c) co[k] = c;                                     /* coach của chính hội viên: 'busy' · 'join' (không lộ ai đặt) */
+      if (c) co[k] = c;                                     /* coach của chính hội viên: 'off' nghỉ · 'busy' · 'join' (không lộ ai đặt) */
     });
   });
   const sessions = m.sessions.map(s => {

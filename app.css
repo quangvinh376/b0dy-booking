@@ -365,7 +365,10 @@ button.stepn .ic{width:16px;height:16px}
 .tl{display:flex;align-items:center;justify-content:flex-start;font-family:var(--mono);font-size:11px;line-height:13px;letter-spacing:.08em;color:var(--than)}
 .cn{grid-column:8;grid-row:1/-1;display:flex;align-items:center;justify-content:center;border-radius:var(--r);background:var(--giay2);text-align:center}
 .cn span{font-family:var(--mono);font-size:10px;line-height:16px;letter-spacing:.08em;text-transform:uppercase;color:var(--tro)}
-.lunch{grid-column:2/8;grid-row:7;display:flex;align-items:center;justify-content:center;border-radius:var(--r);background:var(--giay2);
+/* máy chủ cũ (tuần 6 ngày + cột CN cố định): dải nghỉ trưa chỉ qua 6 cột ngày · tuần 7 ngày: qua cả 7, khối "COACH NGHỈ" nằm trên */
+.wk.d6 .lunch{grid-column:2/8}
+.wk-body>.cn[data-gc]{position:relative;z-index:1}
+.lunch{grid-column:2/-1;grid-row:7;display:flex;align-items:center;justify-content:center;border-radius:var(--r);background:var(--giay2);
        font-family:var(--mono);font-size:10px;line-height:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--tro)}
 .c{position:relative;display:flex;align-items:center;justify-content:center;gap:6px;min-width:0;padding:0 8px;border-radius:var(--r);background:var(--giay);
    box-shadow:inset 0 0 0 1px var(--ke);font-family:var(--mono);font-size:10px;line-height:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--than);

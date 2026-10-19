@@ -55,17 +55,18 @@ function baSheets(extra, trials) {
   return { 'MEMBERS': members, 'SESSION LOG': log, 'TRIAL': trial, 'B0B': b0b, ' ⚙️ 2': cfg };
 }
 /** log: dòng sổ có sẵn (17 cột B..R) — vd dòng ghi trước luật / chủ studio sửa tay */
-function outSheets(log) {
+function outSheets(log, sched) {
   const head = ['Mã phiếu', 'Bản', 'Tuần', 'Ngày', 'Thứ', 'Giờ', 'Hội viên', 'Tên ngắn', 'Coach', 'Loại', 'Trạng thái', 'Thao tác', 'Ghi chú', 'Lúc ghi', 'Mã yêu cầu', 'Mã KH', '_hiển thị'];
   return {
     'Bảng lịch tập': [['', '— LỊCH TẬP TUẦN']],
     'Sổ đặt lịch': [['', '— SỔ ĐẶT LỊCH'], ['', 'mô tả'], [], [''].concat(head)].concat((log || []).map(r => [''].concat(r))),
-    '_dữ liệu': [['SỨC CHỨA / KHUNG', 4], ['CẬP NHẬT', ''], [], ['Hội viên', 'Tên ngắn', 'Coach', 'Còn lại', 'Hết hạn', 'Mã KH', '_hiển thị']]
+    '_dữ liệu': [['SỨC CHỨA / KHUNG', 4], ['CẬP NHẬT', ''], [], ['Hội viên', 'Tên ngắn', 'Coach', 'Còn lại', 'Hết hạn', 'Mã KH', '_hiển thị']],
+    ...(sched ? { 'Lịch coach': sched } : {})
   };
 }
 function setup(nowMs, opts) {
   const clock = { now: nowMs };
-  const files = { BA: new Spreadsheet('BA', LA, baSheets(opts && opts.members, opts && opts.trials)), OUT: new Spreadsheet('OUT', 'Asia/Saigon', outSheets(opts && opts.log)) };
+  const files = { BA: new Spreadsheet('BA', LA, baSheets(opts && opts.members, opts && opts.trials)), OUT: new Spreadsheet('OUT', 'Asia/Saigon', outSheets(opts && opts.log, opts && opts.sched)) };
   files.OUT.title = '[B0DY Studio] Lịch tập tuần';
   const env = makeEnv(files, clock, Object.assign({ props: { BA_ID: 'BA', LT_OUT_ID: 'OUT' } }, opts || {}));
   return { env, clock, files, log: files.OUT.getSheetByName('Sổ đặt lịch') };
@@ -91,7 +92,7 @@ console.log('\n== 1. Thời gian · tuần ISO · cửa sổ đặt ==');
   c = e.ltWeekCtx_(vn('2026-10-18', '05:59'));
   ok('CN 05:59 → vẫn tuần 42 (phase before) · mở lúc 06:00 hôm nay', c.key === '2026-W42' && c.phase === 'before' && c.nextOpen === vn('2026-10-18', '06:00'), c);
   c = e.ltWeekCtx_(vn('2026-10-18', '06:00'));
-  ok('CN 06:00 → tuần 43 (19–24.10), phase open, không cần báo trước', c.key === '2026-W43' && c.mon === '2026-10-19' && c.days.length === 6 && c.days[5] === '2026-10-24' && c.phase === 'open' && c.lead === 0, c);
+  ok('CN 06:00 → tuần 43 (19–25.10, T2 → CN), phase open, không cần báo trước', c.key === '2026-W43' && c.mon === '2026-10-19' && c.days.length === 7 && c.days[6] === '2026-10-25' && c.phase === 'open' && c.lead === 0, c);
   c = e.ltWeekCtx_(vn('2026-10-19', '00:00'));
   ok('T2 19.10 00:00 → tuần 43, phase late, báo trước 24 giờ', c.key === '2026-W43' && c.phase === 'late' && c.lead === 864e5, c);
   ok('Tuần ISO: 28.12.2026 = 2026-W53 · 04.01.2027 = 2027-W01 · 01.01.2027 = 2026-W53',
@@ -247,7 +248,7 @@ console.log('\n== 5. Đặt lịch Chủ Nhật (tuần 43) ==');
   r = call(t, { action: 'lt_book', tok, rid: rid(), week: '2026-W43', picks: [{ date: '2026-10-19', h: 12 }, { date: '2026-10-21', h: 18 }] });
   ok('Khung 12:00 (nghỉ trưa) → khung', r.why === 'khung', r.why);
   r = call(t, { action: 'lt_book', tok, rid: rid(), week: '2026-W43', picks: [{ date: '2026-10-25', h: 8 }, { date: '2026-10-21', h: 18 }] });
-  ok('Chủ Nhật → ngoai_tuan', r.why === 'ngoai_tuan', r.why);
+  ok('Chủ Nhật, coach chưa có Lịch coach (mặc định CN nghỉ) → coach_nghi', r.why === 'coach_nghi', r.why);
   r = call(t, { action: 'lt_book', tok, rid: rid(), week: '2026-W43', picks: [{ date: '2026-10-24', h: 8 }, { date: '2026-10-21', h: 18 }] });
   ok('Ngày lễ → nghi', r.why === 'nghi', r.why);
   r = call(t, { action: 'lt_book', tok, rid: rid(), week: '2026-W42', picks: [{ date: '2026-10-19', h: 6 }, { date: '2026-10-21', h: 18 }] });

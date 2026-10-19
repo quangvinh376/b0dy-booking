@@ -37,6 +37,8 @@ const DEFAULTS = {
   AFTER_TIMEOUT: 60e3,                              // lệnh ghi bị HẾT GIỜ: Google có thể vẫn đang xử lý → đợi ≥ 60 s mới đọc lại + gửi lại
   RECENT_MS: 120e3,                                 // mục vừa lên sheet vẫn được phủ lên các lượt đọc cũ ít nhất 120 s
   READ_MS: 8e3, WRITE_MS: 20e3,                     // hạn giờ gọi Google
+  META_RECHECK: 5 * 60e3,                           // chưa có tab "Lịch coach": dò lại tên tab sau bấy lâu
+  META_TRY: 30e3,                                   // … và không thử dò quá một lần mỗi bấy lâu (Google lỗi thì không dò dồn)
   BUSY_WINDOW: 30 * 60e3,                           // cron làm mới điểm danh đều khi 30 phút gần đây có người dùng
   IDLE_REFRESH: 10 * 60e3                           // … còn không thì 10 phút một lần
 };
@@ -47,6 +49,9 @@ const NOTE_COL = LT.LOG_COL + NOTE_IDX;             // cột N
    2 = có coach + loại gói (luật mỗi coach một suất, 18/10). DO thức dậy với ảnh chụp dạng cũ thì bỏ ảnh đó, đọc sổ mới từ Google
    trước lượt đầu (không thì vài giây đầu sau deploy các dòng cũ thiếu coach → luật coach không chặn được). */
 const SNAP_LOG_FMT = 2;
+/* Dạng meta (tên các tab) lưu 'snap:meta'. 2 = có out.sched (tab "Lịch coach", 19/10). Meta dạng cũ → dò lại tên tab. Chưa có tab
+   "Lịch coach" thì cứ cfg.META_RECHECK dò lại một lần (chủ studio tạo tab sau khi deploy vẫn được nhận, không cần deploy lại). */
+const META_FMT = 2;
 
 function msg(e) { return String(e && e.message || e).slice(0, 120); }
 
@@ -167,6 +172,7 @@ export class BookingCore {
     this.lastActivity = 0;
     this.lastPurge = 0;
     this.baFailAt = 0;                // lần làm mới BA gần nhất bị lỗi (Date.now)
+    this.metaTryAt = 0;               // lần dò lại tên tab gần nhất (getMeta)
   }
 
   /* ---------------- vòng đời ---------------- */
@@ -219,26 +225,35 @@ export class BookingCore {
   /* ---------------- đọc Google ---------------- */
 
   async getMeta() {
-    if (this.meta) return this.meta;
-    return this.once('meta', async () => {
-      if (!this.BA || !this.OUT) throw new Error('thieu_BA_ID');
-      const [ba, out] = await Promise.all([this.g.meta(this.BA), this.g.meta(this.OUT)]);
-      const by = (list, name) => { const n = name.normalize('NFC'); const s = list.find(x => String(x.title).normalize('NFC') === n); return s || null; };
-      const members = by(ba, 'MEMBERS');
-      if (!members) throw new Error('thieu_MEMBERS');
-      const cfg = ba.find(x => C.isCfgTab(x.title)) || null;
-      const logT = by(out, LT.LOG);
-      if (!logT) throw new Error('thieu_tab_so_dat_lich');
-      const dataT = by(out, LT.DATA);
-      const m = {
-        ba: { members: members.title, log: (by(ba, 'SESSION LOG') || {}).title || null, trial: (by(ba, 'TRIAL') || {}).title || null,
-              b0b: (by(ba, 'B0B') || {}).title || null, cfg: cfg ? cfg.title : null },
-        out: { log: logT.title, logId: logT.id, data: dataT ? dataT.title : null }
-      };
-      this.meta = m;
-      this.persist('snap:meta', m);
-      return m;
-    });
+    const mm = this.meta;
+    if (mm) {
+      /* meta dạng cũ, hoặc chưa có tab "Lịch coach" và đã lâu chưa dò: dò lại NGẦM (lượt này vẫn dùng bản đang có — Google lỗi lúc dò
+         không làm hỏng lượt gọi); tối đa 30 s một lần thử */
+      const stale = mm.fmt !== META_FMT || (!(mm.out && mm.out.sched) && Date.now() - (mm.rt || 0) >= this.cfg.META_RECHECK);
+      if (stale && Date.now() - this.metaTryAt >= this.cfg.META_TRY) { this.metaTryAt = Date.now(); this.bgRun(this.once('meta', () => this.fetchMeta())); }
+      return mm;
+    }
+    return this.once('meta', () => this.fetchMeta());
+  }
+  async fetchMeta() {
+    if (!this.BA || !this.OUT) throw new Error('thieu_BA_ID');
+    const [ba, out] = await Promise.all([this.g.meta(this.BA), this.g.meta(this.OUT)]);
+    const by = (list, name) => { const n = name.normalize('NFC'); const s = list.find(x => String(x.title).normalize('NFC') === n); return s || null; };
+    const members = by(ba, 'MEMBERS');
+    if (!members) throw new Error('thieu_MEMBERS');
+    const cfg = ba.find(x => C.isCfgTab(x.title)) || null;
+    const logT = by(out, LT.LOG);
+    if (!logT) throw new Error('thieu_tab_so_dat_lich');
+    const dataT = by(out, LT.DATA), schedT = by(out, LT.SCHED);
+    const m = {
+      fmt: META_FMT, rt: Date.now(),
+      ba: { members: members.title, log: (by(ba, 'SESSION LOG') || {}).title || null, trial: (by(ba, 'TRIAL') || {}).title || null,
+            b0b: (by(ba, 'B0B') || {}).title || null, cfg: cfg ? cfg.title : null },
+      out: { log: logT.title, logId: logT.id, data: dataT ? dataT.title : null, sched: schedT ? schedT.title : null }
+    };
+    this.meta = m;
+    this.persist('snap:meta', m);
+    return m;
   }
   /** Tên tab đổi giữa chừng → Google trả 400 "Unable to parse range": quên tên cũ rồi thử lại một lần. */
   async withMeta(fn) {
@@ -250,7 +265,8 @@ export class BookingCore {
     }
   }
 
-  /** MEMBERS + TRIAL + B0B + ⚙️ 2 + đầu SESSION LOG: một lượt batchGet. Lỗi → nhớ lúc lỗi (getBA dùng bản cũ, không đợi lại). */
+  /** MEMBERS + TRIAL + B0B + ⚙️ 2 + đầu SESSION LOG: một lượt batchGet; cùng lúc tab "Lịch coach" của file Lịch tập tuần (lịch nhận
+      khách của coach — đọc cùng nhịp với BA, lượt ghi kiểm bằng cùng bản). Lỗi → nhớ lúc lỗi (getBA dùng bản cũ, không đợi lại). */
   async loadBA() {
     try { return await this.loadBAOnce(); }
     catch (e) { this.baFailAt = Date.now(); throw e; }
@@ -262,7 +278,8 @@ export class BookingCore {
       if (t.trial) { idx.trial = ranges.length; ranges.push(q(t.trial)); }
       if (t.b0b) { idx.b0b = ranges.length; ranges.push(q(t.b0b) + '!A1:AD150'); }
       if (t.cfg) { idx.cfg = ranges.length; ranges.push(q(t.cfg) + '!A1:H60'); }
-      const v = await this.g.batchGet(this.BA, ranges);
+      const [v, sv] = await Promise.all([this.g.batchGet(this.BA, ranges),
+        m.out.sched ? this.g.batchGet(this.OUT, [q(m.out.sched) + '!A1:AD400']) : Promise.resolve(null)]);
       const ba = {
         at: this.now(),
         members: C.memberRows(v[0]),
@@ -270,6 +287,7 @@ export class BookingCore {
         trialRows: idx.trial !== undefined ? v[idx.trial].map(r => r.slice(0, 30)) : [],
         closed: idx.b0b !== undefined ? C.closuresFrom(v[idx.b0b]) : {},
         cap: idx.cfg !== undefined ? C.capFrom(v[idx.cfg]) : LT.CAP,
+        sched: sv ? C.schedFrom(sv[0]) : {},
         trialRt: Date.now()
       };
       this.ba = ba;
@@ -542,7 +560,7 @@ export class BookingCore {
   async loadState(ctx, person, list, ba) {
     const L = await this.getLog(), marks = await this.marksFor(ctx);
     if (list) this.maybeSnapshot(list, ba.cap, ctx.now);
-    return this.withIds(C.stateOf(ctx, person, C.envOf(ctx, L.rows, this.trialsFor(ctx, ba), ba.closed, ba.cap), C.mine(L.rows, person, ctx), marks, list));
+    return this.withIds(C.stateOf(ctx, person, C.envOf(ctx, L.rows, this.trialsFor(ctx, ba), ba.closed, ba.cap, ba.sched), C.mine(L.rows, person, ctx), marks, list));
   }
   /** Gói 1:2: danh sách bạn để mời mang Mã KH → đổi sang id (như lt_find) trước khi trả cho trình duyệt. */
   async withIds(st) {
@@ -617,7 +635,7 @@ export class BookingCore {
     if (!C.ridOk(rid)) return { out: { ok: false, error: 'khong_hop_le', why: 'rid', now: now } };
     const ctx = C.weekCtx(now), ba = await this.getBA(this.cfg.WRITE_BA_FRESH), list = this.persons(ctx, ba), me = C.findPerson(list, t.k);
     if (!me) return { out: { ok: false, error: 'het_goi', now: now } };
-    return { rid: rid, me: me, list: list, closed: ba.closed, cap: ba.cap };
+    return { rid: rid, me: me, list: list, closed: ba.closed, cap: ba.cap, sched: ba.sched };
   }
 
   /* ---------------- hàng đợi kiểm + ghi nhật ký ---------------- */
@@ -696,7 +714,7 @@ export class BookingCore {
     const L = this.log;
     if (L.rids.has(j.pre.rid)) return { ok: true, dup: true };      /* gồm cả mục còn trong nhật ký */
     if (String(j.p.week || '') !== ctx.key) return { error: 'tuan_doi' };
-    const env = C.envOf(ctx, L.rows, this.trialsFor(ctx, ba), j.pre.closed, j.pre.cap), m = C.mine(L.rows, j.pre.me, ctx);
+    const env = C.envOf(ctx, L.rows, this.trialsFor(ctx, ba), j.pre.closed, j.pre.cap, j.pre.sched), m = C.mine(L.rows, j.pre.me, ctx);
     if (C.baseStale(j.p.base, m)) return { error: 'ban_cu' };
     const r = j.kind === 'book' ? this.planBook(ctx, j, env, m) : j.kind === 'change' ? this.planChange(ctx, j, env, m, L)
       : j.kind === 'invite' ? this.planInvite(ctx, j, env, m) : this.planDecline(ctx, j, env, m);
@@ -755,7 +773,7 @@ export class BookingCore {
         if (r.fail) { j.resolve(r.fail === 'loi_he_thong' ? { ok: false, error: 'loi_he_thong', detail: r.detail, now: this.now() } : { ok: false, error: r.fail, now: this.now() }); continue; }
         if (!marks) marks = await this.marksFor(ctx);
         const L = this.log, trials = this.trialsFor(ctx, ba);
-        const st = await this.withIds(C.stateOf(ctx, j.pre.me, C.envOf(ctx, L.rows, trials, j.pre.closed, j.pre.cap), C.mine(L.rows, j.pre.me, ctx), marks, j.pre.list));
+        const st = await this.withIds(C.stateOf(ctx, j.pre.me, C.envOf(ctx, L.rows, trials, j.pre.closed, j.pre.cap, j.pre.sched), C.mine(L.rows, j.pre.me, ctx), marks, j.pre.list));
         if (r.dup) st.dup = true;
         if (!r.ok) {
           st.ok = false;

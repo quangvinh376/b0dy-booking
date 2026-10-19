@@ -68,7 +68,7 @@ const QH = 'Quyết Hán', HM = 'Hiền Mai', KP = 'Khải Phan', LN = 'Lâm Ngu
 /* Hội viên thử (chủ studio đăng nhập bằng tên + 4 số cuối điện thoại). Tên bịa, đã so với file BA thật:
    không trùng họ tên, không trùng tên đệm + tên của hội viên nào. SĐT bịa. */
 const PERSONAS = [
-  { code: 'B801DY', name: 'Trịnh Minh Khôi', pkg: 48, kind: '1:1', coach: QH, phone: '0900001111', left: 30, start: '2026-08-03', exp: '2027-03-01', test: 'Đặt mới 2–4 buổi, đổi lịch, thêm buổi · "Coach bận" ở khung Quyết đang dạy (T6 07:00) và khung Quyết nhận khách tập thử (T3 07:00)' },
+  { code: 'B801DY', name: 'Trịnh Minh Khôi', pkg: 48, kind: '1:1', coach: QH, phone: '0900001111', left: 30, start: '2026-08-03', exp: '2027-03-01', test: 'Đặt mới 2–4 buổi, đổi lịch, thêm buổi · "Coach bận" ở khung Quyết đang dạy (T6 07:00) và khung Quyết nhận khách tập thử (T3 07:00) · Quyết nghỉ T5 06–07, nhận CN 08–11 (Lịch coach)' },
   { code: 'B802DY', name: 'Vũ Thanh Hằng', pkg: 24, kind: '1:1', coach: HM, phone: '0900002222', left: 1, start: '2026-06-01', exp: '2026-12-31', test: 'Còn 1 buổi · chỉ đặt được 1 buổi' },
   { code: 'B803DY', name: 'Đặng Quốc Bảo', pkg: 24, kind: '1:1', coach: KP, phone: '0900003333', left: 6, start: '2026-07-01', exp: '2026-10-21', test: 'Gói hết hạn T4 21.10 · từ T5 bị khoá' },
   { code: 'B804DY', name: 'Lương Thùy Dung', pkg: 36, kind: '1:1', coach: BN, phone: '0900004444', left: 36, start: '2026-10-21', exp: '2027-04-30', test: 'Gói bắt đầu T4 21.10 · T2, T3 bị khoá' },
@@ -103,7 +103,15 @@ const BUSY = [
   [0, 15, ['LN22']]];
 const TAG = { QH: QH, HM: HM, KP: KP, LN: LN, BN: BN };
 /* Đổi dữ liệu thế giới giả (người tập nền, khung bận) → tăng số này: máy đã mở ?qc trước đó dựng lại thế giới mới khi tải trang. */
-const WORLD_V = 4;
+const WORLD_V = 5;
+/* Lịch coach giả (tab "Lịch coach" của file Lịch tập tuần, từ 19/10): Quyết nghỉ T5 06–07 (ô "Coach nghỉ" một phần ngày) và nhận
+   CN 08–11; Mai nhận CN 14–17; coach khác không có lưới → T2–T7 đủ giờ, CN nghỉ (khối "COACH NGHỈ" trọn ngày). */
+function schedRows() {
+  const D7 = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+  const g = (name, on) => [['', name].concat(D7)].concat(LT.SLOTS.map(h => ['', C.hm(h)].concat(D7.map((x, i) => on(i, h)))), [[]]);
+  return [['', '— LỊCH COACH · QC'], ['', 'Tick = coach nhận khách giờ đó · bỏ tick = Coach nghỉ'], []]
+    .concat(g(QH, (i, h) => i === 6 ? h >= 8 && h <= 11 : !(i === 3 && h <= 7)), g(HM, (i, h) => i === 6 ? h >= 14 && h <= 17 : true));
+}
 /* Phòng nghỉ T7 24.10 (bật / tắt trong bảng QC) — dòng của khối "LÝ DO ĐÓNG CỬA" trên tab B0B */
 const NGHI = ['', 'Bảo trì phòng tập', '24/10/26'];
 
@@ -208,7 +216,8 @@ function buildFiles(key, nghi) {
     [OUT_ID]: [
       { id: 201, title: 'Bảng lịch tập', rows: [['', '— LỊCH TẬP TUẦN · QC']] },
       { id: 202, title: LT.LOG, rows: so },
-      { id: 203, title: LT.DATA, rows: [['SỨC CHỨA / KHUNG', 4], ['CẬP NHẬT', ''], [], ['Hội viên', 'Tên ngắn', 'Coach', 'Còn lại', 'Hết hạn', 'Mã KH', '_hiển thị']] }
+      { id: 203, title: LT.DATA, rows: [['SỨC CHỨA / KHUNG', 4], ['CẬP NHẬT', ''], [], ['Hội viên', 'Tên ngắn', 'Coach', 'Còn lại', 'Hết hạn', 'Mã KH', '_hiển thị']] },
+      { id: 204, title: LT.SCHED, rows: schedRows() }
     ]
   };
 }
@@ -417,7 +426,7 @@ async function fillSlot(p) {
   const ctx = C.weekCtx(nowMs()), date = String(x.date), h = Number(x.h);
   if (ctx.days.indexOf(date) < 0) return;
   const ba = await core.getBA(), rows = (await core.getLog()).rows;
-  const env = C.envOf(ctx, rows, core.trialsFor(ctx, ba), ba.closed, ba.cap), k = date + '|' + h, s = env.room[k];
+  const env = C.envOf(ctx, rows, core.trialsFor(ctx, ba), ba.closed, ba.cap, ba.sched), k = date + '|' + h, s = env.room[k];
   let n = env.taken[k] || 0;
   const t = await (await core.signer()).tokRead(p.tok, p.dev, nowMs()), mineCoach = t ? (PERSONAS.find(m => m.code === t.k) || {}).coach : '';
   const here = new Set(s ? Object.keys(s.c) : []);

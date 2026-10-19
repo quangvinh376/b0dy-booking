@@ -17,7 +17,7 @@
 var LT = {
   OFF: 7 * 3600e3,                                   // giờ Việt Nam, không có giờ mùa hè
   SLOTS: [6, 7, 8, 9, 10, 11, 14, 15, 16, 17, 18, 19, 20], // 12:00–14:00 coach nghỉ trưa
-  NDAYS: 6,                                          // T2..T7 · Chủ Nhật phòng nghỉ
+  NDAYS: 7,                                          // T2..CN · ngày / giờ nhận khách của từng coach: tab "Lịch coach" (SCHED)
   OPEN_H: 6,                                         // lịch tuần sau mở lúc 06:00 Chủ Nhật
   LEAD: 24 * 3600e3,                                 // đặt muộn và đổi lịch: khung cách hiện tại ≥ 24 giờ
   MIN: 2, MAX: 4, CHANGES: 2,
@@ -26,7 +26,7 @@ var LT = {
   FAILS: 5, LOCK_S: 15 * 60, MEMBER_FAILS: 20,       // sai 5 lần → khoá máy 15 phút · sai 20 lần/giờ trên một tên → khoá tên
   FIND_MAX: 300,                                     // lượt tìm tên / máy / khung 10 phút cố định (trang tìm theo từng chữ gõ: ~8 lượt / người)
   FIND_TOP: 6,                                       // tối đa 6 người mỗi lượt tìm; nhiều hơn → more: true
-  OUT_NAME: '[B0DY Studio] Lịch tập tuần', LOG: 'Sổ đặt lịch', DATA: '_dữ liệu',
+  OUT_NAME: '[B0DY Studio] Lịch tập tuần', LOG: 'Sổ đặt lịch', DATA: '_dữ liệu', SCHED: 'Lịch coach',
   ON: 'Đã đặt', MOVED: 'Đã đổi',
   /* Ghép lớp 1:2 (chủ studio chốt 18/10 14:13): gói 1:2 chỉ đặt ở các khung ghép cố định; người đặt trước mời được một bạn 1:2
      cùng coach (dòng sổ "Mời"), bạn kia nhận (đặt / thêm / dời vào) hoặc từ chối (dòng "Từ chối"); dời một buổi ĐANG LẺ vào cặp
@@ -401,6 +401,48 @@ function ltCap_() {
   }
   return LT.CAP;
 }
+/** Ô tick của "Lịch coach": ô kiểm (true), hoặc gõ tay x / ✓ / 1 / TRUE. */
+function ltTicked_(x) { return x === true || /^(true|x|v|1|\u2713|\u2714)$/i.test(String(x == null ? '' : x).trim()); }
+/**
+ * Tab "Lịch coach" (file Lịch tập tuần, chủ studio điền — chốt 19/10): mỗi coach một lưới — hàng tiêu đề "<tên coach> | T2 … T7 | CN",
+ * dưới đó mỗi hàng một khung giờ ("06:00" … "20:00") với ô tick ở từng thứ; hết hàng có giờ là hết lưới.
+ * Trả {khoá coach: {thứ (0 = CN … 6 = T7): {giờ: 1}}}. Coach không có lưới → không có khoá (ltOffAt_: T2–T7 nhận, CN nghỉ — như
+ * trước khi có tab). Lưới thứ hai của cùng coach bị bỏ. Giống hệt schedFrom của Worker.
+ */
+function ltSchedFrom_(vals, tz) {
+  var out = {}, keys = LT.DOW.map(function (d) { return ltName_(d); });
+  var v = (vals || []).map(function (r) { return (r || []).slice(0, 30); });
+  var at = function (row, c) { var x = row && c >= 0 ? row[c] : ''; return x == null ? '' : x; };
+  for (var r = 0; r < v.length; r++) {
+    var cols = {}, seen = {}, n = 0, first = -1, nameC = -1;
+    for (var c = 0; c < v[r].length; c++) {
+      var d = keys.indexOf(ltName_(at(v[r], c)));
+      if (d >= 0 && !seen[d]) { cols[c] = d; seen[d] = 1; n++; if (first < 0) first = c; }
+    }
+    if (n < 7) continue;
+    for (var c2 = first - 1; c2 >= 0; c2--) if (String(at(v[r], c2)).trim()) { nameC = c2; break; }
+    var ck = nameC < 0 ? '' : ltCoachKey_(at(v[r], nameC));
+    if (!ck || out[ck]) continue;
+    var g = {};
+    for (var dd = 0; dd < 7; dd++) g[dd] = {};
+    for (var i = r + 1; i < v.length; i++) {
+      var h = ltCellHour_(at(v[i], nameC), tz);
+      if (h < 0) break;
+      if (LT.SLOTS.indexOf(h) < 0) continue;
+      for (var cc in cols) if (ltTicked_(at(v[i], +cc))) g[cols[cc]][h] = 1;
+    }
+    out[ck] = g;
+  }
+  return out;
+}
+/** Đọc tab "Lịch coach" của file Lịch tập tuần (không có tab → {}). */
+function ltSched_() {
+  var ss = ltOut_(), sh = ss.getSheetByName(LT.SCHED);
+  if (!sh) return {};
+  var lastR = Math.min(sh.getLastRow(), 400), lastC = Math.min(sh.getLastColumn(), 30);
+  if (lastR < 1 || lastC < 1) return {};
+  return ltSchedFrom_(sh.getRange(1, 1, lastR, lastC).getValues(), ss.getSpreadsheetTimeZone());
+}
 
 /* ================================================================== */
 /* File Lịch tập tuần                                                   */
@@ -575,6 +617,7 @@ function ltWhy_(ctx, person, env, iso, h, lead) {
   if (env.closed[iso] !== undefined) return 'nghi';
   if (person.start && iso < person.start) return 'chua_bat_dau';
   if (person.exp && iso > person.exp) return 'het_han';
+  if (ltOffAt_(env, person, iso, h)) return 'coach_nghi';                          /* ngoài lịch nhận khách của coach */
   if (ltIsDuo_(person.kind) && LT.DUO_HOURS.indexOf(h) < 0) return 'gio_ghep';     /* gói 1:2: chỉ các khung ghép cố định */
   var t = ltSlotMs_(iso, h);
   if (t <= ctx.now) return 'qua';
@@ -742,9 +785,9 @@ function ltStateOf_(ctx, person, env, mine, marks, persons) {
   ctx.days.forEach(function (d) {
     if (env.closed[d] !== undefined) closed[d] = env.closed[d] || 'Phòng nghỉ';
     LT.SLOTS.forEach(function (h) {
-      var k = d + '|' + h, n = env.taken[k] || 0, c = ltCoachAt_(env, person, k);
+      var k = d + '|' + h, n = env.taken[k] || 0, c = ltOffAt_(env, person, d, h) ? 'off' : ltCoachAt_(env, person, k);
       if (n) taken[k] = n;
-      if (c) co[k] = c;                                     /* coach của chính hội viên: 'busy' · 'join' (không lộ ai đặt) */
+      if (c) co[k] = c;                                     /* coach của chính hội viên: 'off' nghỉ · 'busy' · 'join' (không lộ ai đặt) */
     });
   });
   var sessions = mine.sessions.map(function (s) {
@@ -839,20 +882,27 @@ function ltSnapshot_(persons, cap, now) {
   } catch (e) { c.remove('lt:snap'); }
 }
 
-function ltEnv_(ctx, rows, trials, closed, cap) {
+/** sched: lịch nhận khách của coach (ltSchedFrom_) — không có thì {} (mọi coach theo mặc định của ltOffAt_). */
+function ltEnv_(ctx, rows, trials, closed, cap, sched) {
   var room = ltRoom_(rows, ctx, trials), t = {};
   for (var k in room) t[k] = room[k].u;
-  return { closed: closed, cap: cap, taken: t, room: room, inv: ltInvitesOf_(rows, ctx) };
+  return { closed: closed, cap: cap, taken: t, room: room, inv: ltInvitesOf_(rows, ctx), sched: sched || {} };
+}
+/** Coach của hội viên không nhận khách ở khung này (tab "Lịch coach"). Coach chưa có lưới: T2–T7 nhận đủ giờ, CN nghỉ. */
+function ltOffAt_(env, person, iso, h) {
+  var ck = ltCoachKey_(person.coach), g = env.sched && ck ? env.sched[ck] : null, d = ltDowOf_(iso);
+  if (!g) return d === 0;
+  return !(g[d] && g[d][h]);
 }
 
 /** Đọc mọi thứ và dựng state cho một hội viên (lượt XEM). */
 function ltLoadState_(ctx, person, persons) {
-  var closed = ltClosedNow_(), cap = ltCapNow_();
+  var closed = ltClosedNow_(), cap = ltCapNow_(), sched = ltCached_('lt:sc', 60, ltSched_);
   var rows = ltLogRows_(ltLogSheet_());
   var trials = ltCached_('lt:tr2:' + ctx.key, 30, function () { return ltTrials_(ctx.days); });   /* tr2: mỗi khung là danh sách coach (bản cũ: số) */
   var marks = ltCached_('lt:mk:' + ctx.key, 60, function () { return ltMarks_(ctx.days); });
   if (persons) ltSnapshot_(persons, cap, ctx.now);
-  return ltPeerIds_(ltStateOf_(ctx, person, ltEnv_(ctx, rows, trials, closed, cap), ltMine_(rows, person, ctx), marks, persons));
+  return ltPeerIds_(ltStateOf_(ctx, person, ltEnv_(ctx, rows, trials, closed, cap, sched), ltMine_(rows, person, ctx), marks, persons));
 }
 
 /* ================================================================== */
@@ -1016,7 +1066,7 @@ function ltPre_(p, now) {
   if (!/^[A-Za-z0-9_-]{8,64}$/.test(rid)) return { out: { ok: false, error: 'khong_hop_le', why: 'rid', now: now } };
   var ctx = ltWeekCtx_(now), persons = ltPersonsNow_(ctx, true), me = ltFindPerson_(persons, key);
   if (!me) return { out: { ok: false, error: 'het_goi', now: now } };
-  return { rid: rid, me: me, persons: persons, closed: ltClosures_(), cap: ltCap_() };
+  return { rid: rid, me: me, persons: persons, closed: ltClosures_(), cap: ltCap_(), sched: ltSched_() };
 }
 
 /** Đoạn ghi trong LockService: đọc sổ + tập thử MỚI, kiểm, ghi. Nhả khoá rồi mới dựng phản hồi. */
@@ -1041,7 +1091,7 @@ function ltLocked_(pre, p, write) {
       var mine = ltMine_(rows, pre.me, ctx);
       if (ltBaseStale_(p.base, mine)) res = { error: 'ban_cu' };
       else {
-        res = write(ctx, sh, rows, ltEnv_(ctx, rows, trials, pre.closed, pre.cap), mine);
+        res = write(ctx, sh, rows, ltEnv_(ctx, rows, trials, pre.closed, pre.cap, pre.sched), mine);
         if (res.ok) { SpreadsheetApp.flush(); rows = ltLogRows_(sh); }
       }
     }
@@ -1049,7 +1099,7 @@ function ltLocked_(pre, p, write) {
     lock.releaseLock();
   }
   if (!trials) trials = ltTrials_(ctx.days);
-  var st = ltPeerIds_(ltStateOf_(ctx, pre.me, ltEnv_(ctx, rows, trials, pre.closed, pre.cap), ltMine_(rows, pre.me, ctx), ltMarks_(ctx.days), pre.persons));
+  var st = ltPeerIds_(ltStateOf_(ctx, pre.me, ltEnv_(ctx, rows, trials, pre.closed, pre.cap, pre.sched), ltMine_(rows, pre.me, ctx), ltMarks_(ctx.days), pre.persons));
   if (res.dup) st.dup = true;
   if (!res.ok) {
     st.ok = false;

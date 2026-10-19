@@ -13,7 +13,7 @@ Máy chủ của trang **booking.b0dy.studio**, thay cho Apps Script để mọi
 
 ## Cách chạy
 
-- **Durable Object `Booking`** (SQLite, một bản duy nhất, đặt ở châu Á – Thái Bình Dương) giữ trong RAM: hội viên (MEMBERS), tập thử (TRIAL), ngày đóng cửa (B0B), sức chứa (⚙️ 2), điểm danh (3 cột SESSION LOG) và sổ đặt lịch. Lượt **xem** trả ngay từ bộ nhớ rồi làm mới ngầm (BA 30 s · điểm danh 60 s · sổ 15 s). **Cron mỗi phút** giữ BA + sổ không cũ quá 1 phút. Ảnh chụp được lưu vào storage của DO, nên DO bị dọn khỏi RAM thì lần sau vẫn trả lời ngay.
+- **Durable Object `Booking`** (SQLite, một bản duy nhất, đặt ở châu Á – Thái Bình Dương) giữ trong RAM: hội viên (MEMBERS), tập thử (TRIAL), ngày đóng cửa (B0B), sức chứa (⚙️ 2), điểm danh (3 cột SESSION LOG), lịch nhận khách của coach (tab "Lịch coach" của file Lịch tập tuần, đọc cùng lượt với BA) và sổ đặt lịch. Lượt **xem** trả ngay từ bộ nhớ rồi làm mới ngầm (BA 30 s · điểm danh 60 s · sổ 15 s). **Cron mỗi phút** giữ BA + sổ không cũ quá 1 phút. Ảnh chụp được lưu vào storage của DO, nên DO bị dọn khỏi RAM thì lần sau vẫn trả lời ngay.
 - Lượt **ghi** (đặt / đổi) **không đợi Google**: xếp hàng trong DO → kiểm từng lượt theo thứ tự đến bằng đúng luật của Apps Script, trên bộ nhớ (sổ = bản sheet ⊕ nhật ký, nên lượt sau thấy chỗ lượt trước vừa giữ) → lưu **một mục nhật ký** vào storage của DO → trả lời. Lưu storage lỗi → trả `he_thong_ban`, bộ nhớ trả lại như cũ.
 - **flush** chạy ngầm sau ~150 ms: gom mọi mục đang chờ thành **một** lệnh `spreadsheets.batchUpdate` (tất cả hoặc không). Đổi buổi thì đọc sổ ngay trước khi ghi để sửa đúng dòng (tìm dòng theo mã phiếu + mã KH + ngày + giờ, không tin số dòng cũ).
 - **Không bao giờ ghi trùng.** Mỗi mục mang mã yêu cầu (rid) của trình duyệt. Lần gửi trước không rõ kết quả (đứt mạng, hết giờ, 5xx, DO bị tắt giữa chừng) → lần sau đọc sổ trước, mục nào đã có rid trên sheet thì bỏ qua.
@@ -24,6 +24,14 @@ Máy chủ của trang **booking.b0dy.studio**, thay cho Apps Script để mọi
   được); coach đã có suất ở khung đó với người khác → `coach_ban` (trả `het_cho` như phòng đầy). Khách tập thử đã có "Coach tiếp nhận"
   (TRIAL) chiếm suất của coach đó như một khách 1:1 (`trialsFrom` = `ltTrials_` trả `{khung: [coach, …]}`, chốt 18/10); tập thử chưa
   giao coach và dòng sổ không có coach: mỗi người một suất riêng. State có `coachAt: {"yyyy-MM-dd|h": "busy" | "join"}` — chỉ về coach của chính hội viên, không lộ ai đặt.
+- **Lịch coach + Chủ Nhật** (1.1.0, chủ studio chốt 19/10; `core.js` · `schedFrom` / `offAt` = `LichTuan.gs` · `ltSchedFrom_` / `ltOffAt_`):
+  tuần 7 ngày T2–CN (`LT.NDAYS` 7). Tab `LT.SCHED` "Lịch coach": hàng có đủ 7 nhãn T2…CN là đầu khối, ô có chữ gần nhất bên trái là
+  tên coach (so như cột Coach của BA), các hàng dưới cùng cột là giờ, ô tick = nhận khách. Coach không có khối → T2–T7 đủ giờ, CN nghỉ
+  (= trước 1.1.0). Khung coach không nhận → `why` `coach_nghi` (sau `het_han`, trước `gio_ghep`); state `coachAt` thêm `"off"`. Chỉ chặn
+  lượt đặt / đổi mới — buổi đã đặt vẫn giữ. Tên tab dò trong meta (`META_FMT` 2): DO mang meta dạng cũ trả lời bằng meta cũ và dò lại
+  ngầm; chưa có tab thì dò lại sau `META_RECHECK` (5 phút), mỗi lần thử cách nhau ≥ `META_TRY` (30 s) — Google lỗi không làm hỏng lượt xem.
+  Trang 1.1.0 vẫn chạy với máy chủ cũ (tuần 6 ngày → cột CN cố định như cũ); trang cũ gặp máy chủ mới thì vẽ thừa cột → **đưa trang lên
+  trước, deploy Worker sau**.
 - **Ghép lớp 1:2** (chủ studio chốt 18/10 14:13; `core.js` · `duoState` / `pairMove` / `checkInvite` / `checkDecline` = `LichTuan.gs` ·
   `ltDuoState_` / `ltPairMove_` / `ltCheckInvite_` / `ltCheckDecline_`, parity so từng phản hồi):
   - Gói 1:2 chỉ đặt ở **khung ghép** `LT.DUO_HOURS` = 09 · 11 · 15 · 17 · 19 (giờ khác → `khong_hop_le` / `gio_ghep`).
@@ -108,7 +116,7 @@ Tuỳ chọn `LT_SECRET`: nếu muốn mã "ghi nhớ máy" dùng chung với b�
 
 ### 3. Quyền trên Google Sheets
 
-Share file **"[B0DY Studio] Lịch tập tuần"** cho `b0dy-kiosk-api@b0dy-checkin.iam.gserviceaccount.com` quyền **Editor** (Worker ghi tab "Sổ đặt lịch" và "_dữ liệu"). File BA đã share sẵn cho tài khoản này; Worker chỉ đọc BA.
+Share file **"[B0DY Studio] Lịch tập tuần"** cho `b0dy-kiosk-api@b0dy-checkin.iam.gserviceaccount.com` quyền **Editor** (Worker ghi tab "Sổ đặt lịch" và "_dữ liệu", đọc tab "Lịch coach"). File BA đã share sẵn cho tài khoản này; Worker chỉ đọc BA.
 
 ### 4. Biến (đã có sẵn trong `wrangler.jsonc`)
 

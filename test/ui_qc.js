@@ -107,8 +107,27 @@ async function strayKeys(page) {
 
   /* đặt lịch: Trịnh Minh Khôi · 1111 → T2 18:00 + T4 07:00 */
   await login(t, 'minh khoi', 'T. Minh Khôi', '1111');
+  await waitView(page, 'book');
   ok('Khách tập thử T3 07:00 do Quyết tiếp nhận → Minh Khôi (Quyết) thấy khung đó "Coach bận", phòng 1 suất',
      await page.evaluate(() => { const s = window.__lt.S.st; return s.coachAt['2026-10-20|7'] === 'busy' && s.taken['2026-10-20|7'] === 1; }));
+  /* tab "Lịch coach" giả (qc.js schedRows): Quyết nghỉ T5 06–07, nhận CN 08–11 → bảng 7 cột, CN mở một phần */
+  const k7 = await page.evaluate(() => {
+    const q = (d, h) => document.querySelector('#wkb .c[data-d="' + d + '"][data-h="' + h + '"]');
+    const cell = (d, h) => { const e = q(d, h); return e ? [e.getAttribute('aria-disabled') === 'true', e.getAttribute('aria-label') || '', e.textContent.trim()] : null; };
+    return { days: Array.from(new Set(Array.from(document.querySelectorAll('#wkb .c[data-d]')).map(e => e.dataset.d))).length,
+             cn8: cell('2026-10-25', 8), cn11: cell('2026-10-25', 11), cn6: cell('2026-10-25', 6), cn14: cell('2026-10-25', 14),
+             t5a: cell('2026-10-22', 6), t5b: cell('2026-10-22', 7), t5c: cell('2026-10-22', 8),
+             blocks: document.querySelectorAll('#wkb > .cn').length, lg: document.querySelector('.lg') ? document.querySelector('.lg').textContent : '' };
+  });
+  ok('Lịch coach: bảng 7 cột (T2–CN), không có khối "Coach nghỉ" trọn ngày (CN của Quyết mở một phần)', k7.days === 7 && k7.blocks === 0, k7);
+  ok('Lịch coach: CN 08:00 · 11:00 đặt được; CN 06:00 · 14:00 khoá "coach nghỉ"',
+     k7.cn8 && !k7.cn8[0] && k7.cn11 && !k7.cn11[0] && k7.cn6 && k7.cn6[0] && /coach nghỉ/.test(k7.cn6[1]) && k7.cn14 && k7.cn14[0] && /coach nghỉ/.test(k7.cn14[1]), k7);
+  ok('Lịch coach: T5 06:00–07:00 khoá, chữ "Coach nghỉ" một lần ở đầu đoạn; T5 08:00 đặt được',
+     k7.t5a && k7.t5a[0] && k7.t5a[2] === 'Coach nghỉ' && k7.t5b && k7.t5b[0] && k7.t5b[2] === '' && /coach nghỉ/.test(k7.t5b[1]) && k7.t5c && !k7.t5c[0], k7);
+  ok('Chú thích có mục xám "Không chọn được"', /Không chọn được/.test(k7.lg), k7.lg);
+  await page.locator('#wkb .c[data-d="2026-10-25"][data-h="8"] >> visible=true').first().click();
+  ok('Chọn được CN 25.10 08:00', await page.evaluate(() => document.querySelector('#wkb .c[data-d="2026-10-25"][data-h="8"]').classList.contains('sel')));
+  await page.locator('#wkb .c[data-d="2026-10-25"][data-h="8"] >> visible=true').first().click();
   await book(t, [['2026-10-19', 18], ['2026-10-21', 7]]);
   await waitView(page, 'ticket');
   await flushed(page);
@@ -269,6 +288,9 @@ async function strayKeys(page) {
   await waitView(page, 'book');
   const st0 = await page.evaluate(() => ['2026-10-19|8', '2026-10-20|8', '2026-10-21|8'].map(k => { const [d, h] = k.split('|'); return document.querySelector('#wkb .c[data-d="' + d + '"][data-h="' + h + '"]').getAttribute('aria-disabled'); }));
   ok('Gói bắt đầu T4 21.10 → T2, T3 khoá, T4 đặt được', st0[0] === 'true' && st0[1] === 'true' && st0[2] !== 'true', st0);
+  const cn0 = await page.evaluate(() => { const b = document.querySelector('#wkb > .cn'); return { n: document.querySelectorAll('#wkb > .cn').length, t: b ? b.textContent : '',
+    cells: document.querySelectorAll('#wkb .c[data-d="2026-10-25"]').length, hd: Array.from(document.querySelectorAll('.wk-head .dh, .wk-head > *')).map(e => e.className + ':' + e.textContent).join('|') }; });
+  ok('Coach chưa có lưới (Ngọc): CN = một khối "Coach nghỉ" trọn ngày, không có ô bấm', cn0.n === 1 && /Coach\s*nghỉ/.test(cn0.t) && cn0.cells === 0, cn0);
 
   /* hồ sơ chưa có SĐT */
   await signOut(page);

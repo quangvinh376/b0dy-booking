@@ -113,6 +113,52 @@ console.log('\n== DO thức dậy từ storage ==');
   await b.idle();
 }
 
+console.log('\n== Tab "Lịch coach" (19/10): DO đang giữ meta dạng cũ · chủ studio tạo tab sau khi deploy ==');
+{
+  /* lưới giả: Quyết chỉ nhận T2 06:00 và CN 08:00 */
+  const DAYS7 = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'], HRS = [6, 7, 8, 9, 10, 11, 14, 15, 16, 17, 18, 19, 20];
+  const grid = [['', 'Quyết Hán'].concat(DAYS7)].concat(HRS.map(h => ['', (h < 10 ? '0' : '') + h + ':00'].concat(DAYS7.map((x, i) => (i === 0 && h === 6) || (i === 6 && h === 8)))));
+  const addTab = w => { const sh = new Spreadsheet('tmp', 'Asia/Saigon', { 'Lịch coach': grid }).sheets[0]; sh.ss = w.f.OUT; w.f.OUT.sheets.push(sh); w.fg.ids.set(sh, 999); };
+  const boot = (wk, s) => wk.api({ action: 'lt_boot', dev: DEV, tok: s.tok });
+  /* 1 · meta dạng cũ (lưu trước 19/10, không có fmt / out.sched) + tab đã có trên sheet */
+  let w = world(vn('2026-10-18', '07:00'));
+  let s = await login(w.wk, 0);
+  await w.wk.idle();
+  const m0 = await w.storage.get('snap:meta');
+  ok('Meta lưu storage dạng 2; chưa có tab "Lịch coach" → out.sched null', m0 && m0.fmt === 2 && m0.out.sched === null, m0);
+  await w.storage.put('snap:meta', { ba: m0.ba, out: { log: m0.out.log, logId: m0.out.logId, data: m0.out.data } });
+  addTab(w);
+  const b = core(w.f, w.fg, w.storage, w.clock, {}, w.logs);
+  await b.init();
+  let st = await boot(b, s);
+  ok('… DO mới với meta cũ vẫn trả lời ngay (mặc định: CN "off", T3 06:00 nhận)', st.ok && st.coachAt['2026-10-25|8'] === 'off' && !st.coachAt['2026-10-20|6'], st.coachAt);
+  await b.idle();
+  ok('… rồi dò lại tên tab ngầm → nhận tab "Lịch coach"', b.meta && b.meta.fmt === 2 && b.meta.out.sched === 'Lịch coach', b.meta && b.meta.out);
+  w.clock.now += 31e3;
+  await boot(b, s); await b.idle();
+  st = await boot(b, s);
+  ok('… lượt đọc BA kế tiếp có lịch coach: T3 06:00 "off", CN 08:00 nhận, T2 06:00 nhận', st.coachAt['2026-10-20|6'] === 'off' && !st.coachAt['2026-10-25|8'] && !st.coachAt['2026-10-19|6'], st.coachAt);
+  /* 2 · DO đang chạy (meta dạng 2, chưa có tab) — chủ studio tạo tab sau khi deploy */
+  w = world(vn('2026-10-18', '07:00'), { META_RECHECK: 20, META_TRY: 0 });
+  s = await login(w.wk, 0);
+  await w.wk.idle();
+  addTab(w);
+  await sleep(30);
+  w.clock.now += 31e3;
+  await boot(w.wk, s); await w.wk.idle();
+  w.clock.now += 31e3;
+  await boot(w.wk, s); await w.wk.idle();
+  st = await boot(w.wk, s);
+  ok('Tab tạo sau khi deploy → sau META_RECHECK dò lại tên tab, lượt đọc BA sau đó có lịch coach (không cần deploy lại)',
+     w.wk.meta.out.sched === 'Lịch coach' && st.coachAt['2026-10-20|6'] === 'off' && !st.coachAt['2026-10-25|8'], [w.wk.meta.out, st.coachAt]);
+  /* 3 · lượt ĐẶT kiểm bằng cùng lịch */
+  const r = await w.wk.api(BOOK(s.tok, rid(), [{ date: '2026-10-25', h: 8 }, { date: '2026-10-20', h: 6 }]));
+  ok('… lượt đặt T3 06:00 (coach nghỉ) → coach_nghi; CN 08:00 + T2 06:00 → ok', r.ok === false && r.why === 'coach_nghi', r);
+  const r2 = await w.wk.api(BOOK(s.tok, rid(), [{ date: '2026-10-25', h: 8 }, { date: '2026-10-19', h: 6 }]));
+  ok('… CN 08:00 + T2 06:00 → ok', r2.ok, r2.error || r2.why);
+  await w.wk.idle();
+}
+
 console.log('\n== Lỗi ghi Google → nhật ký thử lại, mỗi lượt lên sổ ĐÚNG MỘT LẦN ==');
 for (const [mode, label] of [['after', 'đã ghi rồi mới đứt mạng'], ['before', 'đứt mạng (chưa tới Google)'], ['status500', 'Google trả 500'],
                              ['timeout', 'hết giờ, Google ghi muộn'], ['timeout_drop', 'hết giờ, Google bỏ lệnh']]) {

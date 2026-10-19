@@ -9,7 +9,7 @@
 'use strict';
 
 /* ============================== CẤU HÌNH ============================== */
-var VER = '1.0.14';
+var VER = '1.1.0';
 var API_URL = 'https://b0dy-booking-api.little-bonus-1d87.workers.dev/';
 var API_SLOW = false;                 /* true khi chạy Apps Script (chậm hơn nhiều) → nới thời gian chờ */
 /* chế độ QC (?qc): máy chủ giả chạy ngay trên máy (qc.js, đúng mã của Worker) với dữ liệu giả — không gọi mạng,
@@ -597,6 +597,7 @@ function pageEl(cls, html) {
   /* CSP style-src 'self' chặn thuộc tính style trong markup → bố cục tính lúc chạy (bảng giờ gói 1:2) đặt qua CSSOM */
   $$('[data-gtr]', p).forEach(function (e) { e.style.gridTemplateRows = e.getAttribute('data-gtr'); });
   $$('[data-gr]', p).forEach(function (e) { e.style.gridRow = e.getAttribute('data-gr'); });
+  $$('[data-gc]', p).forEach(function (e) { e.style.gridColumn = e.getAttribute('data-gc'); });
   $$('.wk[data-n]', p).forEach(function (e) { e.style.setProperty('--n', e.getAttribute('data-n')); });
   return p;
 }
@@ -1169,6 +1170,7 @@ function why(iso, h, lead) {
   if (w.closed && w.closed[iso] !== undefined) return 'nghi';
   if (me.start && iso < me.start) return 'chua_bat_dau';
   if (me.exp && iso > me.exp) return 'het_han';
+  if (coachAt(iso, h) === 'off') return 'coach_nghi';                       /* ngoài lịch nhận khách của coach (tab "Lịch coach") */
   if (st.duo && st.duo.duoHours.indexOf(h) < 0) return 'gio_ghep';          /* gói 1:2: chỉ các khung ghép (máy chủ cũ không gửi duo → như trước) */
   var t = slotMs(iso, h), n = now();
   if (t <= n) return 'qua';
@@ -1179,8 +1181,15 @@ function why(iso, h, lead) {
   if (co === 'busy') return 'coach_ban';
   return '';
 }
-/* coach của chính hội viên ở khung (máy chủ tính, ltCoachAt_): '' rảnh · 'busy' bận · 'join' có một khách 1:2 cùng coach, ghép được */
+/* coach của chính hội viên ở khung (máy chủ tính, ltCoachAt_): '' rảnh · 'off' ngoài lịch nhận khách · 'busy' bận ·
+   'join' có một khách 1:2 cùng coach, ghép được */
 function coachAt(iso, h) { var c = S.st.coachAt; return (c && c[iso + '|' + h]) || ''; }
+/* ngày coach của hội viên nghỉ trọn ngày (mọi khung của bảng 'off') mà hội viên không có buổi ngày đó → cả cột là khối "COACH NGHỈ",
+   như cột Chủ Nhật trước khi có Lịch coach. Máy chủ cũ (tuần 6 ngày) không gửi 'off' → không có ngày nào */
+function offDays() {
+  var rows = gridRows();
+  return S.st.week.days.filter(function (d) { return !sessOn(d) && rows.every(function (h) { return coachAt(d, h) === 'off'; }); });
+}
 /* ---------- gói 1:2 · ghép lớp (chủ studio chốt 18/10 14:13) — máy chủ gửi st.duo; máy chủ cũ không gửi → mọi thứ như trước ---------- */
 function duoSt() { return S.st && S.st.duo ? S.st.duo : null; }
 /* giờ hiện trên bảng: gói 1:2 chỉ các khung ghép (+ giờ của buổi đã đặt trước luật, để vẫn thấy buổi đó) */
@@ -1219,26 +1228,30 @@ function closedLabel(reason) { var f = fold(reason); return /\ble\b|tet/.test(f)
 
 /* ============================== BẢNG TUẦN ============================== */
 function gridHTML() {
-  var w = S.st.week, days = w.days, sun = addD(days[0], 6), rows = gridRows(), duo = rows !== SLOTS;
+  /* tuần 7 ngày (T2 → CN, từ 19/10): ngày coach nghỉ trọn ngày = khối "COACH NGHỈ" cả cột, không có ô. Máy chủ cũ gửi 6 ngày → cột CN cố định */
+  var w = S.st.week, days = w.days, sun = days.length < 7 ? addD(days[0], 6) : '', off = offDays(), rows = gridRows(), duo = rows !== SLOTS;
   var am = rows.filter(function (x) { return x < 12; }).length, pm = rows.length - am;
-  var h = '<div class="wk' + (duo ? ' duo' : '') + '" id="wk" data-rows="' + rows.join(',') + '"' + (duo ? ' data-n="' + rows.length + '"' : '') + '><div class="wk-head" aria-hidden="true"><div></div>';
+  var h = '<div class="wk' + (duo ? ' duo' : '') + (sun ? ' d6' : '') + '" id="wk" data-rows="' + rows.join(',') + '" data-off="' + off.join(',') + '"' + (duo ? ' data-n="' + rows.length + '"' : '') + '><div class="wk-head" aria-hidden="true"><div></div>';
   days.forEach(function (d, i) { h += '<div class="dh" data-i="' + i + '"><span class="dh-d">' + DOW[dowOf(d)] + '</span><span class="dh-n"><span class="d">' + esc(ddmm(d)) + '</span><span class="m">' + esc(d.slice(8)) + '</span></span><i class="dh-bar"></i></div>'; });
-  h += '<div class="dh off"><span class="dh-d">CN</span><span class="dh-n"><span class="d">' + esc(ddmm(sun)) + '</span><span class="m">' + esc(sun.slice(8)) + '</span></span></div></div>';
+  if (sun) h += '<div class="dh off"><span class="dh-d">CN</span><span class="dh-n"><span class="d">' + esc(ddmm(sun)) + '</span><span class="m">' + esc(sun.slice(8)) + '</span></span></div>';
+  h += '</div>';
   /* gói 1:2: chỉ các khung ghép → số hàng sáng / chiều theo giờ thật, dải nghỉ trưa nằm giữa */
   var tpl = duo ? ' data-gtr="' + (am ? 'repeat(' + am + ',var(--rh)) ' : '') + 'var(--lh)' + (pm ? ' repeat(' + pm + ',var(--rh))' : '') + '"' : '';
-  h += '<div class="wk-body" id="wkb" role="group" aria-label="Bảng khung giờ tuần ' + esc(w.no) + '"' + tpl + '><div class="cn" aria-hidden="true"><span>Coach<br>nghỉ</span></div>' +
+  h += '<div class="wk-body" id="wkb" role="group" aria-label="Bảng khung giờ tuần ' + esc(w.no) + '"' + tpl + '>' + (sun ? '<div class="cn" aria-hidden="true"><span>Coach<br>nghỉ</span></div>' : '') +
        '<div class="lunch" aria-hidden="true"' + (duo ? ' data-gr="' + (am + 1) + '"' : '') + '>Nghỉ trưa · 12:00–14:00</div>';
+  /* khối "COACH NGHỈ" đặt tường minh vào cột của ngày đó (sau dải nghỉ trưa → nằm trên dải): ô của các ngày khác tự xếp quanh */
+  off.forEach(function (d) { h += '<div class="cn" aria-hidden="true" data-gc="' + (days.indexOf(d) + 2) + '"><span>Coach<br>nghỉ</span></div>'; });
   rows.forEach(function (hr, i) {
     if (hr >= 14 && (i === 0 || rows[i - 1] < 14)) h += '<div class="tl" aria-hidden="true"></div>';
     h += '<div class="tl" aria-hidden="true"><span class="d">' + hm(hr) + '</span><span class="m">' + pad2(hr) + '</span></div>';
-    days.forEach(function (d) { h += '<button class="c" type="button" data-d="' + esc(d) + '" data-h="' + hr + '" tabindex="-1"></button>'; });
+    days.forEach(function (d) { if (off.indexOf(d) < 0) h += '<button class="c" type="button" data-d="' + esc(d) + '" data-h="' + hr + '" tabindex="-1"></button>'; });
   });
   h += '<div class="now" id="now" hidden><i></i><span></span></div></div></div>';
   return h;
 }
 /* bảng đang hiện dựng theo bộ giờ cũ (vd state lưu trên máy từ trước khi máy chủ có gói 1:2 / một buổi ngoài khung ghép vừa dời đi)
    → phải dựng lại cả màn, tô lại ô thôi là thiếu / thừa hàng */
-function gridStale() { var wk = S.page && S.page.querySelector('#wk'); return !!wk && wk.getAttribute('data-rows') !== gridRows().join(','); }
+function gridStale() { var wk = S.page && S.page.querySelector('#wk'); return !!wk && (wk.getAttribute('data-rows') !== gridRows().join(',') || wk.getAttribute('data-off') !== offDays().join(',')); }
 function repaintBook() { if (gridStale()) go('book', 'fwd', { instant: true, noFocus: true }); else updateBook(); }
 function repaintChange() { if (gridStale()) go('change', 'fwd', { instant: true, noFocus: true }); else updateChange(); }
 /* mô hình ô theo màn: {cls, html, can, aria} */
@@ -1247,7 +1260,7 @@ function cellModel(mode) {
   var pickBy = {}; S.picks.forEach(function (p) { pickBy[p.date] = p.h; });
   var goneBy = {}; S.gone.forEach(function (g) { goneBy[g.date + '|' + g.h] = 1; });
   var runLbl = {}, dayRun = {}, runDay = {};
-  var LBL = { duoi_24h: 'Dưới 24 giờ', het_han: 'Hết hạn', chua_bat_dau: 'Chưa bắt đầu' };
+  var LBL = { duoi_24h: 'Dưới 24 giờ', het_han: 'Hết hạn', chua_bat_dau: 'Chưa bắt đầu', coach_nghi: 'Coach nghỉ' };
   /* đổi lịch: 'full' còn lượt · 'pair' hết lượt nhưng gói 1:2 còn dời được buổi đang lẻ vào cặp (không tính lượt) · 'none' */
   var cm = mode === 'chg' ? chgMode() : 'full', noChg = cm === 'none', pairOnly = cm === 'pair';
   var from = S.chg.from, to = S.chg.to;
@@ -1304,11 +1317,12 @@ function cellModel(mode) {
         var txt = wy === 'nghi' ? closedLabel(w.closed[d]) : LBL[wy];
         m.aria = label + (wy === 'nghi' ? 'phòng nghỉ' : wy === 'gio_ghep' ? 'ngoài khung ghép của gói 1:2' : String(txt || 'không chọn được').toLowerCase());
         if (txt) {
-          var multi = wy !== 'duoi_24h';
-          var first = prevWhy !== wy && (!multi || wy === 'nghi' || !dayRun[wy] || dayRun[wy] !== di - 1);
-          if (first && !(multi && runLbl[wy] && wy !== 'nghi')) { m.html = '<span class="d">' + esc(txt) + '</span>'; if (multi) { runLbl[wy] = true; runDay[wy] = di; } }
+          /* phòng nghỉ / coach nghỉ: nhãn ở đầu mỗi đoạn trong ngày · hết hạn / chưa bắt đầu: một nhãn cho cả khối nhiều ngày */
+          var multi = wy !== 'duoi_24h', perDay = wy === 'nghi' || wy === 'coach_nghi';
+          var first = prevWhy !== wy && (!multi || perDay || !dayRun[wy] || dayRun[wy] !== di - 1);
+          if (first && !(multi && runLbl[wy] && !perDay)) { m.html = '<span class="d">' + esc(txt) + '</span>'; if (multi) { runLbl[wy] = true; runDay[wy] = di; } }
           /* khối khoá nhiều ngày (hết hạn / chưa bắt đầu): nghỉ trưa cắt khối làm hai → ghi nhãn lại ở hàng chiều đầu tiên của cột đầu (như Figma E06) */
-          else if (multi && wy !== 'nghi' && h >= 14 && runDay[wy] === di && prevWhy === wy && gridRows().filter(function (x) { return x >= 14; })[0] === h) m.html = '<span class="d">' + esc(txt) + '</span>';
+          else if (multi && !perDay && h >= 14 && runDay[wy] === di && prevWhy === wy && gridRows().filter(function (x) { return x >= 14; })[0] === h) m.html = '<span class="d">' + esc(txt) + '</span>';
           if (multi) dayRun[wy] = di;
         }
       }
@@ -1368,8 +1382,9 @@ function paintGrid(mode) {
     if (m.can) b.removeAttribute('aria-disabled'); else b.setAttribute('aria-disabled', 'true');
     b.setAttribute('aria-label', m.aria);
   });
+  var od = offDays();
   $$('.dh[data-i]', $('#wk')).forEach(function (el) {
-    var d = w.days[+el.dataset.i], off = (w.closed && w.closed[d] !== undefined) || (me.exp && d > me.exp) || (me.start && d < me.start);
+    var d = w.days[+el.dataset.i], off = (w.closed && w.closed[d] !== undefined) || (me.exp && d > me.exp) || (me.start && d < me.start) || od.indexOf(d) >= 0;
     el.classList.toggle('today', d === today && w.phase !== 'open');
     el.classList.toggle('past', d < today);
     el.classList.toggle('off', !!off && d >= today);
@@ -1395,7 +1410,9 @@ function gridKey(e) {
   else if (e.key === 'End') nj = rows.length - 1;
   else return;
   e.preventDefault();
-  var nb = $('#wkb .c[data-d="' + days[ni] + '"][data-h="' + rows[nj] + '"]');
+  var cellAt = function (a) { return $('#wkb .c[data-d="' + days[a] + '"][data-h="' + rows[nj] + '"]'); }, nb = cellAt(ni);
+  /* ngày coach nghỉ trọn ngày không có ô → đi tiếp qua cột đó */
+  while (!nb && ni !== i && ni > 0 && ni < days.length - 1) { ni += ni > i ? 1 : -1; nb = cellAt(ni); }
   if (nb) { $$('#wkb .c').forEach(function (c) { c.tabIndex = -1; }); nb.tabIndex = 0; nb.focus(); }
 }
 /* vạch "bây giờ" trên cột hôm nay (chỉ khi tuần đang hiện chứa hôm nay) */
@@ -1557,6 +1574,14 @@ function bookSub() {
   if (w.phase === 'late') return 'Tuần này bạn chưa đặt lịch · đặt muộn';
   return 'Chọn lịch bạn muốn đặt cho tuần tới';
 }
+/* bảng đặt lịch có ô xám (không chọn được, không phải ô X Đầy hay khung đã qua) ngoài các ngày coach nghỉ trọn ngày */
+function lockCells() {
+  var w = S.st && S.st.week; if (!w) return false;
+  var od = offDays(), lead = leadBook();
+  return w.days.some(function (d) {
+    return od.indexOf(d) < 0 && gridRows().some(function (h) { var y = why(d, h, lead); return !!y && !isFull(y) && y !== 'qua'; });
+  });
+}
 function legendHTML(kind) {
   var it = {
     trong: ['', '', 'Trống'], con1: ['', '1', 'Còn 1 chỗ'], day: ['k-day', '', 'Đầy'], chon: ['k-chon', '', 'Đã chọn'],
@@ -1568,11 +1593,10 @@ function legendHTML(kind) {
     ghep: ['k-ghep', '', 'Ghép nhóm'], mghep: ['k-ghep', '', 'Ghép']
   };
   var duo = !!duoSt();
-  var w = S.st && S.st.week, hasClosed = w && w.closed && Object.keys(w.closed).length, phaseLate = w && w.phase === 'late';
-  var exp = S.st && S.st.me.exp && w && S.st.me.exp < w.days[w.days.length - 1];
-  /* ô gạch X = Đầy (phòng đầy hay coach bận, không nói lý do) · ô xám = không chọn được (ngày nghỉ, ngoài gói, đặt muộn, ngày đã có buổi):
-     có ô xám thì thêm mục xám. Gói 1:2: thêm ô "Ghép" (bạn cùng coach đang chờ) */
-  var lock = hasClosed || phaseLate || exp;
+  /* ô gạch X = Đầy (phòng đầy hay coach bận, không nói lý do) · ô xám = không chọn được: bảng có ô xám nào (ngày nghỉ, gói chưa bắt
+     đầu / hết hạn, dưới 24 giờ, coach nghỉ một phần ngày — khối "COACH NGHỈ" trọn ngày tự ghi chữ) thì luôn có mục xám (chủ studio 19/10).
+     Gói 1:2: thêm ô "Ghép" (bạn cùng coach đang chờ) */
+  var lock = lockCells();
   var sets = {
     book: (duo ? ['trong', 'chon', 'ghep', 'con1', 'day'] : ['trong', 'chon', 'con1', 'day']).concat(lock ? ['khong'] : []),
     'book-m': (duo ? ['mtrong', 'mchon', 'mghep', 'mday'] : ['mtrong', 'mchon', 'mcon1', 'mday']).concat(lock ? ['mkhong'] : []),
@@ -1595,15 +1619,16 @@ function legendHTML(kind) {
 function mbWeekHTML() {
   var w = S.st.week, h = '<div class="mb-wk" id="mbW" aria-hidden="true"><span class="g"></span>';
   w.days.forEach(function (d) { h += '<span class="dc" data-d="' + esc(d) + '">' + DOW[dowOf(d)] + '</span>'; });
-  return h + '<span class="dc cn">CN</span></div>';
+  return h + (w.days.length < 7 ? '<span class="dc cn">CN</span>' : '') + '</div>';
 }
 function mbWeek(map, count, say, first) {
   var wk = $('#mbW'); if (!wk) return;
-  var w = S.st.week, me = S.st.me, today = isoOf(now()), g = wk.querySelector('.g');
+  var w = S.st.week, me = S.st.me, today = isoOf(now()), g = wk.querySelector('.g'), od = offDays();
   if (g.textContent !== count) g.textContent = count;
   $$('.dc[data-d]', wk).forEach(function (c) {
     var d = c.getAttribute('data-d'), s = map[d], off = d < today || (w.closed && w.closed[d] !== undefined) || (me.exp && d > me.exp) || (me.start && d < me.start);
-    var cls = 'dc' + (s ? ' t ' + s.k : off ? ' off' : ''), tx = s ? s.t : DOW[dowOf(d)];
+    /* ngày coach nghỉ trọn ngày: ô Giấy 2 như khối "COACH NGHỈ" của bảng */
+    var cls = 'dc' + (s ? ' t ' + s.k : od.indexOf(d) >= 0 ? ' cn' : off ? ' off' : ''), tx = s ? s.t : DOW[dowOf(d)];
     if (c.className.replace(' pop', '') === cls && c.textContent === tx) return;
     c.className = cls; c.textContent = tx;
     if (!first && !rm()) { void c.offsetWidth; c.classList.add('pop'); clearTimeout(c._pt); c._pt = setTimeout(function () { c.classList.remove('pop'); }, 260); }
@@ -1787,7 +1812,8 @@ function whyText(w, d, h) {
     nghi: [at + ' phòng nghỉ.', 'Chọn ngày khác trong tuần.'],
     het_han: ['Gói không dùng được ngày ' + (d ? ddmm(d) : 'đó') + '.', 'Gói của bạn hết hạn trước ngày này.'],
     chua_bat_dau: ['Gói chưa bắt đầu vào ngày ' + (d ? ddmm(d) : 'đó') + '.', 'Chọn ngày từ khi gói bắt đầu.'],
-    gio_ghep: ['Gói 1:2 đặt ở khung ghép.', 'Chọn ' + (hoursTxt() || '09:00, 11:00, 15:00, 17:00 hoặc 19:00') + '.']
+    gio_ghep: ['Gói 1:2 đặt ở khung ghép.', 'Chọn ' + (hoursTxt() || '09:00, 11:00, 15:00, 17:00 hoặc 19:00') + '.'],
+    coach_nghi: [at + ' coach nghỉ.', 'Chọn một ô trống khác trên bảng.']
   };
   var x = M[w] || ['Lịch chọn chưa hợp lệ.', 'Bảng vừa được cập nhật. Chọn lại rồi gửi.'];
   return { title: x[0], body: x[1] };
@@ -2059,17 +2085,19 @@ function ticketWide() {
   var st = S.st, me = st.me, w = st.week, ss = tkSessions(), by = {}, code = tkCode();
   ss.forEach(function (s) { by[s.date + '|' + s.h] = s; });
   var g = '<div class="mg" aria-hidden="true"><span></span>';
-  w.days.forEach(function (d) { g += '<span class="hd7">' + DOW[dowOf(d)] + '</span>'; });
-  g += '<span class="hd7 off">CN</span>';
+  /* ngày tắt (Tro / Sương) = ngày coach nghỉ cả ngày mà mình không có buổi (mặc định: CN); máy chủ cũ: tuần 6 ngày + cột CN cố định */
+  var d6 = w.days.length < 7, od = offDays();
+  w.days.forEach(function (d) { g += '<span class="hd7' + (od.indexOf(d) >= 0 ? ' off' : '') + '">' + DOW[dowOf(d)] + '</span>'; });
+  if (d6) g += '<span class="hd7 off">CN</span>';
   SLOTS.forEach(function (h) {
     if (h === 14) g += '<span class="gap"></span>';
     g += '<span class="hr">' + pad2(h) + '</span>';
     w.days.forEach(function (d) {
       var s = by[d + '|' + h];
       if (s) { g += '<span class="mc ' + (s.st === 'on' ? 'on' : 'was') + '">' + hm(h) + '</span>'; }
-      else g += '<span class="mc"></span>';
+      else g += '<span class="mc' + (od.indexOf(d) >= 0 ? ' off' : '') + '"></span>';
     });
-    g += '<span class="mc off"></span>';
+    if (d6) g += '<span class="mc off"></span>';
   });
   g += '</div>';
   var list = ss.map(function (s) {
@@ -2088,13 +2116,12 @@ function ticketWide() {
 function ticketTall() {
   var st = S.st, me = st.me, w = st.week, ss = tkSessions(), by = {}, code = tkCode();
   ss.forEach(function (s) { by[s.date] = s; });
-  var row = '<div class="wk7" aria-hidden="true">';
-  w.days.forEach(function (d) {
-    var s = by[d];
-    row += '<div class="d7"><span class="a">' + DOW[dowOf(d)] + '</span><span class="b">' + esc(d.slice(8)) + '</span><span class="mc' + (s ? (s.st === 'on' ? ' on' : ' was') : '') + '">' + (s ? esc(hm(s.h)) : '') + '</span></div>';
+  var row = '<div class="wk7" aria-hidden="true">', od = offDays();
+  tkDays().forEach(function (d) {
+    var s = by[d], off = !s && od.indexOf(d) >= 0 || w.days.indexOf(d) < 0;
+    row += '<div class="d7' + (off ? ' off' : '') + '"><span class="a">' + DOW[dowOf(d)] + '</span><span class="b">' + esc(d.slice(8)) + '</span><span class="mc' + (s ? (s.st === 'on' ? ' on' : ' was') : off ? ' off' : '') + '">' + (s ? esc(hm(s.h)) : '') + '</span></div>';
   });
-  var sun = addD(w.days[0], 6);
-  row += '<div class="d7 off"><span class="a">CN</span><span class="b">' + esc(sun.slice(8)) + '</span><span class="mc off"></span></div></div>';
+  row += '</div>';
   return '<div class="tkm m" id="tkT" role="img" aria-label="' + esc(tkAria()) + '"><svg class="tk-paper" id="tkPaperT" aria-hidden="true"></svg>' +
     '<div class="tkm-main"><div class="tkm-h"><span class="tk-wm">' + WM_SVG + '</span><div class="tk-name"><span class="a">PHIẾU TẬP</span><span class="b">' + esc(tkWeekLbl().toUpperCase()) + '</span></div></div>' +
       '<div class="tk-big"><span class="num" data-n="' + esc(ss.length) + '">' + esc(ss.length) + '</span><span class="unit">BUỔI</span></div>' + row +
@@ -2103,6 +2130,8 @@ function ticketTall() {
     '<div class="tkm-stub"><div class="tk-stat"><div class="kv"><span class="k">Lượt đổi còn</span><span class="v big">' + esc(st.mine.changesLeft) + '</span></div><div class="kv"><span class="k">Báo trước khi đổi</span><span class="v mid">24H</span></div></div>' +
       barcodeSVG(code.bar) + '<span class="lbl">' + esc(code.lbl.toUpperCase()) + '</span></div></div>';
 }
+/** 7 ngày của phiếu dọc / ảnh: tuần máy chủ gửi (T2–CN); máy chủ cũ gửi 6 ngày → thêm CN (luôn tắt) */
+function tkDays() { var w = S.st.week; return w.days.length < 7 ? w.days.concat([addD(w.days[0], 6)]) : w.days; }
 function tkAria() {
   var ss = tkSessions();
   return 'Phiếu tập ' + tkWeekLbl() + ', ' + ss.length + ' buổi: ' + ss.map(function (s) { return dFull(s.date) + ' ' + hm(s.h) + (s.st === 'done' ? ' đã tập' : ''); }).join(', ') + '. Mã ' + tkCode().lbl + '.';
@@ -2507,8 +2536,9 @@ function drawTicket() {
   txt('BUỔI', L + nw + 6, top + 100, MO, 20, '#0A0A0A', 0);
   /* hàng tuần */
   var ry = top + 136, cw = (W - 40 - 6 * 4) / 7;
-  w.days.concat([addD(w.days[0], 6)]).forEach(function (d, k) {
-    var cx = L + k * (cw + 4), off = k === 6, s = by[d];
+  var od = offDays();
+  tkDays().forEach(function (d, k) {
+    var s = by[d], cx = L + k * (cw + 4), off = !s && od.indexOf(d) >= 0 || w.days.indexOf(d) < 0;
     txt(DOW[dowOf(d)], cx + cw / 2, ry + 9, MO, 9, off ? '#B0B0B0' : '#4A4A4A', 0.5, 'center');
     txt(d.slice(8), cx + cw / 2, ry + 25, MO, 11, off ? '#B0B0B0' : '#0A0A0A', 0, 'center');
     var by0 = ry + 32;
@@ -2540,7 +2570,7 @@ var PNGC = { key: '', blob: null, pk: '', p: null };
 function pngKey() {
   var st = S.st, m = st.mine, me = st.me, tk = tkCur();
   return [desk() ? 'd' : 'm', tk ? tk.offsetWidth + 'x' + tk.offsetHeight : '-', m.code, m.ver, m.changesLeft, tkWeekLbl(), me.coach, me.short, me.pkg, me.kind,
-    tkSessions().map(function (s) { return s.date + s.h + s.st + (s.fresh ? '*' : ''); }).join(',')].join('|');
+    tkSessions().map(function (s) { return s.date + s.h + s.st + (s.fresh ? '*' : ''); }).join(','), offDays().join(',')].join('|');
 }
 /* vé đang hiện → canvas (TK3D.snapshot); không được (thiếu tk3d.js, vé chưa sẵn sàng, lỗi) → bản vẽ tay cũ */
 function ticketCanvas() {
