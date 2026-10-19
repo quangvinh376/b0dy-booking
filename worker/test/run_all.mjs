@@ -4,7 +4,7 @@ import { fileURLToPath } from 'url';
 import path from 'path';
 const dir = path.dirname(fileURLToPath(import.meta.url));
 let bad = 0;
-for (const f of ['parity.mjs', 'concurrency.mjs', 'robust.mjs', 'http.mjs', 'realdata.mjs', 'workerd.mjs']) {
+for (const f of ['parity.mjs', 'concurrency.mjs', 'robust.mjs', 'http.mjs', 'live.mjs', 'realdata.mjs', 'workerd.mjs']) {
   const r = spawnSync(process.execPath, [path.join(dir, f)], { encoding: 'utf8' });
   const last = (r.stdout || '').trim().split('\n').slice(-2).join(' | ');
   console.log((r.status === 0 ? 'OK   ' : 'LỖI  ') + f.padEnd(16) + last);

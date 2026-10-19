@@ -4,7 +4,8 @@
    2. Thục Quyên mở → phiếu: dòng Tập đôi báo lời mời → bảng → Tập cùng → đổi lịch chọn sẵn T4 11:00 → T4 09:00, nút "Dời vào cặp"
    3. Gửi → phiếu "Đã ghép tập đôi!" · lượt đổi còn 2 · sổ: dòng "Ghép" · Uyển Nhi thấy T4 09:00 tập đôi cùng Thục Quyên
    4. Uyển Nhi đổi T6 09:00 (đang lẻ) sang T5 11:00 (Thục Quyên đang chờ) → "Dời vào cặp" khác ngày, không tính lượt
-   5. Thục Quyên đổi T4 09:00 (đang tập đôi) ra T4 11:00 → không được (cùng ngày, rời cặp) · sang T6 19:00 → "Xác nhận đổi" (tính lượt) */
+   5. Thục Quyên đổi T4 09:00 (đang tập đôi) ra T4 11:00 → không được (cùng ngày, rời cặp) · sang T6 19:00 → "Xác nhận đổi" (tính lượt)
+   6. Thục Quyên mời Uyển Nhi T6 19:00 → Uyển Nhi "Không, cảm ơn" → Thục Quyên thấy "Uyển Nhi đã từ chối tham gia" + "Mời bạn khác" */
 'use strict';
 const { chromium } = require('playwright');
 const { startServer, API } = require('./ui_harness');
@@ -114,6 +115,34 @@ async function run(browser, server, mobile) {
   ok('Uyển Nhi: T4 09:00 thành chờ bạn tập', await page.evaluate(() => !window.__lt.S.st.duo.pairs['2026-10-21|9']));
   await openPairs();
   ok('Bảng Tập đôi của Uyển Nhi: T4 09:00 "Chờ bạn tập" + nút Mời bạn', await page.evaluate(h => { const r = Array.from(document.querySelectorAll(h + ' .pr-row')).find(x => /21\.10/.test(x.textContent)); return !!r && /Chờ bạn tập/.test(r.textContent) && !!r.querySelector('[data-a="invpick"]'); }, host));
+  /* 6 · từ chối (chủ studio 19/10): người mời thấy "<tên> đã từ chối tham gia" + nút "Mời bạn khác" — ở dòng Tập đôi trên phiếu và ở bảng.
+       Thục Quyên (không có lời mời đến nên dòng Tập đôi không bị lời mời chiếm chỗ) mời Uyển Nhi T6 19:00 → Uyển Nhi từ chối */
+  await page.keyboard.press('Escape'); await sleep(300);
+  await signOut(); await login('thuc quyen', '1212'); await waitView(page, 'ticket'); await sleep(600);
+  await openPairs();
+  await page.locator(host + ' [data-a="invpick"][data-d="2026-10-23"]').click();
+  await page.locator(host + ' .pr-opt:has-text("Uyển Nhi")').click();
+  await page.locator(host + ' [data-a="invsend"]').click();
+  await page.waitForFunction(h => /Đã mời Uyển Nhi/.test(document.querySelector(h).textContent), host, { timeout: 8000 });
+  await flushed(); await page.keyboard.press('Escape'); await sleep(300);
+  await signOut(); await login('uyen nhi', '5555'); await waitView(page, 'ticket'); await sleep(600);
+  await openPairs();
+  /* mobile: "Không, cảm ơn" đóng cửa sổ ngay rồi mới gửi → đợi dòng sổ, không đợi nút biến mất */
+  await page.locator(host + ' [data-a="invno"][data-d="2026-10-23"]').click();
+  const dec = r => /\| Từ chối \| Từ chối \| Từ chối lời mời của M\. Thục Quyên/.test(r);
+  for (let i = 0; i < 80 && !(await so('B805DY')).some(dec); i++) await sleep(100);
+  ok('Uyển Nhi: Không, cảm ơn → sổ thêm dòng "Từ chối" lời mời của Thục Quyên', (await so('B805DY')).some(dec), await so('B805DY'));
+  await page.keyboard.press('Escape'); await sleep(300);
+  await signOut(); await login('thuc quyen', '1212'); await waitView(page, 'ticket'); await sleep(600);
+  const ln = await page.evaluate(() => { const b = document.querySelector('#prLine .prl'); return b ? [b.querySelector('.prl-t').textContent, (b.querySelector('.prl-c') || {}).textContent || '', b.dataset.d || '', b.dataset.h || ''] : null; });
+  ok('Thục Quyên: dòng Tập đôi "Uyển Nhi đã từ chối tham gia · T6 19:00" + "Mời bạn khác"',
+     !!ln && ln[0] === 'Uyển Nhi đã từ chối tham gia · T6 19:00' && ln[1] === 'Mời bạn khác' && ln[2] === '2026-10-23' && ln[3] === '19', ln);
+  await openPairs();
+  const pk = await page.evaluate(h => ({ pick: window.__lt.S.invPick, open: !!document.querySelector(h + ' .pr-pick .pr-opt'), q: (document.querySelector(h + ' #prQ') || {}).textContent || '' }), host);
+  ok('Bấm dòng đó → bảng Tập đôi mở sẵn phần chọn bạn cho T6 19:00', pk.pick && pk.pick.date === '2026-10-23' && pk.pick.h === 19 && pk.open && /23\.10/.test(pk.q), pk);
+  await page.locator(host + ' [data-a="invpickoff"]').click(); await sleep(300);
+  const rw = await page.evaluate(h => { const r = Array.from(document.querySelectorAll(h + ' .pr-row')).find(x => /23\.10/.test(x.textContent)); return r ? [r.querySelector('.pr-s').textContent, (r.querySelector('[data-a="invpick"]') || {}).textContent || ''] : null; }, host);
+  ok('Bảng Tập đôi: T6 19:00 "Uyển Nhi đã từ chối tham gia" + nút "Mời bạn khác"', !!rw && rw[0] === 'Uyển Nhi đã từ chối tham gia' && rw[1] === 'Mời bạn khác', rw);
   ok('0 lỗi console / pageerror', errs.length === 0, errs);
   await ctx.close();
 }

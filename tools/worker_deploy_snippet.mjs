@@ -6,7 +6,7 @@
 import { execFileSync } from 'node:child_process';
 import crypto from 'node:crypto';
 const commit = execFileSync('git', ['rev-parse', process.argv[2] || 'HEAD']).toString().trim();
-const MODS = ['index.js', 'booking.js', 'core.js', 'crypto.js', 'http.js', 'sheets.js'];
+const MODS = ['index.js', 'booking.js', 'core.js', 'crypto.js', 'http.js', 'sheets.js', 'live.js'];
 const EXP = {};
 for (const m of MODS) EXP[m] = crypto.createHash('sha256').update(execFileSync('git', ['show', commit + ':worker/src/' + m])).digest('hex');
 const tpl = `/* Chạy trong tab dash.cloudflare.com (đã đăng nhập) — CHỈ sau khi chủ studio đồng ý deploy Worker.

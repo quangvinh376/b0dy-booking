@@ -5,6 +5,8 @@ Trang đặt lịch cho hội viên B0DY Studio: https://booking.b0dy.studio (Gi
 Hội viên tìm tên (gõ tới đâu ra tới đó: vài chữ của tên đệm / tên gọi, có dấu hay không dấu đều được; gõ riêng họ không ra ai vì trang chỉ hiện chữ cái đầu của họ)
 → xác minh 4 số cuối điện thoại (nhớ máy 60 ngày) →
 chọn 2–4 buổi trên bảng tuần (T2–CN) → nhận phiếu. Trong tuần: thêm buổi, đổi buổi (tối đa 2 lần, trước 24 giờ). Mở đặt 06:00 Chủ Nhật.
+Bảng cập nhật live (1.2.0): ai đó đặt / đổi / mời xong thì mọi trang đang mở hỏi lại trong khoảng 1 giây (ô mình đang chọn vừa
+bị lấy → báo ngay, trước khi bấm Đặt lịch); B0B nhìn quanh khi có thêm người mở trang, dưới chân ghi "N người đang xem" (ẩn danh).
 Giờ / ngày coach nhận khách: tab `Lịch coach` (file Lịch tập tuần, ô tick từng giờ × 7 ngày) — ô ngoài lịch hiện xám "Coach nghỉ",
 ngày nghỉ trọn ngày thành một khối; coach không có khối trong tab: T2–T7 đủ giờ, CN nghỉ (từ 1.1.0, chủ studio chốt 19/10).
 Mỗi khung giờ mỗi coach dạy một suất (một khách 1:1, hoặc hai khách gói 1:2 của cùng coach đó); phòng tối đa `Sức chứa` suất (⚙️ 2).
@@ -40,7 +42,8 @@ npm i playwright   # một lần; Chromium có sẵn trong máy test
 node test/gas_lt.js                 # luật + Apps Script
 node test/ui_states.js              # 97 kiểm tra trạng thái giao diện (E01–E12, desktop + mobile)
 node test/ui_qc.js                  # chế độ QC: kịch bản, hội viên thử, gây lỗi, không gọi mạng, không chạm bộ nhớ trang thật
-node test/ui_duo.js                 # gói 1:2: nhận lời mời bằng dời trong ngày, Ghép khác ngày, rời cặp tính lượt (desktop + mobile)
+node test/ui_duo.js                 # gói 1:2: nhận lời mời bằng dời trong ngày, Ghép khác ngày, rời cặp tính lượt, từ chối → "Mời bạn khác"
+node test/ui_live.js                # kênh live: người khác đặt → bảng tự cập nhật, ô đang chọn bị lấy, "N người đang xem", nối lại / lui
 node test/ui_smoke.js && node test/ui_sw.js && node test/ui_tk3d.js all && node test/ui_png.js all && node test/b0b_check.js
 node test/rv_h6_rid_discard.js      # … và các rv_*.js: tái hiện lỗi đã sửa (mất phản hồi, máy dùng chung, 06:00, …)
 node test/rv_find_dynamic.js        # tìm tên gõ tới đâu ra tới đó: tô phần khớp, more, giữ danh sách khi chờ, máy chủ cũ (need: 2)
@@ -53,7 +56,8 @@ node test/rv_tilt.js                # phiếu xoay: góc luôn ≤ giới hạn 
 `https://booking.b0dy.studio/?qc` — thử mọi luồng mà không chạm lịch thật. `qc.js` nạp `worker/src/booking.js` + `core.js`
 (đúng mã đang chạy trên Worker) với Google Sheets giả và Durable Object giả trong `localStorage` (`qcsrv:*`); mọi khoá của
 trang mang tiền tố `qc:` nên không đọc / ghi mã nhớ máy thật. Nút "QC · Dữ liệu giả" ở mép trên: đồng hồ giả + 4 kịch bản,
-hội viên thử (mã = 4 số cuối SĐT giả), gây lỗi một lần (mất phản hồi, mất mạng, khung vừa bị giữ, máy chủ bận), sổ đặt lịch giả,
+hội viên thử (mã = 4 số cuối SĐT giả), gây lỗi một lần (mất phản hồi, mất mạng, khung vừa bị giữ, máy chủ bận), kênh live giả
+("Người khác vừa đặt một khung" — ưu tiên khung đang chọn · "Thêm 2 người đang xem"), sổ đặt lịch giả,
 Thoát QC (xoá mọi khoá `qc:` / `qcsrv:`). Không nạp được `qc.js` → báo lỗi, không bao giờ lui về máy chủ thật.
 
 ## Deploy trang

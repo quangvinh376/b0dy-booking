@@ -46,6 +46,18 @@ async function readBody(req, max) {
 }
 
 /**
+ * Cổng kênh live (WebSocket GET /live?dev=…): trình duyệt luôn gửi Origin khi mở WebSocket → phải có và nằm trong danh sách;
+ * mã máy đúng dạng như mọi lệnh khác. Hợp lệ → null (index.js chuyển request cho DO); không → Response lỗi (không nâng cấp).
+ */
+export function liveGate(req, env) {
+  const url = new URL(req.url), origin = req.headers.get('origin') || '';
+  if (url.pathname !== '/live') return new Response('not found', { status: 404 });
+  if (!allowedOrigin(origin, env.ALLOW_ORIGINS)) return new Response('origin', { status: 403 });
+  if (!/^[A-Za-z0-9_-]{16,64}$/.test(url.searchParams.get('dev') || '')) return new Response('thieu_may', { status: 400 });
+  return null;
+}
+
+/**
  * call(p) → Promise<{out, ms}> (gọi Durable Object). Không ném: lỗi hạ tầng → {ok:false, error:'loi_he_thong'}.
  */
 export async function handleHttp(req, env, call) {

@@ -26,7 +26,7 @@ ID hai file Google Sheets: `BA_ID` (file BA: MEMBERS · SESSION LOG · TRIAL · 
 6. Sau mỗi lần đẩy: xác minh commit bằng hash và SHA-256 từng tệp trên `raw.githubusercontent.com/quangvinh376/b0dy-booking/<commit>/…`.
 7. Chỉ MỘT tiến trình Playwright / Chromium một lúc (máy test nhỏ từng hết RAM).
 
-## Đang ở đâu (19/10/2026, 14:25)
+## Đang ở đâu (19/10/2026, chiều)
 
 - Trang **v1.1.0** (`39a9a30`, lịch coach + Chủ Nhật) trên GitHub Pages `main` — live 14:08 19/10, 10 tệp SHA-256 khớp. Worker
   `b0dy-booking-api` chạy `worker/src` của `39a9a30` — deploy **~14:20 19/10**, etag `ae40402273` (Claude chat chạy
@@ -39,6 +39,14 @@ ID hai file Google Sheets: `BA_ID` (file BA: MEMBERS · SESSION LOG · TRIAL · 
   "Coach nghỉ", ngày nghỉ trọn ngày = một khối cả cột; CN đặt được nếu coach tick. Tab tạo 19/10, **mặc định = luật cũ** (T2–T7 đủ,
   CN trống) → hội viên chưa thấy gì khác cho tới khi chủ studio sửa ô tick (hiệu lực sau 1–2 phút). `Bảng lịch tập` dựng lại 19/10:
   7 cột + hàng CN ở "Theo coach" + ô H2 "Xem tuần" (đọc ngược: 122 buổi · 46 hội viên · 0 khung đầy · 10 chưa đặt, giống trước khi dựng).
+- **19/10 chiều — 1.2.0 trên nhánh `claude/focused-fermi-5jwgv4`, CHƯA live** (chờ chủ studio duyệt deploy Worker + đưa trang lên `main`):
+  (1) từ chối lời mời: người mời thấy "<tên> đã từ chối tham gia" + nút "Mời bạn khác" (bảng Tập đôi + dòng Tập đôi trên phiếu, bấm mở thẳng
+  phần chọn bạn) · (2) thẻ thông báo "tín hiệu đến": vạch Acid quét mép trên + chữ trồi + chấm Acid viền Mực phát một vòng sóng, toast có
+  vạch Acid mép dưới, B0B quay nhìn thẻ mới · (3) **kênh live mức 1** (chủ studio đồng ý 19/10): WebSocket vào DO (`worker/src/live.js`),
+  bảng tự cập nhật ~1 s sau mỗi lượt đặt / đổi / mời của người khác, ô đang chọn bị lấy → báo trước khi bấm, B0B nhìn quanh + "N người đang
+  xem" (ẩn danh, theo mã máy). Thứ tự đưa lên: **Worker trước, trang sau**. Chi phí Cloudflare (bảng giá 19/10): mở kết nối = 1 request,
+  tin gửi đi miễn phí, tin nhận 20:1, 'ping' tự trả không tính thời gian chạy — vài chục khách nằm gọn trong 1 triệu request /
+  400.000 GB-s có sẵn của gói Paid.
 - **Sức chứa 5 suất / khung** (5 coach: 5 khách 1:1 hay 10 khách 1:2) — ô dữ liệu BA `' ⚙️ 2'!C27` (đổi 18/10), không phải mã;
   `LT.CAP` = 4 chỉ là dự phòng khi không đọc được ô đó. Thế giới giả `?qc` vẫn sức chứa 4 (`qc.js` · cfg + BUSY).
 - **`Sổ đặt lịch` tuần 43 (19–24/10) là dữ liệu MÔ PHỎNG**: 120 dòng, Mã yêu cầu `mophong43-001…046`, ghi chú "Mô phỏng · …"
@@ -66,13 +74,15 @@ Mỗi lần đổi tệp tĩnh: tăng `VER` trong `app.js` **và** `sw.js`, cùn
 npm i playwright && npx playwright install chromium   # máy mới; hoặc PW_CHROMIUM=<đường dẫn chrome>
 node test/gas_lt.js                      # luật + Apps Script (218)
 cd worker && node test/run_all.mjs       # parity · concurrency · robust · http · realdata
-node test/ui_states.js && node test/ui_qc.js && node test/ui_duo.js && node test/ui_smoke.js && node test/ui_sw.js
+node test/ui_states.js && node test/ui_qc.js && node test/ui_duo.js && node test/ui_live.js && node test/ui_smoke.js && node test/ui_sw.js
 node test/ui_tk3d.js all && node test/ui_png.js all && node test/b0b_check.js && for f in test/rv_*.js; do node $f; done
 ```
 
 - `realdata` cần `.local/fixture_ba.json` (hoặc `BA_FIXTURE=…`): `python3 tools/ba_fixture.py <BA.xlsx>` (BA tải về dạng
   Excel). Không có thì tự bỏ qua. Ra 0 hội viên xác minh được → cột SĐT trong bản xuất bị đổi định dạng.
-- `MINIFLARE=… node worker/test/workerd.mjs`: Worker thật trong workerd.
+- `MINIFLARE=… node worker/test/workerd.mjs`: Worker thật trong workerd (kể cả kênh live WebSocket). Máy cloud cài được Miniflare vào
+  scratchpad: `npm i miniflare@4` + `overrides: {workerd: "1.20260916.1"}` (bản kèm theo chưa nhận compat date 2026-09-15). Với bản này,
+  3 ca "DO bị tắt khi nhật ký còn mục" trượt cả trên `main` cũ (storage DO không giữ qua hai lần tạo Miniflare) — lỗi của test, chưa sửa.
 - Phiếu 3D mặc định tắt trên WebGL bằng CPU → test dùng `?tk3d=1`. `b0b_check` đo khung hình, máy bận có thể trượt — chạy lại.
   Tối 18/10 ca "Idle ~30 fps (≤ 36)" trượt liên tục (35–42 fps) cả trên bản không đổi `b0b.js` → nhiễu máy test, không phải lỗi;
   bộ này chỉ nạp `test/b0b_demo.html` + `b0b.js`, sửa tệp khác không ảnh hưởng.
@@ -86,6 +96,9 @@ node test/ui_tk3d.js all && node test/ui_png.js all && node test/b0b_check.js &&
   dash.cloudflare.com của Worker (script tự so SHA từng module, giữ 3 plain_text + DO binding + secret, không gửi migrations)
   → kết quả `OK etag=…`, 5 binding, cron `* * * * *` → `lt_ping`. Có wrangler đã đăng nhập thì `cd worker && npx wrangler deploy`
   cũng được (secret giữ nguyên; `vars` + DO + cron lấy từ `wrangler.jsonc`), vẫn phải được đồng ý và `lt_ping` sau đó.
+- Kênh live (1.2.0, `worker/src/live.js`): WebSocket `/live` vào DO, chỉ báo "có thay đổi" + số người đang xem — xem `worker/README.md`.
+  Deploy có thêm module `live.js` (`tools/worker_deploy_snippet.mjs` đã có). Thứ tự: **Worker trước, trang sau** (trang 1.2.0 gặp Worker
+  cũ thì thử nối 4 lần rồi thôi — chạy được nhưng ghi lỗi vào console của khách; Worker 1.2.0 với trang cũ không sao).
 - Chỉ chạy MỘT máy chủ một lúc (Worker hoặc Apps Script) — mã nhớ máy ký khác khoá, nhật ký ghi sau nằm trong DO.
 
 ## Google Sheets

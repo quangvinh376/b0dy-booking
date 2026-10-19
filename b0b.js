@@ -334,6 +334,8 @@ void main(){
     stir: { d: 1000, k: [[0, 220, { roll: -3.2, ty: 1.6, sq: -.02 }, 's'], [220, 780, { roll: 0, ty: 0, sq: 0 }, 's']] },
     nodoff: { d: 1500, k: [[0, 900, { pitch: -9, ty: 2.5, lidT: .3 }, 's'], [900, 130, { pitch: 2, ty: -2, lidT: -.4, open: .08 }, 'o'], [1030, 470, { pitch: 0, ty: 0, lidT: 0, open: 0 }]] },
     greet: { d: 2300, k: [[0, 400, { pitch: 3, gy: -.06 }], [1500, 300, { pitch: -3, ty: 2 }], [1850, 420, { pitch: 0, ty: 0, gy: 0 }]] },
+    /* nhìn quanh (có thêm người đang xem trang): đầu + mắt sang trái, rồi sang phải, rồi về — chậm, mắt mở to hơn một chút */
+    scan: { d: 1750, k: [[0, 380, { yaw: -7, gx: -.5, open: .05 }, 's'], [560, 480, { yaw: 6, gx: .45 }, 's'], [1220, 530, { yaw: 0, gx: 0, open: 0 }, 's']] },
     dizzy: { d: 1900, fn: true }
   };
   for (const id in GEST) GEST[id].id = id;
@@ -999,6 +1001,8 @@ void main(){
         case 'offline': B.force = { id: 'worry', until: now + 6000 }; if (el) this._setAtt(4, { k: 'el', el }, 1500); this._gesture('sigh', now); break;
         case 'online': B.force = null; this._gesture('sigh', now, { amp: .6 }); setTimeout(() => { if (!this.dead) this._blink(performance.now(), 'slow'); }, 900); break;
         case 'sheet': case 'toast': if (el) this._setAtt(4, { k: 'el', el }, 1200); break;
+        /* kênh live: có thêm người đang mở trang → nhìn quanh + số người trên đầu (câu "N người đang xem" do trang ghi dưới chân B0B) */
+        case 'viewers': if (M_ASLEEP(this)) break; this._gesture('scan', now); if (d.n) this._tmark('txt', String(d.n), 1800); B.force = { id: 'curious', until: now + 2400 }; break;
         default: break;
       }
       this._heat(300);

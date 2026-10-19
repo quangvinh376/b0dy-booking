@@ -96,6 +96,19 @@ function backend(nowMs, opt) {
   return t;
 }
 async function attach(page, t) {
+  /* kênh live (1.2.0): máy chủ live giả cho trang mở với ?live (không có ?live trang local không nối — app.js · LIVE_ORIGIN) —
+     chào {t:'hi', n:1}, trả 'pong'; test đẩy tin bằng t.liveSend(m) ·
+     t.liveRefuse = true → đóng ngay khi nối (như Worker cũ không có /live) · t.liveConns / t.liveUrls: số lần / địa chỉ trang nối */
+  t.liveWs = t.liveWs || []; t.liveConns = t.liveConns || 0; t.liveUrls = t.liveUrls || [];
+  t.liveSend = m => { t.liveWs.forEach(ws => { try { ws.send(JSON.stringify(m)); } catch (e) { /* đã đóng */ } }); };
+  await page.routeWebSocket(u => /\/live\?dev=/.test(String(u)), ws => {
+    t.liveConns++; t.liveUrls.push(ws.url());
+    if (t.liveRefuse) { ws.close({ code: 1006, reason: 'khong co' }); return; }
+    t.liveWs.push(ws);
+    ws.onMessage(m => { if (m === 'ping') ws.send('pong'); });
+    ws.onClose(() => { t.liveWs = t.liveWs.filter(x => x !== ws); });
+    ws.send(JSON.stringify({ t: 'hi', r: 0, n: 1 }));
+  });
   await page.route(API + '**', async route => {
     const req = route.request();
     if (req.method() === 'OPTIONS') { await route.fulfill({ status: 204, headers: cors() }); return; }

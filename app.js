@@ -9,9 +9,12 @@
 'use strict';
 
 /* ============================== CẤU HÌNH ============================== */
-var VER = '1.1.0';
+var VER = '1.2.0';
 var API_URL = 'https://b0dy-booking-api.little-bonus-1d87.workers.dev/';
 var API_SLOW = false;                 /* true khi chạy Apps Script (chậm hơn nhiều) → nới thời gian chờ */
+/* kênh live: Worker chỉ nhận từ trang thật (ALLOW_ORIGINS) → trang chạy chỗ khác (test trên máy) không nối, khỏi gõ cửa máy chủ thật.
+   ?live: test kênh live với máy chủ live giả (test/ui_live.js) */
+var LIVE_ORIGIN = 'https://booking.b0dy.studio';
 /* chế độ QC (?qc): máy chủ giả chạy ngay trên máy (qc.js, đúng mã của Worker) với dữ liệu giả — không gọi mạng,
    bộ nhớ máy dùng tiền tố 'qc:' nên không bao giờ đọc / ghi mã nhớ máy hay lịch đã lưu của trang thật */
 var QC = /[?&]qc(=|&|$)/.test(location.search);
@@ -379,6 +382,16 @@ function bobGlance(el) {
   try { if (b.react) b.react('glance', r.left + r.width / 2, r.top + r.height / 2); } catch (e) { /* bỏ qua */ }
 }
 function bobReact(kind) { [BOB.d, BOB.m].forEach(function (b) { if (b && b.react) try { b.react(kind); } catch (e) { /* bỏ qua */ } }); }
+/* câu dưới chân B0B (kênh live: "N người đang xem") — chữ của trang, không phải của B0B; '' = ẩn */
+function bobCap(txt) {
+  [BOB.hostD, BOB.hostM].forEach(function (h) {
+    if (!h) return;
+    var c = h.querySelector('.bob-cap');
+    if (!c) { if (!txt) return; c = document.createElement('span'); c.className = 'bob-cap'; h.appendChild(c); }
+    if (txt) c.textContent = txt;
+    c.classList.toggle('on', !!txt);
+  });
+}
 function bobSlot(page) { var slot = page && page.querySelector('.bob-slot'); if (slot && BOB.hostM.parentNode !== slot) slot.appendChild(BOB.hostM); }
 
 /* ---------- B0B · cầu nối cảm giác (v1.1): trang KỂ điều đang xảy ra, B0B tự quyết định cảm và phản ứng ----------
@@ -487,8 +500,9 @@ function bobWatch() {
     if (S.sending && !BB.send) bobEmit('send', { el: bobVisible('#cta, #ctaM') });
     if (!S.sending && BB.send) bobEmit('sent', {});
     BB.send = !!S.sending;
-    var nk = S.notice ? (S.notice.type || '') + (S.notice.title || '') : '';
-    if (nk && nk !== BB.notice && S.notice.tone === 'warn') bobEmit('error', { el: page && page.querySelector('.note, .notice, [data-a="note"]') });
+    /* thẻ thông báo mới hiện (sàn desktop · dòng mobile): B0B quay nhìn thẻ — thẻ cảnh báo thì thêm vẻ lo (như trước) */
+    var ne = desk() ? $('#floor .nt') : page && page.querySelector('#mNote .mnt'), nk = ne ? ne.textContent : '';
+    if (nk && nk !== BB.notice) bobEmit(ne.classList.contains('warn') ? 'error' : 'toast', { el: ne });
     BB.notice = nk;
   }
   /* 04 phiếu: đặt / đổi / thêm xong → nhảy mừng rồi ngắm phiếu */
@@ -722,13 +736,15 @@ function noticeHTML(n) {
   var acts = (n.sugs || []).map(function (s) { return '<button class="btn btn-s btn-phu" type="button" data-a="sug" data-d="' + esc(s.date) + '" data-h="' + esc(s.h) + '">' + esc(hm(s.h)) + '</button>'; }).join('') +
     /* sàn desktop: Acid dành cho nút chốt (Đặt lịch) ở cột trái → hành động chính của thông báo dùng nút Mực */
     (n.acts || []).map(function (x) { return '<button class="btn btn-s ' + (x.main ? 'btn-toi' : 'btn-phu') + '" type="button" data-a="' + esc(x.a) + '" data-d="' + esc(x.d) + '" data-h="' + esc(x.h) + '"><span>' + esc(x.label) + '</span></button>'; }).join('');
-  return '<div class="nt" role="status">' + ico(n.tone === 'warn' ? 'warn' : 'info') +
+  return '<div class="nt' + (n.tone === 'warn' ? ' warn' : '') + '" role="status">' + sigIco(n.tone === 'warn' ? 'warn' : 'info') +
     '<div class="nt-tx"><p class="nt-t">' + esc(n.title) + '</p>' + (n.body ? '<p class="nt-b">' + esc(n.body) + '</p>' : '') + '</div>' +
     (acts ? '<div class="nt-act">' + acts + '</div>' : '') + '</div>';
 }
+/* biểu tượng thẻ thông báo + chấm tín hiệu Acid ở góc (chủ studio 19/10: thẻ thông báo phải bắt mắt — xem "tín hiệu đến" trong app.css) */
+function sigIco(n) { return '<span class="nt-ic">' + ico(n) + '<i class="nt-sig" aria-hidden="true"></i></span>'; }
 function mNoteHTML(n) {
   if (!n) return '';
-  return '<button class="mnt' + (n.tone === 'warn' ? ' warn' : '') + '" type="button" data-a="note"><span class="mnt-h">' + ico(n.tone === 'warn' ? 'warn' : 'info') +
+  return '<button class="mnt' + (n.tone === 'warn' ? ' warn' : '') + '" type="button" data-a="note"><span class="mnt-h">' + sigIco(n.tone === 'warn' ? 'warn' : 'info') +
     '<span class="mnt-t">' + esc(n.mtitle || n.title) + '</span>' + ico('chev', 'chev') + '</span></button>';
 }
 /* luật hiện trong Gói & luật: gói 1:2 thêm luật khung ghép (máy chủ cũ không gửi duo → như trước) */
@@ -2610,7 +2626,8 @@ function savePng() {
 }
 
 /* ============================== GÓI 1:2 · TẬP ĐÔI (mời bạn · nhận lời · từ chối) ============================== */
-/* Dòng "Tập đôi" trên màn phiếu: lời mời gửi mình (ưu tiên) · số buổi đang chờ bạn → "Mời bạn" · đã tập đôi cả tuần. Bấm → bảng Tập đôi */
+/* Dòng "Tập đôi" trên màn phiếu: lời mời gửi mình (ưu tiên) · bạn được mình mời đã từ chối → "Mời bạn khác" (mở thẳng phần chọn người
+   của buổi đó) · số buổi đang chờ bạn → "Mời bạn" · đã tập đôi cả tuần. Bấm → bảng Tập đôi */
 function pairLineHTML() {
   var d = duoSt(); if (!d || !S.st) return '';
   var up = upcoming(), iv = (d.invIn || [])[0];
@@ -2618,6 +2635,9 @@ function pairLineHTML() {
     esc(dShort(iv.date).split(' ')[0] + ' ' + hm(iv.h)) + '</span><span class="prl-c">Xem</span>' + ico('chev', 'chev') + '</button>';
   if (!up.length) return '';
   var paired = up.filter(function (x) { return pairName(x.date, x.h); }), wait = up.filter(function (x) { return !pairName(x.date, x.h); });
+  var no = wait.slice().sort(byDate).filter(function (x) { return invOutOf(x).st === 'no' && canInvite(x); })[0];
+  if (no) return '<button class="prl" type="button" data-a="pairs" data-d="' + esc(no.date) + '" data-h="' + esc(no.h) + '">' + ico('pair') + '<span class="prl-t">' +
+    esc(declinedTxt(invOutOf(no).to) + ' · ' + dShort(no.date).split(' ')[0] + ' ' + hm(no.h)) + '</span><span class="prl-c">Mời bạn khác</span>' + ico('chev', 'chev') + '</button>';
   var names = []; paired.forEach(function (x) { var n = pairName(x.date, x.h); if (names.indexOf(n) < 0) names.push(n); });
   var txt = wait.length ? wait.length + ' buổi đang chờ bạn tập' + (paired.length ? ' · ' + paired.length + ' buổi tập đôi' : '')
     : 'Tập đôi cả ' + paired.length + ' buổi · cùng ' + names.join(', ');
@@ -2632,6 +2652,9 @@ function updatePairLine() {
   el.innerHTML = t.innerHTML;
   if (!had !== !el.firstElementChild) { tkFit(true); tkPaper(); }   /* dòng hiện / ẩn → cao khung phiếu đổi: đo lại */
 }
+/* lời mời mình gửi ở buổi x: {to: tên gọi người được mời, st: 'wait' | 'no' (đã từ chối)} · chưa mời → {} */
+function invOutOf(x) { var d = duoSt(), io = d && d.invOut ? d.invOut[x.date + '|' + x.h] : null; return io || {}; }
+function declinedTxt(who) { return (who || 'Bạn ấy') + ' đã từ chối tham gia'; }
 /* buổi đang lẻ còn mời được: khung còn tới và người khác còn đặt được (như máy chủ: lead của tuần) */
 function canInvite(x) {
   var t = slotMs(x.date, x.h), n = now();
@@ -2656,11 +2679,11 @@ function pairsHTML(isSheet) {
   h += '<div class="dr-sec"><span class="k">Buổi 1:2 của bạn</span><div class="pr-list">';
   if (!up.length) h += '<p class="pr-empty">Chưa có buổi nào sắp tới.</p>';
   up.forEach(function (x) {
-    var k = x.date + '|' + x.h, pn = pairName(x.date, x.h), io = d.invOut ? d.invOut[k] : null, can = canInvite(x);
-    var stx = pn ? 'Tập đôi cùng ' + pn : io ? (io.st === 'no' ? io.to + ' chưa tham gia được' : 'Đã mời ' + io.to + ' · chờ trả lời') : coachAt(x.date, x.h) === '' ? 'Chờ bạn tập · buổi vẫn diễn ra' : 'Coach đã có lịch khác ở khung này';
+    var pn = pairName(x.date, x.h), io = d.invOut ? d.invOut[x.date + '|' + x.h] : null, can = canInvite(x);
+    var stx = pn ? 'Tập đôi cùng ' + pn : io ? (io.st === 'no' ? declinedTxt(io.to) : 'Đã mời ' + io.to + ' · chờ trả lời') : coachAt(x.date, x.h) === '' ? 'Chờ bạn tập · buổi vẫn diễn ra' : 'Coach đã có lịch khác ở khung này';
     var open = pick && pick.date === x.date && +pick.h === x.h;
     h += '<div class="pr-row' + (pn ? ' on' : '') + '"><div class="pr-l"><span class="pr-t">' + esc(dShort(x.date) + ' · ' + hm(x.h)) + '</span><span class="pr-s">' + esc(stx) + '</span></div>' +
-      (can && !open ? '<div class="pr-a"><button class="btn btn-s ' + (io && io.st !== 'no' ? 'btn-phu' : 'btn-toi') + '" type="button" data-a="invpick" data-d="' + esc(x.date) + '" data-h="' + esc(x.h) + '"' + busyA + '><span>' + (io && io.st !== 'no' ? 'Đổi người' : 'Mời bạn') + '</span></button></div>' : '') + '</div>';
+      (can && !open ? '<div class="pr-a"><button class="btn btn-s ' + (io && io.st !== 'no' ? 'btn-phu' : 'btn-toi') + '" type="button" data-a="invpick" data-d="' + esc(x.date) + '" data-h="' + esc(x.h) + '"' + busyA + '><span>' + (!io ? 'Mời bạn' : io.st === 'no' ? 'Mời bạn khác' : 'Đổi người') + '</span></button></div>' : '') + '</div>';
     if (open) {
       var peers = d.peers || [];
       h += '<div class="pr-pick"><p class="pr-q" id="prQ">Mời một bạn cùng coach tập ' + esc(dShort(x.date) + ' ' + hm(x.h)) + '</p>' +
@@ -2676,9 +2699,10 @@ function pairsHTML(isSheet) {
   return h;
 }
 var DUO = { busy: false };
-function openPairs() {
+/* pick: mở sẵn phần chọn người của một buổi (dòng "… đã từ chối tham gia · Mời bạn khác" trên phiếu) */
+function openPairs(pick) {
   if (!duoSt()) return;
-  S.invPick = null;
+  S.invPick = pick || null;
   if (!desk()) { openSheet({ pairs: true }); return; }
   var dr = $('#drawer'); LASTF = document.activeElement;
   dr.innerHTML = pairsHTML(false); dr._pairs = true; dr.classList.remove('rr'); dr.hidden = false; dr.classList.remove('out'); void dr.offsetWidth; dr.classList.add('on'); scrimOn(true); appInert();
@@ -2929,7 +2953,7 @@ var ACT = {
   'back-ticket': function () { if (S.sending) return; if (S.view === 'change' || (S.view === 'book' && S.addMode)) leaveToTicket(); },
   retry: function () { refresh(); },
   /* gói 1:2 · tập đôi */
-  pairs: function () { openPairs(); },
+  pairs: function (b) { openPairs(b.dataset.d ? { date: b.dataset.d, h: +b.dataset.h, sel: '' } : null); },
   invpick: function (b) { if (DUO.busy) return; S.invPick = { date: b.dataset.d, h: +b.dataset.h, sel: '' }; renderPairs('.pr-opt'); },
   invpickoff: function () { S.invPick = null; renderPairs('[data-a="invpick"]'); },
   invsel: function (b) { if (!S.invPick || DUO.busy) return; S.invPick.sel = b.dataset.id; renderPairs('.pr-opt[data-id="' + b.dataset.id + '"]'); },
@@ -2988,7 +3012,7 @@ function applyPublic(r) {
   else headerFor();
 }
 function applyAuthed(r, quiet) {
-  var prevView = S.view, prevMode = S.st && S.st.mode, prevWeek = S.st && S.st.week.key;
+  var prevView = S.view, prevMode = S.st && S.st.mode, prevWeek = S.st && S.st.week.key, prevTk = S.st ? tkSig(S.st) : '';
   S.st = cleanSt(r); saveSt();
   var st = S.st;
   renderPairs();                                   /* bảng Tập đôi đang mở: lời mời / bạn tập mới */
@@ -3011,6 +3035,8 @@ function applyAuthed(r, quiet) {
   if (prevView === 'change') { if (st.mode === 'ticket') { repaintChange(); return; } routeAuthed('fwd'); return; }
   if (prevView === 'ticket') {
     if (st.mode !== 'ticket') { routeAuthed('fwd'); return; }
+    /* lượt làm mới lặng (2 phút một lần · tin live do người khác đặt) mà phiếu của mình không đổi → giữ nguyên vé, chỉ cập nhật dòng Tập đôi */
+    if (quiet && prevTk === tkSig(st)) { updatePairLine(); headerFor(); return; }   /* header: vd hết "Mất kết nối" sau lượt hỏi lại thành công */
     if (!quiet) go('ticket', 'fwd', { variant: S.tkVariant, instant: true });
     else { var v = S.tkVariant; var html = S.page && S.page.querySelector('#tkfit'); if (html) { go('ticket', 'fwd', { variant: v, instant: true, noFocus: true }); } }
     return;
@@ -3018,6 +3044,8 @@ function applyAuthed(r, quiet) {
   if (prevView === 'closed') { if (st.mode === 'book' || st.mode === 'ticket') routeAuthed('fwd'); else headerFor(); return; }
   routeAuthed('fwd');
 }
+/* những gì vé đang hiện dựa vào: phiếu, hồ sơ, tập đôi, tuần, ngày coach nghỉ */
+function tkSig(st) { try { return JSON.stringify([st.mine, st.me, st.duo || null, st.week.key, st.week.phase, st.week.closed || {}]) + '|' + offDays().join(','); } catch (e) { return ''; } }
 function dropInvalid() {
   var lead = leadBook(), gone = [];
   S.picks = S.picks.filter(function (p) {
@@ -3059,6 +3087,75 @@ function refresh(quiet) {
     S.net = true; headerFor();   /* đang xem bản lưu trên máy: header báo Mất kết nối cho tới lần làm mới kế tiếp thành công */
   });
 }
+/* ============================== KÊNH LIVE (1.2.0 · chủ studio duyệt 19/10, "mức 1") ==============================
+   Máy chủ báo qua MỘT WebSocket (worker/src/live.js): {t:'bump'} = phòng vừa đổi (ai đó vừa đặt / đổi / mời…, hay sheet vừa sửa) →
+   hỏi lại state của mình như một lượt làm mới thường (ai thấy gì vẫn do lt_boot quyết — tin live không mang dữ liệu hội viên) ·
+   {t:'n', n} = số máy đang mở trang (ẩn danh) → B0B nhìn quanh + câu "N người đang xem" dưới chân B0B.
+   Chỉ nối khi tab đang hiện (ẩn tab → đóng; hiện lại → nối lại, rồi hỏi lại vì có thể đã lỡ tin). Một lần nối chỉ tính là thông khi
+   nhận được "hi" của máy chủ (nối được rồi bị đóng ngay vẫn là hỏng — không nối lại dồn dập). Máy chủ cũ / Apps Script không có kênh:
+   hỏng LIVE_TRIES lần liền → thôi cho tới lần hiện tab sau; trang vẫn tự hỏi 2 phút một lần như trước.
+   QC: máy chủ giả đẩy tin thẳng vào liveMsg (qc.js · QCB.live), không mở kết nối thật. */
+var LIVE = { ws: null, fails: 0, seen: false, retryT: 0, pingT: 0, bumpT: 0, n: 0, bobAt: 0 };
+var LIVE_BACKOFF = [1000, 3000, 8000, 20000], LIVE_TRIES = 4, LIVE_PING = 30000, LIVE_BOB_GAP = 20000;
+function liveUrl() { return API_URL.replace(/^http/, 'ws').replace(/\/+$/, '') + '/live?dev=' + encodeURIComponent(S.dev); }
+function liveStart() {
+  if (QC) { if (window.QCB && window.QCB.live) window.QCB.live.on(liveMsg); return; }
+  if (API_SLOW || !window.WebSocket || (location.origin !== LIVE_ORIGIN && !/[?&]live(=|&|$)/.test(location.search))) return;
+  document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') { LIVE.fails = 0; liveOpen(); } else liveClose(); });
+  window.addEventListener('online', function () { LIVE.fails = 0; liveOpen(); });
+  liveOpen();
+}
+function liveOpen() {
+  if (LIVE.ws || document.visibilityState !== 'visible' || LIVE.fails >= LIVE_TRIES) return;
+  clearTimeout(LIVE.retryT);
+  var ws, up = false;
+  try { ws = new WebSocket(liveUrl()); } catch (e) { LIVE.fails++; liveRetry(); return; }
+  LIVE.ws = ws;
+  ws.onopen = function () { clearInterval(LIVE.pingT); LIVE.pingT = setInterval(function () { try { ws.send('ping'); } catch (e) { /* onclose lo */ } }, LIVE_PING); };
+  ws.onmessage = function (e) {
+    var m = null; try { m = JSON.parse(e.data); } catch (x) { return; }                 /* 'pong' không phải JSON → bỏ */
+    if (!m || typeof m !== 'object' || LIVE.ws !== ws) return;
+    if (m.t === 'hi') { up = true; LIVE.fails = 0; }
+    liveMsg(m);
+  };
+  ws.onclose = function () {
+    if (LIVE.ws !== ws) return;
+    LIVE.ws = null; clearInterval(LIVE.pingT);
+    if (!up) LIVE.fails++;
+    liveCount(0); liveRetry();
+  };
+}
+function liveRetry() {
+  clearTimeout(LIVE.retryT);
+  if (document.visibilityState !== 'visible' || LIVE.fails >= LIVE_TRIES) return;
+  LIVE.retryT = setTimeout(liveOpen, LIVE_BACKOFF[Math.min(LIVE.fails, LIVE_BACKOFF.length - 1)]);
+}
+function liveClose() {
+  clearTimeout(LIVE.retryT); clearInterval(LIVE.pingT);
+  var ws = LIVE.ws; LIVE.ws = null;
+  if (ws) try { ws.close(1000, 'an'); } catch (e) { /* bỏ qua */ }
+  liveCount(0);
+}
+function liveMsg(m) {
+  if (m.t === 'hi') { if (LIVE.seen) liveBump(); LIVE.seen = true; liveCount(m.n); }   /* nối lại: có thể đã lỡ tin trong lúc rớt → hỏi lại */
+  else if (m.t === 'bump') liveBump();
+  else if (m.t === 'n') liveCount(m.n);
+}
+/* phòng vừa đổi → hỏi lại (gom các tin dồn dập; lệch ngẫu nhiên tới 0,45 s để không phải mọi máy cùng hỏi một lúc) */
+function liveBump() {
+  clearTimeout(LIVE.bumpT);
+  LIVE.bumpT = setTimeout(function () {
+    if (document.visibilityState !== 'visible' || !S.st || S.sending || DUO.busy) return;     /* đang gửi: phản hồi của lệnh đó mang state mới */
+    if (S.view === 'book' || S.view === 'change' || S.view === 'ticket') refresh(true);
+  }, 250 + Math.random() * 450);
+}
+/* số người đang xem (cả mình): ≥ 2 → câu dưới chân B0B; tăng lên → B0B nhìn quanh + số trên đầu (cách nhau ≥ 20 s) */
+function liveCount(n) {
+  n = Math.max(0, +n || 0);
+  var prev = LIVE.n; LIVE.n = n;
+  bobCap(n >= 2 ? n + ' người đang xem' : '');
+  if (n >= 2 && n > prev && Date.now() - LIVE.bobAt > LIVE_BOB_GAP) { LIVE.bobAt = Date.now(); bobEmit('viewers', { n: n }); }
+}
 function boot() {
   S.dev = devId();
   SKEW = +LS.get('lt_skew') || 0;
@@ -3075,7 +3172,8 @@ function boot() {
     else go('find', 'fwd', { instant: true, noFocus: !desk() });
   } else go('loading', 'fwd', { instant: true });
   refresh(true);
-  /* làm mới khi quay lại trang · mỗi 2 phút khi đang mở bảng */
+  liveStart();
+  /* làm mới khi quay lại trang · mỗi 2 phút khi đang mở bảng (kênh live thông thì đây chỉ còn là lưới an toàn) */
   document.addEventListener('visibilitychange', function () {
     if (document.visibilityState !== 'visible') return;
     clockTick();

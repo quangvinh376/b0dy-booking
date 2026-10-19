@@ -354,7 +354,7 @@ class FakeStorage {
 }
 
 /* ============================== KHỞI ĐỘNG MÁY CHỦ GIẢ ============================== */
-const opt = Object.assign({ fault: '', offline: false, slow: false, nghi: false, last: '' }, load(K.opt) || {});
+const opt = Object.assign({ fault: '', offline: false, slow: false, nghi: false, last: '', watch: 0 }, load(K.opt) || {});
 let clock = load(K.clock), files = load(K.g);
 /** Đồng hồ giả: giờ kịch bản + thời gian thật đã trôi từ lúc bắt đầu kịch bản (qua cả các lần tải lại trang). */
 function nowMs() { return clock.base + (Date.now() - clock.t0); }
@@ -397,8 +397,14 @@ window.addEventListener('storage', e => { if (!FROZEN && (e.key === null || e.ke
 
 const sheets = new FakeSheets(files, () => { if (own()) save(K.g, files); });
 const storage = new FakeStorage(DO_OK ? DO0 : {}, o => { if (own()) save(K.do, Object.assign({ _wid: clock.wid }, o)); });
+/* ============================== KÊNH LIVE GIẢ (1.2.0) ==============================
+   Như worker/src/live.js nhưng không có mạng: máy chủ giả báo "phòng vừa đổi" (notify) → gom 150 ms → đẩy {t:'bump'} thẳng vào trang
+   (app.js · liveMsg); số người đang xem = trang này + opt.watch người giả (nút trong bảng QC). */
+let LIVE_CB = null, liveRev = 0, liveT = null;
+function liveEmit(m) { if (LIVE_CB) try { LIVE_CB(m); } catch (e) { console.debug('[QC] kênh live', e); } }
+function liveNotify() { clearTimeout(liveT); liveT = setTimeout(() => { liveRev++; liveEmit({ t: 'bump', r: liveRev }); }, 150); }
 const core = new BookingCore({
-  storage: storage, sheets: sheets, now: nowMs,
+  storage: storage, sheets: sheets, now: nowMs, notify: liveNotify,
   env: { BA_ID: BA_ID, OUT_ID: OUT_ID, LT_SECRET: SECRET },
   log: o => { try { console.debug('[QC · máy chủ giả]', JSON.stringify(o)); } catch (e) { /* bỏ qua */ } }
 });
@@ -446,6 +452,38 @@ async function fillSlot(p) {
   const meta = await core.getMeta();
   await sheets.batchUpdate(OUT_ID, [appendRows(meta.out.logId, arrs)]);
   await core.loadLog();
+}
+/**
+ * "Người khác vừa đặt" (kênh live): một hội viên nền 1:1 đặt MỘT khung còn chỗ của tuần (còn ≥ 24 giờ, coach của họ nhận khách,
+ * coach chưa có suất ở khung đó) — ghi thẳng vào sổ giả rồi máy chủ giả đọc lại sổ → thấy khác → đẩy tin bump như máy chủ thật →
+ * trang đang mở tự cập nhật, không cần tải lại. Ưu tiên khung trang đang chọn (để thử "ô mình đang chọn vừa có người đặt"),
+ * còn lại chọn ngẫu nhiên. Trả khung đã đặt hoặc null.
+ */
+async function otherBooks() {
+  const t = nowMs(), ctx = C.weekCtx(t), ba = await core.getBA(), rows = (await core.getLog()).rows;
+  const env = C.envOf(ctx, rows, core.trialsFor(ctx, ba), ba.closed, ba.cap, ba.sched), cand = [];
+  ctx.days.forEach(date => LT.SLOTS.forEach(h => {
+    if (C.slotMs(date, h) - t < LT.LEAD || ba.closed[date] !== undefined || (env.taken[date + '|' + h] || 0) >= ba.cap) return;
+    cand.push({ date: date, h: h });
+  }));
+  const picked = ((window.__lt && window.__lt.S.picks) || []).map(p => p.date + '|' + p.h);
+  cand.sort(() => Math.random() - .5).sort((a, b) => (picked.indexOf(b.date + '|' + b.h) >= 0) - (picked.indexOf(a.date + '|' + a.h) >= 0));
+  for (const x of cand) {
+    const s = env.room[x.date + '|' + x.h], here = new Set(s ? Object.keys(s.c) : []);
+    const m = BG.find(b => {
+      if (b.kind !== '1:1' || here.has(C.coachKey(b.coach)) || C.offAt(env, meOf(b), x.date, x.h)) return false;
+      const mm = C.mine(rows, meOf(b), ctx);
+      return mm.sessions.length < LT.MAX && !mm.sessions.some(q => q.date === x.date);
+    });
+    if (!m) continue;
+    const mm = C.mine(rows, meOf(m), ctx);
+    const arr = C.logRow(mm.code, mm.ver + 1, ctx.key, x, meOf(m), mm.sessions.length ? 'Thêm' : 'Đặt', '', C.stamp(t), 'qco' + m.code + Date.now().toString(36));
+    const meta = await core.getMeta();
+    await sheets.batchUpdate(OUT_ID, [appendRows(meta.out.logId, [arr])]);
+    await core.loadLog();
+    return x;
+  }
+  return null;
 }
 /** Một lượt gọi như Worker thật: lỗi nghiệp vụ vẫn là JSON; chỉ "mạng" mới ném lỗi. */
 async function serve(p) {
@@ -505,6 +543,13 @@ const ACT = {
     d._wid = clock.wid;
     FROZEN = true; save(K.do, d); reload();
   },
+  other: async () => {
+    const x = await otherBooks().catch(e => { console.debug('[QC] người khác đặt', e); return null; }), pp = C.parts(nowMs());
+    opt.last = (x ? 'người khác vừa đặt ' + LT.DOW[C.dowOf(x.date)] + ' ' + C.ddMm(x.date) + ' ' + C.lt2(x.h) + ':00' : 'không còn khung nào cho người khác đặt') +
+      ' · lúc ' + C.lt2(pp.hh) + ':' + C.lt2(pp.mi) + ':' + C.lt2(pp.ss);
+    saveOpt(); refreshPanel();
+  },
+  watch: () => { opt.watch = opt.watch ? 0 : 2; saveOpt(); refreshPanel(); liveEmit({ t: 'n', n: 1 + opt.watch }); },
   reset: () => { freshWorld(clock.key); signOutPage(); reload(); },
   exit: () => { FROZEN = true; wipe(['qc:', 'qcsrv:']); location.replace(location.pathname); },
   close: () => closePanel(true)
@@ -538,6 +583,9 @@ function panelHTML() {
       '<button class="qc-b" type="button" data-qc="slow"' + pressed(opt.slow) + '>Mạng chậm +2 giây</button>' +
       '<button class="qc-b" type="button" data-qc="nghi"' + pressed(opt.nghi) + '>T7 24.10 phòng nghỉ</button></div>' +
       '<p class="qc-note">Mất mạng hoàn toàn và phòng nghỉ: trang tải lại để áp dụng.</p>') +
+    sec('qcK5', 'Kênh live', '<div class="qc-row qc-wrap"><button class="qc-b" type="button" data-qc="other">Người khác vừa đặt một khung</button>' +
+      '<button class="qc-b" type="button" data-qc="watch"' + pressed(!!opt.watch) + '>Thêm 2 người đang xem</button></div>' +
+      '<p class="qc-note">Trang tự cập nhật, không cần tải lại — như khi hội viên khác đặt trên máy của họ. Người đang xem: B0B nhìn quanh, dưới chân hiện "N người đang xem".</p>') +
     sec('qcK4', 'Sổ đặt lịch giả', '<p class="qc-meta" id="qcMeta"></p><div class="qc-tbl" id="qcTbl" tabindex="0" aria-label="Sổ đặt lịch giả"></div>') +
     '<div class="qc-end"><button class="qc-b" type="button" data-qc="reset">Làm lại từ đầu</button>' +
       '<button class="qc-b" type="button" data-qc="exit">Thoát QC</button></div>';
@@ -565,6 +613,7 @@ function refreshPanel() {
   PANEL.querySelector('#qcPh').textContent = 'Tuần ' + ctx.no + ' · ' + PHASE[ctx.phase];
   PANEL.querySelectorAll('[data-qc="fault"]').forEach(b => b.setAttribute('aria-pressed', String(opt.fault === b.dataset.k)));
   PANEL.querySelector('[data-qc="slow"]').setAttribute('aria-pressed', String(opt.slow));
+  PANEL.querySelector('[data-qc="watch"]').setAttribute('aria-pressed', String(!!opt.watch));
   PANEL.querySelector('#qcLast').textContent = opt.last ? 'Vừa áp dụng: ' + opt.last + '.' : '';
   const hl = core.health(), key = ctx.key + '|' + sheets.rev + '|' + hl.pending + '|' + hl.lastError;
   if (key === SEEN) return;
@@ -616,6 +665,8 @@ function cssReady() {
 /* ============================== XUẤT CHO app.js ============================== */
 window.QCB = {
   fetch: qcFetch,
+  /** kênh live giả: trang đăng ký nhận tin; trả ngay "hi" như khi vừa nối */
+  live: { on: fn => { LIVE_CB = fn; setTimeout(() => liveEmit({ t: 'hi', r: liveRev, n: 1 + (opt.watch || 0) }), 60); } },
   /** sẵn sàng: máy chủ giả đã nạp storage + nhật ký → app.js đặt đồng hồ trang (skew) rồi mới khởi động */
   ready: Promise.all([core.init(), cssReady()]).then(() => {
     setInterval(() => { core.tick().catch(() => {}); }, 60e3);    /* như cron mỗi phút của Worker */

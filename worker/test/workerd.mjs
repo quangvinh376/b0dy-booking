@@ -24,11 +24,11 @@ const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'b0dy-workerd-'));
 const SRC = path.join(TMP, 'src'), DATA = path.join(TMP, 'data');
 fs.cpSync(path.join(HERE, '..', 'src'), SRC, { recursive: true });
 const IDX = path.join(SRC, 'index.js');
-const anchor = 'this.core = new BookingCore({ storage: ctx.storage, env: env, waitUntil: p => ctx.waitUntil(p) });';
+const anchor = 'this.core = new BookingCore({ storage: ctx.storage, env: env, waitUntil: p => ctx.waitUntil(p), notify: () => this.live.bump() });';
 const ix = fs.readFileSync(IDX, 'utf8');
 if (ix.indexOf(anchor) < 0) { console.log('FAIL  index.js đã đổi — cập nhật anchor của test'); process.exit(1); }
 const LOGS = [];
-fs.writeFileSync(IDX, ix.replace(anchor, 'this.core = new BookingCore({ storage: ctx.storage, env: env, waitUntil: p => ctx.waitUntil(p), now: () => Date.now() + Number(env.CLOCK_OFF || 0) });'));
+fs.writeFileSync(IDX, ix.replace(anchor, 'this.core = new BookingCore({ storage: ctx.storage, env: env, waitUntil: p => ctx.waitUntil(p), notify: () => this.live.bump(), now: () => Date.now() + Number(env.CLOCK_OFF || 0) });'));
 
 let pass = 0, fail = 0;
 function ok(label, cond, extra) {
@@ -61,7 +61,7 @@ function makeMf() {
     handleStructuredLogs: l => { LOGS.push(String(l.message || '')); },
     workers: [{
       name: 'b0dy-booking-api', modulesRoot: SRC,
-      modules: ['index.js', 'booking.js', 'core.js', 'sheets.js', 'crypto.js', 'http.js'].map(f => ({ type: 'ESModule', path: path.join(SRC, f) })),
+      modules: ['index.js', 'booking.js', 'core.js', 'sheets.js', 'crypto.js', 'http.js', 'live.js'].map(f => ({ type: 'ESModule', path: path.join(SRC, f) })),
       compatibilityDate: '2026-09-15',
       durableObjects: { BOOK: { className: 'Booking', useSQLite: true } },
       bindings: { BA_ID: 'BA', OUT_ID: 'OUT', ALLOW_ORIGINS: 'https://booking.b0dy.studio', SA_JSON: SA.saJson, LT_SECRET: SECRET, CLOCK_OFF: String(OFF) },
@@ -110,6 +110,39 @@ try {
   t = await until(() => ofRid('ridworkerd0003') === 2, 6000);
   ok('Hết lỗi → alarm thật của DO thử lại → đúng 2 dòng (' + t + ' ms)', t >= 0, t);
 
+  console.log('\n== workerd: kênh live (WebSocket Hibernation, 1.2.0) ==');
+  const sock = async (dev, origin) => {
+    const r = await mf.dispatchFetch('http://localhost/live?dev=' + dev, { headers: { upgrade: 'websocket', origin: origin === undefined ? 'https://booking.b0dy.studio' : origin } });
+    if (!r.webSocket) return { status: r.status };
+    const ws = r.webSocket, got = [];
+    ws.accept(); ws.addEventListener('message', e => got.push(typeof e.data === 'string' ? e.data : ''));
+    return { status: r.status, ws, got };
+  };
+  const msgs = g => g.filter(x => x[0] === '{').map(x => JSON.parse(x));
+  const A = await sock('devLIVEAAAAAAAAAAAAA1'), A2 = await sock('devLIVEAAAAAAAAAAAAA1'), Bs = await sock('devLIVEBBBBBBBBBBBBB2');
+  ok('Mở 3 kết nối (2 máy) → 101', A.status === 101 && A2.status === 101 && Bs.status === 101, [A.status, A2.status, Bs.status]);
+  t = await until(() => msgs(Bs.got).some(m => m.t === 'n' && m.n === 2), 3000);
+  ok('Đếm theo mã máy: 2 người đang xem (' + t + ' ms)', t >= 0, Bs.got);
+  ok('Tin đầu tiên là "hi"', !!msgs(A.got)[0] && msgs(A.got)[0].t === 'hi', A.got);
+  const bad = await sock('devLIVECCCCCCCCCCCCC3', 'https://la.example');
+  const noDev = await mf.dispatchFetch('http://localhost/live?dev=x', { headers: { upgrade: 'websocket', origin: 'https://booking.b0dy.studio' } });
+  ok('Origin lạ → 403 · mã máy sai dạng → 400 (không nâng cấp)', bad.status === 403 && noDev.status === 400, [bad.status, noDev.status]);
+  A.ws.send('ping'); t = await until(() => A.got.indexOf('pong') >= 0, 2000);
+  ok('ping → pong (' + t + ' ms)', t >= 0, A.got);
+  const nb = msgs(Bs.got).filter(m => m.t === 'bump').length;
+  b = await post(BOOK(s2.tok, 'ridworkerd0005', [{ date: '2026-10-22', h: 10 }, { date: '2026-10-24', h: 10 }]));
+  t = await until(() => msgs(Bs.got).filter(m => m.t === 'bump').length > nb && msgs(A2.got).some(m => m.t === 'bump'), 3000);
+  ok('Đặt lịch → mọi kết nối nhận "bump" sau ' + t + ' ms (< 1 s), không kèm dữ liệu hội viên', b.ok && t >= 0 && t < 1000 &&
+     ![A.got, A2.got, Bs.got].some(g => g.some(x => /B90\dDY|Hoàng|Phạm|Khách|0900/.test(x))), [b.error, Bs.got]);
+  await until(() => ofRid('ridworkerd0005') === 2, 3000);
+  const nb2 = msgs(Bs.got).filter(m => m.t === 'bump').length;
+  await post({ action: 'lt_boot', dev: DEV, tok: s1.tok }); await sleep(600);
+  ok('Lượt xem (lt_boot) và lượt đọc lại sổ sau khi ghi không gửi "bump" thừa', msgs(Bs.got).filter(m => m.t === 'bump').length === nb2, Bs.got.slice(-3));
+  Bs.ws.close(1000, 'bye');
+  t = await until(() => msgs(A.got).some(m => m.t === 'n' && m.n === 1), 3000);
+  ok('Một máy rời trang → còn 1 người đang xem (' + t + ' ms)', t >= 0, A.got);
+  A.ws.close(1000, 'bye'); A2.ws.close(1000, 'bye');
+
   console.log('\n== workerd: DO bị tắt khi nhật ký còn mục → chạy lại trên cùng storage ==');
   fg.writeStatus = 503;
   b = await post(BOOK(s3.tok, 'ridworkerd0004', [{ date: '2026-10-19', h: 9 }, { date: '2026-10-24', h: 9 }]));
@@ -126,7 +159,7 @@ try {
   await sleep(500);
   ok('Gửi lại mã cũ → dup, sổ không thêm dòng', again.ok && again.dup && ofRid('ridworkerd0004') === 2, again);
   p = await post({ action: 'lt_ping' });
-  ok('Cuối: pending 0, lastError rỗng, sổ 7 dòng', p.pending === 0 && p.lastError === '' && rows().length === 7, [p, rows().length]);
+  ok('Cuối: pending 0, lastError rỗng, sổ 9 dòng', p.pending === 0 && p.lastError === '' && rows().length === 9, [p, rows().length]);
   const leak = LOGS.filter(x => /0900000|Hoàng|Phạm|Khách Số/.test(x));
   ok('Nhật ký vận hành của workerd (' + LOGS.length + ' dòng, có ' + LOGS.filter(x => x.indexOf('"flush"') >= 0).length + ' dòng flush) không có tên / SĐT', LOGS.length > 0 && LOGS.some(x => x.indexOf('"flush"') >= 0) && leak.length === 0, leak.slice(0, 2));
 } finally {

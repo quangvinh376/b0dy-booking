@@ -54,6 +54,8 @@ const SNAP_LOG_FMT = 2;
 const META_FMT = 2;
 
 function msg(e) { return String(e && e.message || e).slice(0, 120); }
+/** băm FNV-1a 32 bit (dấu nội dung cho kênh live — chỉ so bằng, không bảo mật) */
+function fnv(s) { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); } return (h >>> 0).toString(36) + ':' + s.length; }
 
 /* ================================================================== */
 /* Nhật ký ghi sau (journal) — hàm thuần                               */
@@ -173,6 +175,8 @@ export class BookingCore {
     this.lastPurge = 0;
     this.baFailAt = 0;                // lần làm mới BA gần nhất bị lỗi (Date.now)
     this.metaTryAt = 0;               // lần dò lại tên tab gần nhất (getMeta)
+    this.notify = deps.notify || null; // kênh live (live.js): gọi khi phòng của tuần đang đặt vừa đổi
+    this.sigLog = ''; this.sigBa = '';  // dấu của sổ / BA lần đọc trước — đọc lại khác thì báo kênh live
   }
 
   /* ---------------- vòng đời ---------------- */
@@ -198,6 +202,7 @@ export class BookingCore {
     } catch (e) { /* storage lỗi: không có mục nào để ghi tiếp */ }
     try { if (typeof this.storage.getAlarm === 'function') this.alarmAt = Number(await this.storage.getAlarm()) || 0; } catch (e) { /* bỏ qua */ }
     this.rebuildLog();
+    this.sigLog = this.logSig(); this.sigBa = this.baSig();   /* sheet đổi trong lúc DO ngủ → lần đọc đầu sau khi thức vẫn báo */
     if (this.jPending.length) { this.kick(); this.ensureAlarm(Date.now() + this.cfg.BACKSTOP_MS); }
   }
   /** Việc chạy ngầm: giữ lại để test chờ được (idle) và để DO không bỏ dở. */
@@ -293,6 +298,7 @@ export class BookingCore {
       this.ba = ba;
       this.trialsMemo = null; this.personsMemo = null;
       this.persist('snap:ba', ba);
+      this.watchBa();
       return ba;
     });
   }
@@ -305,6 +311,7 @@ export class BookingCore {
       this.ba = ba;
       this.trialsMemo = null; this.personsMemo = null;
       this.persist('snap:ba', ba);
+      this.watchBa();
       return ba;
     });
   }
@@ -346,8 +353,23 @@ export class BookingCore {
     this.base = B;
     this.rebuildLog();
     this.persistBase();
+    this.watchLog();
     return true;
   }
+
+  /* ---------------- kênh live: phòng vừa đổi → báo mọi trang hỏi lại (live.js) ---------------- */
+
+  changed() { if (this.notify) try { this.notify(); } catch (e) { /* kênh live không bao giờ làm hỏng lượt ghi */ } }
+  /** Dấu sổ của tuần đang đặt: không tính số dòng (dòng vừa ghi trong bộ nhớ và dòng đọc lại từ sheet phải ra cùng dấu) */
+  logSig() {
+    if (!this.log) return '';
+    const k = C.weekCtx(this.now()).key;
+    return fnv(this.log.rows.filter(r => r.week === k).map(r => [r.code, r.ver, r.date, r.h, r.coach, r.kind, r.st, r.act, r.note, r.rid, r.kh].join('|')).sort().join('\n'));
+  }
+  /** Dấu phần BA làm đổi phòng của mọi người: ngày nghỉ · sức chứa · lịch coach · tập thử */
+  baSig() { const b = this.ba; return b ? fnv(JSON.stringify([b.closed, b.cap, b.sched || {}, b.trialRows])) : ''; }
+  watchLog() { const s = this.logSig(); if (this.sigLog && s && s !== this.sigLog) this.changed(); if (s) this.sigLog = s; }
+  watchBa() { const s = this.baSig(); if (this.sigBa && s && s !== this.sigBa) this.changed(); if (s) this.sigBa = s; }
   /**
    * Dựng lại sổ trong bộ nhớ = base ⊕ (mục vừa lên sheet + mục đang chờ).
    * Mục vừa lên sheet chỉ được bỏ khi base là lượt đọc BẮT ĐẦU SAU lúc ghi xong và đã qua RECENT_MS —
@@ -693,6 +715,7 @@ export class BookingCore {
           await this.putEntries(made);                      /* bền trước rồi mới trả lời */
           made.forEach(e => { e.durable = true; });
           this.afterJournal();
+          this.changed(); this.sigLog = this.logSig();      /* kênh live: báo ngay; lượt đọc sổ sau đó ra cùng dấu → không báo lại */
         } catch (e) {
           /* storage lỗi: bỏ các mục vừa thêm khỏi bộ nhớ; cả lô trả he_thong_ban (gửi lại cùng mã, an toàn) */
           const set = new Set(made);

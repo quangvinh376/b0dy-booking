@@ -32,6 +32,14 @@ Máy chủ của trang **booking.b0dy.studio**, thay cho Apps Script để mọi
   ngầm; chưa có tab thì dò lại sau `META_RECHECK` (5 phút), mỗi lần thử cách nhau ≥ `META_TRY` (30 s) — Google lỗi không làm hỏng lượt xem.
   Trang 1.1.0 vẫn chạy với máy chủ cũ (tuần 6 ngày → cột CN cố định như cũ); trang cũ gặp máy chủ mới thì vẽ thừa cột → **đưa trang lên
   trước, deploy Worker sau**.
+- **Kênh live** (1.2.0, chủ studio duyệt 19/10 "mức 1"; `src/live.js`): trang mở WebSocket `GET /live?dev=<mã máy>` (Worker kiểm
+  origin như `ALLOW_ORIGINS` + mã máy đúng dạng, rồi chuyển nguyên request cho DO). DO dùng **WebSocket Hibernation API**
+  (`acceptWebSocket`, `'ping'` → `'pong'` tự trả không đánh thức DO) và chỉ gửi `{t:'hi'|'bump', r}` / `{t:'n', n}` — **không có dữ
+  liệu hội viên**: `bump` = phòng vừa đổi → trang tự gọi `lt_boot` (luật ai thấy gì giữ nguyên); `n` = số mã máy đang mở trang.
+  BookingCore báo (`deps.notify`) khi một lượt đặt / đổi / mời / từ chối được nhận (ngay, trước khi lên sheet) và khi sổ / BA đọc lại
+  khác lần trước (dấu FNV của các dòng tuần đang đặt · ngày nghỉ · sức chứa · Lịch coach · TRIAL) — sửa tay trên sheet tới trang trong
+  ≤ 1 phút (cron). Gom 150 ms (bump) / 600 ms (đếm), tối đa 400 kết nối (quá → 503, trang lui về hỏi 2 phút một lần). Trang: chỉ nối khi
+  tab đang hiện, nối lại lui 1 · 3 · 8 · 20 s, hỏng 4 lần liền (Worker cũ không có `/live`) thì thôi. Apps Script không có kênh này.
 - **Ghép lớp 1:2** (chủ studio chốt 18/10 14:13; `core.js` · `duoState` / `pairMove` / `checkInvite` / `checkDecline` = `LichTuan.gs` ·
   `ltDuoState_` / `ltPairMove_` / `ltCheckInvite_` / `ltCheckDecline_`, parity so từng phản hồi):
   - Gói 1:2 chỉ đặt ở **khung ghép** `LT.DUO_HOURS` = 09 · 11 · 15 · 17 · 19 (giờ khác → `khong_hop_le` / `gio_ghep`).
@@ -86,7 +94,8 @@ Máy chủ của trang **booking.b0dy.studio**, thay cho Apps Script để mọi
 | `src/booking.js` | Durable Object: bộ nhớ đệm, hàng đợi kiểm, nhật ký ghi sau + flush, các lệnh API, alarm, cron |
 | `src/sheets.js` | Google Sheets API (JWT service account bằng WebCrypto, timeout, luật thử lại) |
 | `src/crypto.js` | Mã nhớ máy + mã hội viên (HMAC, giống hệt Apps Script) |
-| `src/http.js` · `src/index.js` | CORS, giới hạn body 8 KB, gọi DO qua RPC, cron, alarm |
+| `src/http.js` · `src/index.js` | CORS, giới hạn body 8 KB, gọi DO qua RPC, cron, alarm · cổng kênh live (`liveGate`) + sự kiện WebSocket của DO |
+| `src/live.js` | Kênh live: nhận / đếm kết nối theo mã máy, gom tin `bump` / `n`, giới hạn kết nối |
 | `test/*.mjs` | `node test/run_all.mjs` — parity với Apps Script, đồng thời + tốc độ, lỗi ghi / DO khởi động lại / đọc chạy đua, HTTP, dữ liệu thật (chỉ chạy khi có bản xuất cục bộ, không nằm trong repo), workerd (chỉ chạy khi đã `npm i`) |
 
 ## Triển khai (chủ studio làm, khoảng 10 phút)
@@ -133,7 +142,8 @@ Binding: `BOOK` → Durable Object `Booking`. Cron: `* * * * *`. Alarm của DO 
 1. Mở `https://b0dy-booking-api.<tên-tài-khoản>.workers.dev/` → `{"ok":true,"pong":true,…}`.
 2. Từ trang booking.b0dy.studio (Console): `fetch(API,{method:'POST',body:JSON.stringify({action:'lt_boot',dev:'kiemtra0000000001'})}).then(r=>r.json())` → `ok:true, auth:false, week…`. Lỗi `loi_he_thong` + `detail` `thieu_SA_JSON` / `google_auth_400` = secret chưa đúng; `google_403` = file chưa share cho service account.
 3. `fetch(API,{method:'POST',body:'{"action":"lt_ping"}'}).then(r=>r.json())` → `pending: 0, lastError: ""`. Sau một lượt đặt thử, `lastFlushAt` phải tăng và dòng xuất hiện trong "Sổ đặt lịch" trong khoảng 1 s.
-4. **Logs**: Workers ▸ `b0dy-booking-api` ▸ **Logs** — mỗi lượt gọi một dòng `{a, ok, e, why, ms}`; mỗi lần ghi sổ một dòng `{a:"flush", ok, n, rows, read, ms}` (lỗi: `{a:"flush", ok:false, e, retryMs}`).
+4. **Kênh live** (Console của tab booking.b0dy.studio): `w=new WebSocket(API.replace('https','wss')+'live?dev=kiemtra0000000001');w.onmessage=e=>console.log(e.data)` → `{"t":"hi","r":0,"n":1}`; mở thêm tab trang → `{"t":"n","n":2}`.
+5. **Logs**: Workers ▸ `b0dy-booking-api` ▸ **Logs** — mỗi lượt gọi một dòng `{a, ok, e, why, ms}`; mỗi lần ghi sổ một dòng `{a:"flush", ok, n, rows, read, ms}` (lỗi: `{a:"flush", ok:false, e, retryMs}`).
 
 ## Trang web dùng Worker
 
