@@ -9,7 +9,7 @@
 'use strict';
 
 /* ============================== CẤU HÌNH ============================== */
-var VER = '1.2.0';
+var VER = '1.2.1';
 var API_URL = 'https://b0dy-booking-api.little-bonus-1d87.workers.dev/';
 var API_SLOW = false;                 /* true khi chạy Apps Script (chậm hơn nhiều) → nới thời gian chờ */
 /* kênh live: Worker chỉ nhận từ trang thật (ALLOW_ORIGINS) → trang chạy chỗ khác (test trên máy) không nối, khỏi gõ cửa máy chủ thật.
@@ -500,8 +500,9 @@ function bobWatch() {
     if (S.sending && !BB.send) bobEmit('send', { el: bobVisible('#cta, #ctaM') });
     if (!S.sending && BB.send) bobEmit('sent', {});
     BB.send = !!S.sending;
-    /* thẻ thông báo mới hiện (sàn desktop · dòng mobile): B0B quay nhìn thẻ — thẻ cảnh báo thì thêm vẻ lo (như trước) */
-    var ne = desk() ? $('#floor .nt') : page && page.querySelector('#mNote .mnt'), nk = ne ? ne.textContent : '';
+    /* thẻ thông báo mới hiện (sàn desktop · dòng mobile): B0B quay nhìn thẻ đúng lúc tín hiệu chạy (.sig-in, sigWatch) — thẻ cảnh báo
+       thì thêm vẻ lo (như trước) */
+    var ne = desk() ? $('#floor .nt.sig-in') : page && page.querySelector('#mNote .mnt.sig-in'), nk = ne ? ne.textContent : '';
     if (nk && nk !== BB.notice) bobEmit(ne.classList.contains('warn') ? 'error' : 'toast', { el: ne });
     BB.notice = nk;
   }
@@ -736,15 +737,57 @@ function noticeHTML(n) {
   var acts = (n.sugs || []).map(function (s) { return '<button class="btn btn-s btn-phu" type="button" data-a="sug" data-d="' + esc(s.date) + '" data-h="' + esc(s.h) + '">' + esc(hm(s.h)) + '</button>'; }).join('') +
     /* sàn desktop: Acid dành cho nút chốt (Đặt lịch) ở cột trái → hành động chính của thông báo dùng nút Mực */
     (n.acts || []).map(function (x) { return '<button class="btn btn-s ' + (x.main ? 'btn-toi' : 'btn-phu') + '" type="button" data-a="' + esc(x.a) + '" data-d="' + esc(x.d) + '" data-h="' + esc(x.h) + '"><span>' + esc(x.label) + '</span></button>'; }).join('');
-  return '<div class="nt' + (n.tone === 'warn' ? ' warn' : '') + '" role="status">' + sigIco(n.tone === 'warn' ? 'warn' : 'info') +
+  return '<div class="nt' + (n.tone === 'warn' ? ' warn' : '') + '" role="status" data-k="' + esc(sigKey(n)) + '">' + sigIco(n.tone === 'warn' ? 'warn' : 'info') +
     '<div class="nt-tx"><p class="nt-t">' + esc(n.title) + '</p>' + (n.body ? '<p class="nt-b">' + esc(n.body) + '</p>' : '') + '</div>' +
     (acts ? '<div class="nt-act">' + acts + '</div>' : '') + '</div>';
 }
 /* biểu tượng thẻ thông báo + chấm tín hiệu Acid ở góc (chủ studio 19/10: thẻ thông báo phải bắt mắt — xem "tín hiệu đến" trong app.css) */
 function sigIco(n) { return '<span class="nt-ic">' + ico(n) + '<i class="nt-sig" aria-hidden="true"></i></span>'; }
+/* tín hiệu chạy khi thẻ THẬT SỰ được thấy (1.2.0 chạy một lần ngay lúc thẻ vào DOM — giữa cảnh trang trượt vào — nên chủ studio không thấy):
+   trang vào xong · sàn / thẻ hiện xong · không có cửa sổ, ngăn kéo che · tab đang mở → lặng SIG_BEAT ms → gắn .sig-in, B0B quay nhìn đúng
+   lúc đó. Rồi LẶP mỗi 4 s (.sig-loop, app.css — chủ studio 19/10: không lặp thì không gây chú ý) cho tới khi người xem đã đọc thẻ: chạm /
+   bấm vào thẻ, hay rê chuột dừng trên thẻ SIG_READ ms (sigAck) → thôi lặp. "Đã đọc" nhớ theo nội dung thẻ (data-k = tiêu đề + thân:
+   lời mời thứ hai của cùng người, khung khác → thẻ mới) tới khi tải lại trang: vẽ lại cùng thẻ không lặp lại, thẻ mới thì lặp từ đầu. Thẻ đang ẩn (thẻ mobile trên desktop…) gắn luôn: animation CSS không
+   chạy khi display:none, hiện ra lúc nào chạy lúc đó. Giảm chuyển động: gắn ngay, không lặp. */
+var SIG = { calm: 0, ack: {}, hov: null, hovT: 0 }, SIG_BEAT = 160, SIG_READ = 600;
+function sigWatch() {
+  var els = $$('#floor .nt:not(.sig-in), #mNote .mnt:not(.sig-in)'), seen = [];
+  if (!els.length) return;
+  els.forEach(function (e) { if (rm() || !e.getClientRects().length) sigOn(e); else seen.push(e); });
+  if (!seen.length) return;
+  var sh = $('#sheet'), dr = $('#drawer'), t = performance.now();
+  var still = !document.hidden && !$('.page.enter-fwd, .page.enter-back, .page.leave-fwd, .page.leave-back') && $('#floor').style.opacity === '' &&
+    sh.hidden && dr.hidden && seen.every(function (e) { return e.style.opacity === ''; });
+  if (!still) { SIG.calm = 0; return; }
+  if (!SIG.calm) SIG.calm = t;
+  if (t - SIG.calm < SIG_BEAT) return;
+  SIG.calm = 0;
+  seen.forEach(sigOn);
+  try { bobWatch(); } catch (e) { /* bỏ qua */ }
+}
+function sigKey(n) { return n.title + ' · ' + (n.body || ''); }
+function sigOn(e) { e.classList.add('sig-in'); if (!rm() && !SIG.ack[e.getAttribute('data-k')]) e.classList.add('sig-loop'); }
+/* đã đọc thẻ → mọi thẻ cùng nội dung (sàn desktop + dòng mobile) thôi lặp; chấm Acid ở lại */
+function sigAck(c) {
+  var k = c.getAttribute('data-k'); if (k == null) return;
+  SIG.ack[k] = 1;
+  $$('#floor .nt.sig-loop, #mNote .mnt.sig-loop').forEach(function (e) { if (e.getAttribute('data-k') === k) { e.classList.remove('sig-loop'); e.classList.add('sig-done'); } });
+}
+function sigListen() {
+  document.addEventListener('click', function (e) { var c = e.target && e.target.closest && e.target.closest('#floor .nt, #mNote .mnt'); if (c) sigAck(c); }, true);
+  document.addEventListener('pointerover', function (e) {
+    if (e.pointerType !== 'mouse') return;
+    var c = e.target && e.target.closest ? e.target.closest('#floor .nt.sig-loop, #mNote .mnt.sig-loop') : null;
+    if (c === SIG.hov) return;
+    clearTimeout(SIG.hovT); SIG.hov = c;
+    if (c) SIG.hovT = setTimeout(function () { if (SIG.hov === c) sigAck(c); }, SIG_READ);
+  });
+  document.addEventListener('pointerout', function (e) { if (!e.relatedTarget) { clearTimeout(SIG.hovT); SIG.hov = null; } });
+  setInterval(sigWatch, 80);
+}
 function mNoteHTML(n) {
   if (!n) return '';
-  return '<button class="mnt' + (n.tone === 'warn' ? ' warn' : '') + '" type="button" data-a="note"><span class="mnt-h">' + sigIco(n.tone === 'warn' ? 'warn' : 'info') +
+  return '<button class="mnt' + (n.tone === 'warn' ? ' warn' : '') + '" type="button" data-a="note" data-k="' + esc(sigKey(n)) + '"><span class="mnt-h">' + sigIco(n.tone === 'warn' ? 'warn' : 'info') +
     '<span class="mnt-t">' + esc(n.mtitle || n.title) + '</span>' + ico('chev', 'chev') + '</span></button>';
 }
 /* luật hiện trong Gói & luật: gói 1:2 thêm luật khung ghép (máy chủ cũ không gửi duo → như trước) */
@@ -3184,6 +3227,7 @@ function boot() {
     if ((S.view === 'book' || S.view === 'change' || S.view === 'ticket') && Date.now() - S.lastFetch > 110000) refresh(true);
     if (S.view === 'book') updateBook(); else if (S.view === 'change') updateChange();
   }, 30000);
+  sigListen();
   window.addEventListener('resize', function () { tkFit(); nowLine(); if (S.view === 'ticket') tkPaper(); mbarSize(); });
   if (window.ResizeObserver) new ResizeObserver(mbarSize).observe($('#mbar'));
   MQ_DESK.addEventListener && MQ_DESK.addEventListener('change', function () { if (S.view === 'ticket') { tkFit(); tkPaper(); } bobSlot(S.page); });

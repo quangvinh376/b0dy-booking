@@ -44,6 +44,7 @@ node test/ui_states.js              # 97 kiểm tra trạng thái giao diện (E
 node test/ui_qc.js                  # chế độ QC: kịch bản, hội viên thử, gây lỗi, không gọi mạng, không chạm bộ nhớ trang thật
 node test/ui_duo.js                 # gói 1:2: nhận lời mời bằng dời trong ngày, Ghép khác ngày, rời cặp tính lượt, từ chối → "Mời bạn khác"
 node test/ui_live.js                # kênh live: người khác đặt → bảng tự cập nhật, ô đang chọn bị lấy, "N người đang xem", nối lại / lui
+node test/ui_notice.js              # thẻ thông báo: tín hiệu chạy sau khi trang vào xong, lặp 4 s tới khi đã đọc, tab ẩn / cửa sổ che thì chờ
 node test/ui_smoke.js && node test/ui_sw.js && node test/ui_tk3d.js all && node test/ui_png.js all && node test/b0b_check.js
 node test/rv_h6_rid_discard.js      # … và các rv_*.js: tái hiện lỗi đã sửa (mất phản hồi, máy dùng chung, 06:00, …)
 node test/rv_find_dynamic.js        # tìm tên gõ tới đâu ra tới đó: tô phần khớp, more, giữ danh sách khi chờ, máy chủ cũ (need: 2)
