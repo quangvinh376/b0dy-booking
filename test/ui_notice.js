@@ -1,8 +1,10 @@
 /* "Tín hiệu đến" của thẻ thông báo (1.2.1): chạy khi thẻ THẬT SỰ được thấy — không lẫn vào cảnh trang trượt vào (1.2.0: chạy một lần ngay
-   lúc thẻ vào DOM, chủ studio "không thấy hiệu ứng") — rồi LẶP mỗi 4 s tới khi người xem đã đọc thẻ. Chế độ QC (dữ liệu bịa), desktop + mobile.
+   lúc thẻ vào DOM, chủ studio "không thấy hiệu ứng") — rồi LẶP mỗi 2 s tới khi người xem đã đọc thẻ (1.2.2: bỏ chấm Acid, vòng sáng
+   phát ra từ chính biểu tượng, nhịp 4 s → 2 s). Chế độ QC (dữ liệu bịa), desktop + mobile.
    node test/ui_notice.js
    1. Mở bảng (Uyển Nhi: thẻ lời mời tập đôi): trước tín hiệu chấm + vạch ẩn · tín hiệu chạy SAU khi trang vào xong ≥ 150 ms · đủ chuyển động
-      (chấm bật · vạch quét lặp · vòng sóng lặp) · giữa hai nhịp chấm đứng yên, vạch tắt · nhịp thứ hai thật sự chạy (~4 s sau) · B0B nhìn
+      (vạch quét lặp · vòng sáng lặp) · không còn chấm ở góc · vòng sáng đồng tâm, bắt đầu trùng đường tròn của biểu tượng · giữa hai nhịp
+      vạch + vòng tắt · nhịp thứ hai thật sự chạy (~2 s sau) · B0B nhìn
       thẻ đúng lúc tín hiệu, không trước
    2. Kênh live hỏi lại (QC "Người khác vừa đặt"), thẻ không đổi → cùng phần tử, nhịp không chạy lại từ đầu
    3. Đã đọc: desktop rê chuột qua nhanh → vẫn lặp, dừng trên thẻ ≥ 600 ms → thôi lặp (chấm ở lại), thẻ mobile cùng nội dung cũng thôi
@@ -30,7 +32,7 @@ function instrument() {
       const cs = n.nodeType === 1 ? [n].filter(card).concat(Array.from(n.querySelectorAll('#floor .nt, #mNote .mnt'))) : [];
       cs.forEach(c => { if (!vis(c)) return; c.__id = c.__id || Math.random().toString(36).slice(2);
         L.push({ k: 'in', at: t(), id: c.__id, warn: c.classList.contains('warn'), sig: c.classList.contains('sig-in'),
-                 dot: getComputedStyle(c.querySelector('.nt-sig')).opacity, line: getComputedStyle(c, '::before').opacity }); });
+                 ring: getComputedStyle(c.querySelector('.nt-ic'), '::after').opacity, line: getComputedStyle(c, '::before').opacity }); });
     });
     if (m.type === 'attributes' && m.target.nodeType === 1) {
       const e = m.target, was = m.oldValue || '';
@@ -59,7 +61,7 @@ async function state(page, sel) {
     const e = Array.from(document.querySelectorAll(s)).filter(x => x.getClientRects().length)[0]; if (!e) return null;
     const an = e.getAnimations({ subtree: true }), L = an.filter(a => a.animationName === 'ntlineL')[0];
     return { id: e.__id, sig: e.classList.contains('sig-in'), loop: e.classList.contains('sig-loop'), done: e.classList.contains('sig-done'),
-             dot: getComputedStyle(e.querySelector('.nt-sig')).opacity, line: +getComputedStyle(e, '::before').opacity,
+             ring: +getComputedStyle(e.querySelector('.nt-ic'), '::after').opacity, line: +getComputedStyle(e, '::before').opacity,
              running: an.filter(a => a.playState === 'running').map(a => a.animationName).sort().join(','),
              it: L ? L.effect.getComputedTiming().currentIteration : null, start: L ? L.startTime : null };
   }, sel);
@@ -97,7 +99,7 @@ async function run(browser, server, mobile, opt) {
     await login('uyen nhi', '5555'); await waitView(page, 'book'); await armed(); await sleep(150);
     const l = await log(page), i = lastIn(l), g = l.filter(x => x.k === 'sig').pop(), s = await state(page, SEL);
     ok('Giảm chuyển động: gắn tín hiệu ngay (≤ 250 ms sau khi thẻ vào), không chờ', !!i && !!g && g.at - i.at <= 250, [i, g]);
-    ok('… không lặp, về thẳng trạng thái cuối: chấm hiện, vạch tắt, không còn chuyển động', !!s && !s.loop && s.dot === '1' && s.line === 0 && !s.running, s);
+    ok('… không lặp, về thẳng trạng thái cuối: vạch + vòng sáng tắt, không còn chuyển động', !!s && !s.loop && s.ring === 0 && s.line === 0 && !s.running, s);
     ok('0 lỗi console / pageerror', errs.length === 0, errs);
     await ctx.close(); return;
   }
@@ -109,7 +111,7 @@ async function run(browser, server, mobile, opt) {
     }, v);
     await login('uyen nhi', '5555', () => hide(true)); await waitView(page, 'book'); await sleep(1500);
     const s0 = await state(page, SEL);
-    ok('Tab ẩn lúc thẻ vào → chưa chạy tín hiệu (chấm vẫn ẩn)', !!s0 && !s0.sig && s0.dot === '0', s0);
+    ok('Tab ẩn lúc thẻ vào → chưa chạy tín hiệu', !!s0 && !s0.sig && s0.ring === 0 && !s0.running, s0);
     const t0 = await page.evaluate(() => performance.now());
     await hide(false); await armed();
     const g = (await log(page)).filter(x => x.k === 'sig').pop();
@@ -124,20 +126,32 @@ async function run(browser, server, mobile, opt) {
   await armed(); await sleep(60);
   let l = await log(page);
   const i1 = lastIn(l), g1 = l.filter(x => x.k === 'sig' && i1 && x.id === i1.id)[0], st1 = l.filter(x => x.k === 'settle' && i1 && x.at >= i1.at - 1).pop();
-  ok('Thẻ vào cùng cảnh trang trượt vào: lúc đó chấm + vạch còn ẩn', !!i1 && !i1.sig && i1.dot === '0' && i1.line === '0', i1);
+  ok('Thẻ vào cùng cảnh trang trượt vào: lúc đó vạch + vòng sáng còn ẩn', !!i1 && !i1.sig && i1.ring === '0' && i1.line === '0', i1);
   ok('Tín hiệu chạy SAU khi trang vào xong, lặng ≥ 150 ms (≤ 900 ms)', !!g1 && !!st1 && g1.at - st1.at >= 150 && g1.at - st1.at <= 900,
      [st1 && Math.round(st1.at - i1.at), g1 && Math.round(g1.at - i1.at)]);
-  ok('Đủ chuyển động: chấm bật (ntdot) · vạch quét lặp (ntlineL) · vòng sóng lặp (ntringL)', !!g1 && g1.names === 'ntdot,ntlineL,ntringL', g1);
+  ok('Đủ chuyển động: vạch quét lặp (ntlineL) · vòng sáng lặp (ntringL)', !!g1 && g1.names === 'ntlineL,ntringL', g1);
+  /* vòng sáng: ::after của khung biểu tượng (khung = đúng ô svg), lùi 12,5 % mỗi cạnh = đường tròn r 9 / 24 của "i" → đồng tâm, cùng cỡ */
+  const geo = await page.evaluate(s => {
+    const c = document.querySelector(s), w = c.querySelector('.nt-ic'), svg = w.querySelector('svg'), a = getComputedStyle(w, '::after');
+    const rw = w.getBoundingClientRect(), rs = svg.getBoundingClientRect(), circ = svg.querySelector('circle');
+    return { dots: c.querySelectorAll('.nt-sig').length, same: Math.abs(rw.left - rs.left) < .5 && Math.abs(rw.top - rs.top) < .5 && Math.abs(rw.width - rs.width) < .5 && Math.abs(rw.height - rs.height) < .5,
+             inset: [a.top, a.left, a.right, a.bottom].map(parseFloat), size: rw.width, r: circ && +circ.getAttribute('r'), cx: circ && +circ.getAttribute('cx'), cy: circ && +circ.getAttribute('cy'),
+             vb: svg.getAttribute('viewBox'), shadow: a.boxShadow, radius: a.borderRadius };
+  }, SEL);
+  ok('Không còn chấm Acid ở góc biểu tượng', geo.dots === 0, geo);
+  ok('Vòng sáng đồng tâm với biểu tượng, bắt đầu trùng đường tròn r 9 / 24 của nó (lùi 12,5 % mỗi cạnh), viền Acid 2 px',
+     geo.same && geo.vb === '0 0 24 24' && geo.r === 9 && geo.cx === 12 && geo.cy === 12 && geo.inset.every(v => Math.abs(v - geo.size * .125) < .01) &&
+     /rgb\(212, 255, 0\) 0px 0px 0px 2px/.test(geo.shadow) && geo.radius === '50%', geo);
   const b1 = l.filter(x => x.k === 'bob' && i1 && x.id === i1.id);
   ok('B0B nhìn thẻ đúng lúc tín hiệu (không trước) · thẻ thường → "toast"', b1.length === 1 && !!g1 && b1[0].at >= g1.at - SAME && b1[0].at - g1.at <= 200 && b1[0].type === 'toast',
      b1.map(x => [x.type, Math.round(x.at - (g1 ? g1.at : 0))]));
   await sleep(1200);
   const s1 = await state(page, SEL);
-  ok('Giữa hai nhịp: chấm Acid đứng yên, vạch đã tắt, chỉ còn nhịp lặp chạy (vạch + vòng sóng)', !!s1 && s1.loop && s1.dot === '1' && s1.line === 0 && s1.running === 'ntlineL,ntringL' && s1.it === 0, s1);
+  ok('Giữa hai nhịp: vạch + vòng sáng đã tắt, chỉ còn nhịp lặp chạy (vạch + vòng sáng)', !!s1 && s1.loop && s1.ring === 0 && s1.line === 0 && s1.running === 'ntlineL,ntringL', s1);
   const t1 = await page.evaluate(() => performance.now());
-  const again = await until(async () => { const s = await state(page, SEL); return s && s.it >= 1 && s.line > 0.5; }, 5000);
+  const again = await until(async () => { const s = await state(page, SEL); return s && s.it >= 1 && s.line > 0.5 && s.ring > 0.3; }, 5000);
   const t1b = await page.evaluate(() => performance.now());
-  ok('Lặp: ~4 s sau nhịp đầu vạch Acid quét lại (nhịp thứ hai)', again && !!g1 && t1b - g1.at >= 3800 && t1b - g1.at <= 5200, [again, g1 && Math.round(t1b - g1.at), Math.round(t1b - t1)]);
+  ok('Lặp: ~2 s sau nhịp đầu vạch Acid quét lại, vòng sáng phát lại (nhịp thứ hai)', again && !!g1 && t1b - g1.at >= 1900 && t1b - g1.at <= 3200, [again, g1 && Math.round(t1b - g1.at), Math.round(t1b - t1)]);
 
   /* 2 */
   const f2 = await page.evaluate(() => window.__lt.S.lastFetch);
@@ -155,18 +169,18 @@ async function run(browser, server, mobile, opt) {
     ok('Rê chuột qua thẻ nhanh (250 ms) → vẫn lặp', !!s3a && s3a.loop && !s3a.done, s3a);
     await page.mouse.move(box.x, box.y); await sleep(900);
     const s3b = await state(page, SEL);
-    ok('Dừng chuột trên thẻ ≥ 600 ms (đã đọc) → thôi lặp: không còn chuyển động, chấm ở lại, vạch tắt', !!s3b && !s3b.loop && s3b.done && !s3b.running && s3b.dot === '1' && s3b.line === 0, s3b);
+    ok('Dừng chuột trên thẻ ≥ 600 ms (đã đọc) → thôi lặp: không còn chuyển động, vạch + vòng sáng tắt', !!s3b && !s3b.loop && s3b.done && !s3b.running && s3b.ring === 0 && s3b.line === 0, s3b);
     await page.mouse.move(box.x, 120);
     await page.setViewportSize({ width: 393, height: 852 }); await sleep(700);
     const s3c = await state(page, '#mNote .mnt');
-    ok('Thu cửa sổ về khổ mobile: thẻ mobile cùng nội dung cũng không lặp (đã đọc theo nội dung thẻ)', !!s3c && !s3c.loop && s3c.done && s3c.dot === '1' && !/ntlineL|ntringL/.test(s3c.running), s3c);
+    ok('Thu cửa sổ về khổ mobile: thẻ mobile cùng nội dung cũng không lặp (đã đọc theo nội dung thẻ)', !!s3c && !s3c.loop && s3c.done && !/ntlineL|ntringL/.test(s3c.running), s3c);
   } else {
     await page.locator(SEL).tap(); await page.waitForSelector('#sheet.on', { timeout: 4000 }).catch(() => {});
     const open = await page.evaluate(() => !!document.querySelector('#sheet.on'));
     await page.keyboard.press('Escape'); await page.waitForFunction(() => document.querySelector('#sheet').hidden, null, { timeout: 4000 }).catch(() => {});
     await sleep(300);
     const s3 = await state(page, SEL);
-    ok('Chạm thẻ → mở cửa sổ chi tiết · đóng lại → thẻ thôi lặp, chấm ở lại', open && !!s3 && !s3.loop && s3.done && !s3.running && s3.dot === '1', [open, s3]);
+    ok('Chạm thẻ → mở cửa sổ chi tiết · đóng lại → thẻ thôi lặp', open && !!s3 && !s3.loop && s3.done && !s3.running && s3.ring === 0, [open, s3]);
   }
   ok('0 lỗi console / pageerror (Uyển Nhi)', errs.length === 0, errs);
   await ctx.close();
@@ -196,7 +210,7 @@ async function run(browser, server, mobile, opt) {
     await p3.waitForSelector('#sheet.on', { timeout: 4000 }).catch(() => {});
     await sleep(1200);
     const s3 = await state(p3, SEL);
-    ok('Mobile: thẻ cảnh báo mới vào khi cửa sổ báo đang che → chưa chạy tín hiệu', !!s3 && !s3.sig && s3.dot === '0' && await p3.evaluate(() => !document.querySelector('#sheet').hidden), s3);
+    ok('Mobile: thẻ cảnh báo mới vào khi cửa sổ báo đang che → chưa chạy tín hiệu', !!s3 && !s3.sig && s3.ring === 0 && !s3.running && await p3.evaluate(() => !document.querySelector('#sheet').hidden), s3);
     await p3.keyboard.press('Escape');
   }
   const ok3 = await until(async () => { const s = await state(p3, SEL + '.warn'); return s && s.sig; }, 6000);

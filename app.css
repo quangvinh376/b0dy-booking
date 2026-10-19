@@ -193,38 +193,35 @@ button.stepn .ic{width:16px;height:16px}
 /* ---------- tín hiệu đến (chủ studio 19/10: thẻ thông báo phải bắt mắt — và LẶP, vì để gây chú ý) ----------
    Mỗi nhịp, cùng ngôn ngữ với vạch Acid "đang xử lý" ở mép header:
    1 · vạch Acid 2 px quét mép trên của thẻ từ trái sang (325 ms) rồi tắt dần (tới 740 ms) ·
-   2 · chấm Acid viền Mực (như chấm "Đang mở đặt", chấm lời mời trên ô) ghim ở góc biểu tượng — bật ra một lần rồi đứng yên suốt lúc thẻ
-       còn; mỗi nhịp phát một vòng sóng Mực (260 → 900 ms).
-   Nhịp 4 s (0,9 s chuyển động · 3,1 s lặng): lặp cho tới khi người xem đã đọc thẻ — chạm / bấm vào thẻ, hay rê chuột dừng trên thẻ
-   ≥ 600 ms (sigAck, app.js) → thẻ thôi lặp, chấm ở lại. Thẻ mới (nội dung khác) thì lặp từ đầu.
+   2 · vòng sáng Acid 2 px phát ra từ chính biểu tượng (đường tròn r 9 của "i" / "!" = 75 % khung): bắt đầu trùng đường tròn của biểu
+       tượng lúc vạch quét qua (80 ms), loang ra 2,4 lần rồi tắt (tới 780 ms).
+   Nhịp 2 s (0,8 s chuyển động · 1,2 s lặng — chủ studio: lặp dày hơn 4 s của bản 1.2.1, bỏ chấm Acid ở góc): lặp cho tới khi người xem
+   đã đọc thẻ — chạm / bấm vào thẻ, hay rê chuột dừng trên thẻ ≥ 600 ms (sigAck, app.js) → thôi lặp. Thẻ mới (nội dung khác) lặp từ đầu.
    sigWatch (app.js) gắn .sig-in (+ .sig-loop nếu chưa đọc) khi trang đã vào xong, sàn hiện xong, không có cửa sổ che, tab đang mở, rồi
    lặng 160 ms: trong khung đứng yên, chuyển động đầu tiên là thứ mắt bắt ngay (1.2.0 chạy một lần ngay lúc thẻ vào DOM = giữa cảnh trang
-   trượt vào). Chữ không trồi riêng: thẻ vào cùng trang / sàn đã trồi theo cảnh đó.
-   Giảm chuyển động: gắn .sig-in ngay, không .sig-loop + khối luật cuối tệp tắt mọi animation → về thẳng trạng thái cuối (vạch tắt, chấm
-   đứng yên). Keyframe lặp ghi sẵn đường cong của --eo cho từng đoạn chuyển động (đoạn đứng yên không cần). */
+   trượt vào). Thẻ đã đọc mà vẽ lại: .sig-in không .sig-loop → chạy một nhịp rồi thôi.
+   Giảm chuyển động: gắn .sig-in ngay, không .sig-loop + khối luật cuối tệp tắt mọi animation → về thẳng trạng thái cuối (vạch, vòng tắt).
+   Keyframe lặp ghi sẵn đường cong của --eo cho từng đoạn chuyển động (đoạn đứng yên không cần). */
 .nt-ic{position:relative;display:flex;flex:none}
-.nt-sig{position:absolute;top:-1px;right:-2px;width:8px;height:8px;border-radius:50%;background:var(--acid);box-shadow:0 0 0 1px var(--muc);opacity:0}
-.nt-sig::after{content:'';position:absolute;inset:-1px;border-radius:50%;box-shadow:0 0 0 1px var(--muc);opacity:0}
+.nt-ic::after{content:'';position:absolute;inset:12.5%;border-radius:50%;box-shadow:0 0 0 2px var(--acid);opacity:0;pointer-events:none}
 .nt::before,.mnt::before{content:'';position:absolute;left:0;right:0;top:-1px;height:2px;background:var(--acid);transform-origin:0 50%;pointer-events:none;opacity:0}
-.sig-in .nt-sig{animation:ntdot .22s var(--eo) .16s both}
-.sig-in .nt-sig::after{animation:ntring .64s var(--eo) .26s both}
+.sig-in .nt-ic::after{animation:ntring .7s var(--eo) .08s both}
 .nt.sig-in::before,.mnt.sig-in::before{animation:ntline .74s var(--eo) both}
-.sig-loop .nt-sig::after{animation:ntringL 4s linear infinite}
-.nt.sig-loop::before,.mnt.sig-loop::before{animation:ntlineL 4s linear infinite}
-.sig-done .nt-sig::after,.nt.sig-done::before,.mnt.sig-done::before{animation:none}
-@keyframes ntdot{from{opacity:0;transform:scale(.4)}to{opacity:1;transform:none}}
-@keyframes ntring{from{opacity:.55;transform:scale(1)}to{opacity:0;transform:scale(3.6)}}
+.sig-loop .nt-ic::after{animation:ntringL 2s linear infinite}
+.nt.sig-loop::before,.mnt.sig-loop::before{animation:ntlineL 2s linear infinite}
+.sig-done .nt-ic::after,.nt.sig-done::before,.mnt.sig-done::before{animation:none}
+@keyframes ntring{from{opacity:1;transform:scale(1)}to{opacity:0;transform:scale(2.4)}}
 @keyframes ntline{0%{transform:scaleX(0);opacity:1}44%{transform:scaleX(1);opacity:1}72%{transform:scaleX(1);opacity:1}100%{transform:scaleX(1);opacity:0}}
 @keyframes ntlineL{
   0%{transform:scaleX(0);opacity:1;animation-timing-function:cubic-bezier(.22,.85,.22,1)}
-  8.125%{transform:scaleX(1);opacity:1}
-  13.325%{transform:scaleX(1);opacity:1;animation-timing-function:cubic-bezier(.22,.85,.22,1)}
-  18.5%,100%{transform:scaleX(1);opacity:0}
+  16.25%{transform:scaleX(1);opacity:1}
+  26.65%{transform:scaleX(1);opacity:1;animation-timing-function:cubic-bezier(.22,.85,.22,1)}
+  37%,100%{transform:scaleX(1);opacity:0}
 }
 @keyframes ntringL{
-  0%,6.5%{opacity:0;transform:scale(1)}
-  6.51%{opacity:.55;transform:scale(1);animation-timing-function:cubic-bezier(.22,.85,.22,1)}
-  22.5%,100%{opacity:0;transform:scale(3.6)}
+  0%,3.99%{opacity:0;transform:scale(1)}
+  4%{opacity:1;transform:scale(1);animation-timing-function:cubic-bezier(.22,.85,.22,1)}
+  39%,100%{opacity:0;transform:scale(2.4)}
 }
 
 .mnt{position:relative;display:flex;flex-direction:column;gap:6px;width:100%;padding:14px 16px;border-radius:var(--r);background:var(--giay2);text-align:left;transition:background-color var(--hov)}

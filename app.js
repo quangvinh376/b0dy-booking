@@ -9,7 +9,7 @@
 'use strict';
 
 /* ============================== CẤU HÌNH ============================== */
-var VER = '1.2.1';
+var VER = '1.2.2';
 var API_URL = 'https://b0dy-booking-api.little-bonus-1d87.workers.dev/';
 var API_SLOW = false;                 /* true khi chạy Apps Script (chậm hơn nhiều) → nới thời gian chờ */
 /* kênh live: Worker chỉ nhận từ trang thật (ALLOW_ORIGINS) → trang chạy chỗ khác (test trên máy) không nối, khỏi gõ cửa máy chủ thật.
@@ -741,14 +741,16 @@ function noticeHTML(n) {
     '<div class="nt-tx"><p class="nt-t">' + esc(n.title) + '</p>' + (n.body ? '<p class="nt-b">' + esc(n.body) + '</p>' : '') + '</div>' +
     (acts ? '<div class="nt-act">' + acts + '</div>' : '') + '</div>';
 }
-/* biểu tượng thẻ thông báo + chấm tín hiệu Acid ở góc (chủ studio 19/10: thẻ thông báo phải bắt mắt — xem "tín hiệu đến" trong app.css) */
-function sigIco(n) { return '<span class="nt-ic">' + ico(n) + '<i class="nt-sig" aria-hidden="true"></i></span>'; }
+/* biểu tượng thẻ thông báo — vòng sáng Acid phát ra từ chính biểu tượng (chủ studio 19/10: thẻ thông báo phải bắt mắt — xem "tín hiệu
+   đến" trong app.css) */
+function sigIco(n) { return '<span class="nt-ic">' + ico(n) + '</span>'; }
 /* tín hiệu chạy khi thẻ THẬT SỰ được thấy (1.2.0 chạy một lần ngay lúc thẻ vào DOM — giữa cảnh trang trượt vào — nên chủ studio không thấy):
    trang vào xong · sàn / thẻ hiện xong · không có cửa sổ, ngăn kéo che · tab đang mở → lặng SIG_BEAT ms → gắn .sig-in, B0B quay nhìn đúng
-   lúc đó. Rồi LẶP mỗi 4 s (.sig-loop, app.css — chủ studio 19/10: không lặp thì không gây chú ý) cho tới khi người xem đã đọc thẻ: chạm /
+   lúc đó. Rồi LẶP mỗi 2 s (.sig-loop, app.css — chủ studio 19/10: không lặp thì không gây chú ý) cho tới khi người xem đã đọc thẻ: chạm /
    bấm vào thẻ, hay rê chuột dừng trên thẻ SIG_READ ms (sigAck) → thôi lặp. "Đã đọc" nhớ theo nội dung thẻ (data-k = tiêu đề + thân:
-   lời mời thứ hai của cùng người, khung khác → thẻ mới) tới khi tải lại trang: vẽ lại cùng thẻ không lặp lại, thẻ mới thì lặp từ đầu. Thẻ đang ẩn (thẻ mobile trên desktop…) gắn luôn: animation CSS không
-   chạy khi display:none, hiện ra lúc nào chạy lúc đó. Giảm chuyển động: gắn ngay, không lặp. */
+   lời mời thứ hai của cùng người, khung khác → thẻ mới) tới khi tải lại trang: vẽ lại cùng thẻ không lặp lại, thẻ mới thì lặp từ đầu.
+   Thẻ đang ẩn (thẻ mobile trên desktop…) gắn luôn: animation CSS không chạy khi display:none, hiện ra lúc nào chạy lúc đó.
+   Giảm chuyển động: gắn ngay, không lặp. */
 var SIG = { calm: 0, ack: {}, hov: null, hovT: 0 }, SIG_BEAT = 160, SIG_READ = 600;
 function sigWatch() {
   var els = $$('#floor .nt:not(.sig-in), #mNote .mnt:not(.sig-in)'), seen = [];
@@ -767,7 +769,7 @@ function sigWatch() {
 }
 function sigKey(n) { return n.title + ' · ' + (n.body || ''); }
 function sigOn(e) { e.classList.add('sig-in'); if (!rm() && !SIG.ack[e.getAttribute('data-k')]) e.classList.add('sig-loop'); }
-/* đã đọc thẻ → mọi thẻ cùng nội dung (sàn desktop + dòng mobile) thôi lặp; chấm Acid ở lại */
+/* đã đọc thẻ → mọi thẻ cùng nội dung (sàn desktop + dòng mobile) thôi lặp */
 function sigAck(c) {
   var k = c.getAttribute('data-k'); if (k == null) return;
   SIG.ack[k] = 1;
