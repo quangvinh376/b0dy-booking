@@ -30,27 +30,24 @@ ID hai file Google Sheets: `BA_ID` (file BA: MEMBERS · SESSION LOG · TRIAL · 
 6. Sau mỗi lần đẩy: xác minh commit bằng hash và SHA-256 từng tệp trên `raw.githubusercontent.com/quangvinh376/b0dy-booking/<commit>/…`.
 7. Chỉ MỘT tiến trình Playwright / Chromium một lúc (máy test nhỏ từng hết RAM).
 
-## Đang ở đâu (19/10/2026, chiều)
+## Đang ở đâu (19/10/2026, 17:05)
 
-- Trang **v1.1.0** (`39a9a30`, lịch coach + Chủ Nhật) trên GitHub Pages `main` — live 14:08 19/10, 10 tệp SHA-256 khớp. Worker
-  `b0dy-booking-api` chạy `worker/src` của `39a9a30` — deploy **~14:20 19/10**, etag `ae40402273` (Claude chat chạy
-  `tools/worker_deploy_snippet.mjs` qua Claude in Chrome sau câu đồng ý của chủ studio 14:07; 5 binding, cron `* * * * *`); `lt_ping`
-  `pending 0`, `lastError` rỗng; Claude Code kiểm lại 14:20 bằng `curl`: tuần 43 trả 7 ngày 19 → 25/10, `lt_find` bình thường.
-  Có hiệu lực: luật suất coach + ghép lớp 1:2 (1.0.8–1.0.11) · khách tập thử có "Coach tiếp nhận" chiếm suất coach (1.0.12) · tên = 2 chữ
-  cuối + ô Đầy / coach bận gạch X + ô Ghép mobile icon + tên (1.0.13) · chú thích "Ghép nhóm" (1.0.14) · **lịch coach + CN (1.1.0)**.
+- Trang **v1.2.0** (`441d7cc`) trên GitHub Pages `main` — live 17:03 19/10, 11 tệp SHA-256 khớp (CSP có `wss://` của Worker). Worker
+  `b0dy-booking-api` chạy `worker/src` của `3f91f21` (7 module, có `live.js`) — deploy ~17:01 19/10 qua Claude chat
+  (`tools/worker_deploy_snippet.mjs`; chủ studio đồng ý 19/10 và cho tự deploy từ nay — luật 3; etag chưa ghi lại). Claude Code kiểm 17:01–17:05
+  bằng `curl`: `lt_ping` `pending 0`, `lastError` rỗng · tuần 43 trả 7 ngày · `/live` trả 101 + `{"t":"hi","r":0,"n":1}` · origin lạ 403.
+- **1.2.0 (chủ studio 19/10)**: (1) từ chối lời mời → người mời thấy "<tên> đã từ chối tham gia" + nút "Mời bạn khác" (bảng Tập đôi +
+  dòng Tập đôi trên phiếu, bấm mở thẳng phần chọn bạn) · (2) thẻ thông báo "tín hiệu đến": vạch Acid quét mép trên + chữ trồi + chấm Acid
+  viền Mực phát một vòng sóng; toast có vạch Acid mép dưới; B0B quay nhìn thẻ mới (3 điểm loại B chờ chủ studio xem trên máy thật:
+  vạch 740 ms, vòng sóng 640 ms, chấm từ 40 %) · (3) **kênh live mức 1**: WebSocket vào DO (`worker/src/live.js`), bảng tự cập nhật ~1 s
+  sau mỗi lượt đặt / đổi / mời của người khác (sửa tay trên sheet ≤ 1 phút), ô đang chọn bị lấy → báo trước khi bấm, B0B nhìn quanh +
+  "N người đang xem" (ẩn danh, theo mã máy). Trang chỉ nối từ booking.b0dy.studio. Chi phí Cloudflare (bảng giá 19/10): mở kết nối =
+  1 request, tin gửi đi miễn phí, tin nhận 20:1 — vài chục khách nằm gọn trong 1 triệu request / 400.000 GB-s có sẵn của gói Paid.
 - **1.1.0 (chủ studio chốt 19/10)**: ô X không chữ (= coach không nhận vì đã bận), ô xám giữ như cũ, chú thích luôn có mục xám khi bảng
   có ô xám. Giờ / ngày coach nhận khách = tab `Lịch coach` (713, file Lịch tập tuần): ô tick từng giờ × T2–CN, ô ngoài lịch xám
   "Coach nghỉ", ngày nghỉ trọn ngày = một khối cả cột; CN đặt được nếu coach tick. Tab tạo 19/10, **mặc định = luật cũ** (T2–T7 đủ,
   CN trống) → hội viên chưa thấy gì khác cho tới khi chủ studio sửa ô tick (hiệu lực sau 1–2 phút). `Bảng lịch tập` dựng lại 19/10:
   7 cột + hàng CN ở "Theo coach" + ô H2 "Xem tuần" (đọc ngược: 122 buổi · 46 hội viên · 0 khung đầy · 10 chưa đặt, giống trước khi dựng).
-- **19/10 chiều — 1.2.0 trên nhánh `claude/focused-fermi-5jwgv4`, CHƯA live** (chờ chủ studio duyệt deploy Worker + đưa trang lên `main`):
-  (1) từ chối lời mời: người mời thấy "<tên> đã từ chối tham gia" + nút "Mời bạn khác" (bảng Tập đôi + dòng Tập đôi trên phiếu, bấm mở thẳng
-  phần chọn bạn) · (2) thẻ thông báo "tín hiệu đến": vạch Acid quét mép trên + chữ trồi + chấm Acid viền Mực phát một vòng sóng, toast có
-  vạch Acid mép dưới, B0B quay nhìn thẻ mới · (3) **kênh live mức 1** (chủ studio đồng ý 19/10): WebSocket vào DO (`worker/src/live.js`),
-  bảng tự cập nhật ~1 s sau mỗi lượt đặt / đổi / mời của người khác, ô đang chọn bị lấy → báo trước khi bấm, B0B nhìn quanh + "N người đang
-  xem" (ẩn danh, theo mã máy). Thứ tự đưa lên: **Worker trước, trang sau**. Chi phí Cloudflare (bảng giá 19/10): mở kết nối = 1 request,
-  tin gửi đi miễn phí, tin nhận 20:1, 'ping' tự trả không tính thời gian chạy — vài chục khách nằm gọn trong 1 triệu request /
-  400.000 GB-s có sẵn của gói Paid.
 - **Sức chứa 5 suất / khung** (5 coach: 5 khách 1:1 hay 10 khách 1:2) — ô dữ liệu BA `' ⚙️ 2'!C27` (đổi 18/10), không phải mã;
   `LT.CAP` = 4 chỉ là dự phòng khi không đọc được ô đó. Thế giới giả `?qc` vẫn sức chứa 4 (`qc.js` · cfg + BUSY).
 - **`Sổ đặt lịch` tuần 43 (19–24/10) là dữ liệu MÔ PHỎNG**: 120 dòng, Mã yêu cầu `mophong43-001…046`, ghi chú "Mô phỏng · …"
