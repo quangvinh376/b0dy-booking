@@ -27,7 +27,7 @@ và dời buổi đang chờ vào cặp có sẵn không tính lượt đổi.
 | `test/` | Test Playwright (giả máy chủ bằng chính `LichTuan.gs`), test Apps Script, test B0B |
 | `tools/bang_lich_tap.py` | Dựng tab `Bảng lịch tập` theo bảng giờ của trang (requests cho `spreadsheets.batchUpdate`, xem đầu tệp) |
 | `tools/lich_coach.py` | Tạo tab `Lịch coach` (5 khối coach, mặc định T2–T7 tick đủ, CN trống = đúng luật cũ) — chỉ để tạo lần đầu |
-| `tools/beam_css.mjs` | Sinh khối CSS tia viền (border beam) trong `app.css` từ chính mã gói `border-beam` 1.4.1 (libraries.dev/beam, MIT) — cấu hình của ví dụ, chỉ đổi màu sang bảng B0DY; `--check` so khối đang nhúng |
+| `tools/beam_css.mjs` | Sinh khối CSS tia viền (border beam) trong `app.css` từ chính mã gói `border-beam` 1.4.1 (libraries.dev/beam, MIT) — cấu hình của ví dụ, 9 đốm màu gốc chỉ sẫm lại cho đạt ≥ 4,5:1 trên nền thẻ (không Than / Mực); `--check` so khối đang nhúng |
 | `tools/ba_fixture.py` · `tools/sim_week*.{mjs,py}` · `tools/worker_deploy_snippet.mjs` | BA xuất Excel → fixture riêng tư (`.local/`, không đẩy lên repo) · mô phỏng cả phòng đặt tuần tới theo lịch tập tuần trước (đúng luật máy chủ) + ghi / kiểm sổ · đoạn deploy Worker từ dashboard. Xem `CLAUDE.md` |
 
 Dữ liệu vào: file BA (MEMBERS, TRIAL, B0B, ⚙️ 2, SESSION LOG) + tab `Lịch coach` của sheet *[B0DY Studio] Lịch tập tuần*.

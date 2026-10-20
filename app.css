@@ -193,7 +193,7 @@ button.stepn .ic{width:16px;height:16px}
 /* ---------- tia viền "border beam" — thẻ kích cầu ghép cặp 1:2 (chủ studio 20/10: "y hệt như ví dụ, chỉ thay màu gradient") ----------
    Khối giữa beam:start … beam:end SINH BẰNG tools/beam_css.mjs từ chính mã của gói border-beam 1.4.1 (libraries.dev/beam, MIT) — cấu hình
    của ví dụ (theme dark: viền ::after · quầng ::before · loé [data-beam-bloom], md 1,96 s / vòng, line 3,1 s / lượt, mờ vào 0,6 s), chỉ
-   đổi màu: đốm màu → Acid · Acid đậm · Than · Mực, vệt sáng trắng → Mực (tương phản trên nền sáng). Đổi gì thì sửa tool rồi chạy lại.
+   tinh chỉnh 9 đốm màu của ví dụ cho đạt ≥ 4,5:1 trên nền thẻ (giữ sắc độ, không Than / Mực). Đổi gì thì sửa tool rồi chạy lại.
    · thẻ: data-beam="b0" + <i data-beam-bloom> (dòng mời mobile · dòng Tập đôi trên phiếu có lời mời / "Mời bạn" / "Mời bạn khác")
    · dải sàn desktop có lời mời: lớp phủ .flb data-beam="b0l" (kiểu line của gói chạy ở viền dưới → lật lên viền trên)
    Chạy khi có data-active — sigWatch (app.js) gắn khi trang vào xong, không có cửa sổ che, tab đang mở (không chạy lẫn cảnh vào trang).
@@ -244,23 +244,23 @@ button.stepn .ic{width:16px;height:16px}
   background: conic-gradient(
         from var(--beam-angle-b0),
         transparent 0%, transparent 54%,
-        rgba(10, 10, 10, 0.1) 57%,
-        rgba(10, 10, 10, 0.3) 60%,
-        rgba(10, 10, 10, 0.6) 63%,
-        rgba(10, 10, 10, 0.75) 66%,
-        rgba(10, 10, 10, 0.6) 69%,
-        rgba(10, 10, 10, 0.3) 72%,
-        rgba(10, 10, 10, 0.1) 75%,
+        rgba(255, 255, 255, 0.1) 57%,
+        rgba(255, 255, 255, 0.3) 60%,
+        rgba(255, 255, 255, 0.6) 63%,
+        rgba(255, 255, 255, 0.75) 66%,
+        rgba(255, 255, 255, 0.6) 69%,
+        rgba(255, 255, 255, 0.3) 72%,
+        rgba(255, 255, 255, 0.1) 75%,
         transparent 78%, transparent 100%
-      ),radial-gradient(ellipse 70px 40px at 33% -7.4%, rgb(212, 255, 0), transparent),
-    radial-gradient(ellipse 60px 35px at 12% -5%, rgb(10, 10, 10), transparent),
-    radial-gradient(ellipse 40px 70px at 2.1% 68.3%, rgb(177, 234, 0), transparent),
-    radial-gradient(ellipse 20px 35px at 2.1% 68.3%, rgb(74, 74, 74), transparent),
-    radial-gradient(ellipse 180px 32px at 74.4% 100%, rgb(10, 10, 10), transparent),
-    radial-gradient(ellipse 85px 26px at 55% 100%, rgb(10, 10, 10), transparent),
-    radial-gradient(ellipse 74px 32px at 93.9% 0%, rgb(177, 234, 0), transparent),
-    radial-gradient(ellipse 26px 42px at 100% 27.1%, rgb(212, 255, 0), transparent),
-    radial-gradient(ellipse 52px 48px at 100% 27.1%, rgb(74, 74, 74), transparent);
+      ),radial-gradient(ellipse 70px 40px at 33% -7.4%, rgb(220, 0, 77), transparent),
+    radial-gradient(ellipse 60px 35px at 12% -5%, rgb(2, 109, 214), transparent),
+    radial-gradient(ellipse 40px 70px at 2.1% 68.3%, rgb(0, 128, 39), transparent),
+    radial-gradient(ellipse 20px 35px at 2.1% 68.3%, rgb(5, 124, 114), transparent),
+    radial-gradient(ellipse 180px 32px at 74.4% 100%, rgb(100, 70, 255), transparent),
+    radial-gradient(ellipse 85px 26px at 55% 100%, rgb(2, 109, 214), transparent),
+    radial-gradient(ellipse 74px 32px at 93.9% 0%, rgb(184, 79, 5), transparent),
+    radial-gradient(ellipse 26px 42px at 100% 27.1%, rgb(208, 1, 153), transparent),
+    radial-gradient(ellipse 52px 48px at 100% 27.1%, rgb(174, 29, 234), transparent);
   -webkit-mask:
     conic-gradient(
       from var(--beam-angle-b0),
@@ -297,16 +297,16 @@ button.stepn .ic{width:16px;height:16px}
   position: absolute;
   inset: 0;
   border-radius: 4px;
-  background: radial-gradient(ellipse 63px 36px at 33% -7.4%, rgba(212, 255, 0, 0.45), transparent),
-    radial-gradient(ellipse 54px 32px at 12% -5%, rgba(10, 10, 10, 0.45), transparent),
-    radial-gradient(ellipse 36px 63px at 2.1% 68.3%, rgba(177, 234, 0, 0.45), transparent),
-    radial-gradient(ellipse 18px 32px at 2.1% 68.3%, rgba(74, 74, 74, 0.45), transparent),
-    radial-gradient(ellipse 162px 29px at 74.4% 100%, rgba(10, 10, 10, 0.45), transparent),
-    radial-gradient(ellipse 77px 23px at 55% 100%, rgba(10, 10, 10, 0.45), transparent),
-    radial-gradient(ellipse 67px 29px at 93.9% 0%, rgba(177, 234, 0, 0.45), transparent),
-    radial-gradient(ellipse 23px 38px at 100% 27.1%, rgba(212, 255, 0, 0.45), transparent),
-    radial-gradient(ellipse 47px 43px at 100% 27.1%, rgba(74, 74, 74, 0.45), transparent);
-  box-shadow: inset 0 0 9px 1px rgba(10, 10, 10, 0.27);
+  background: radial-gradient(ellipse 63px 36px at 33% -7.4%, rgba(220, 0, 77, 0.45), transparent),
+    radial-gradient(ellipse 54px 32px at 12% -5%, rgba(2, 109, 214, 0.45), transparent),
+    radial-gradient(ellipse 36px 63px at 2.1% 68.3%, rgba(0, 128, 39, 0.45), transparent),
+    radial-gradient(ellipse 18px 32px at 2.1% 68.3%, rgba(5, 124, 114, 0.45), transparent),
+    radial-gradient(ellipse 162px 29px at 74.4% 100%, rgba(100, 70, 255, 0.45), transparent),
+    radial-gradient(ellipse 77px 23px at 55% 100%, rgba(2, 109, 214, 0.45), transparent),
+    radial-gradient(ellipse 67px 29px at 93.9% 0%, rgba(184, 79, 5, 0.45), transparent),
+    radial-gradient(ellipse 23px 38px at 100% 27.1%, rgba(208, 1, 153, 0.45), transparent),
+    radial-gradient(ellipse 47px 43px at 100% 27.1%, rgba(174, 29, 234, 0.45), transparent);
+  box-shadow: inset 0 0 9px 1px rgba(255, 255, 255, 0.27);
   -webkit-mask-image:
     conic-gradient(
       from var(--beam-angle-b0),
@@ -347,16 +347,16 @@ button.stepn .ic{width:16px;height:16px}
   background: conic-gradient(
         from var(--beam-angle-b0),
         transparent 0%, transparent 58%,
-        rgba(10, 10, 10, 0.03) 62%,
-        rgba(10, 10, 10, 0.08) 65%,
-        rgba(10, 10, 10, 0.2) 67%,
-        rgba(10, 10, 10, 0.45) 69%,
-        rgba(10, 10, 10, 0.85) 70%,
-        rgba(10, 10, 10, 0.85) 70.5%,
-        rgba(10, 10, 10, 0.45) 71.5%,
-        rgba(10, 10, 10, 0.2) 73%,
-        rgba(10, 10, 10, 0.08) 75%,
-        rgba(10, 10, 10, 0.03) 78%,
+        rgba(255, 255, 255, 0.03) 62%,
+        rgba(255, 255, 255, 0.08) 65%,
+        rgba(255, 255, 255, 0.2) 67%,
+        rgba(255, 255, 255, 0.45) 69%,
+        rgba(255, 255, 255, 0.85) 70%,
+        rgba(255, 255, 255, 0.85) 70.5%,
+        rgba(255, 255, 255, 0.45) 71.5%,
+        rgba(255, 255, 255, 0.2) 73%,
+        rgba(255, 255, 255, 0.08) 75%,
+        rgba(255, 255, 255, 0.03) 78%,
         transparent 82%
       );
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
@@ -480,18 +480,18 @@ button.stepn .ic{width:16px;height:16px}
   clip-path: inset(0 round 0px);
   background: radial-gradient(
         ellipse calc(24px * var(--beam-w-b0l)) calc(28px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100%) calc(100% + 2px),
-        rgba(10, 10, 10, 0.38) 0%,
-        rgba(10, 10, 10, 0.12) 30%,
+        rgba(255, 255, 255, 0.38) 0%,
+        rgba(255, 255, 255, 0.12) 30%,
         transparent 65%
-      ), radial-gradient(ellipse calc(36px * var(--beam-w-b0l)) calc(36px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100%) calc(100% + 2px), rgb(212, 255, 0), transparent),
-       radial-gradient(ellipse calc(30px * var(--beam-w-b0l)) calc(32px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100% + 39px) calc(100%), rgb(74, 74, 74), transparent),
-       radial-gradient(ellipse calc(33px * var(--beam-w-b0l)) calc(28px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100% - 36px) calc(100% + 2px), rgb(177, 234, 0), transparent),
-       radial-gradient(ellipse calc(29px * var(--beam-w-b0l)) calc(34px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100% - 54px) calc(100%), rgb(74, 74, 74), transparent),
-       radial-gradient(ellipse calc(27px * var(--beam-w-b0l)) calc(30px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100% + 51px) calc(100% - 1px), rgb(177, 234, 0), transparent),
-       radial-gradient(ellipse calc(36px * var(--beam-w-b0l)) calc(24px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100% + 21px) calc(100% + 1px), rgb(10, 10, 10), transparent),
-       radial-gradient(ellipse calc(30px * var(--beam-w-b0l)) calc(22px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100% - 21px) calc(100%), rgb(10, 10, 10), transparent),
-       radial-gradient(ellipse calc(25px * var(--beam-w-b0l)) calc(28px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100% + 66px) calc(100% + 1px), rgb(212, 255, 0), transparent),
-       radial-gradient(ellipse calc(23px * var(--beam-w-b0l)) calc(30px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100% - 66px) calc(100% - 1px), rgb(74, 74, 74), transparent);
+      ), radial-gradient(ellipse calc(36px * var(--beam-w-b0l)) calc(36px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100%) calc(100% + 2px), rgb(220, 0, 77), transparent),
+       radial-gradient(ellipse calc(30px * var(--beam-w-b0l)) calc(32px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100% + 39px) calc(100%), rgb(1, 120, 150), transparent),
+       radial-gradient(ellipse calc(33px * var(--beam-w-b0l)) calc(28px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100% - 36px) calc(100% + 2px), rgb(0, 128, 39), transparent),
+       radial-gradient(ellipse calc(29px * var(--beam-w-b0l)) calc(34px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100% - 54px) calc(100%), rgb(174, 29, 234), transparent),
+       radial-gradient(ellipse calc(27px * var(--beam-w-b0l)) calc(30px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100% + 51px) calc(100% - 1px), rgb(159, 96, 1), transparent),
+       radial-gradient(ellipse calc(36px * var(--beam-w-b0l)) calc(24px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100% + 21px) calc(100% + 1px), rgb(100, 70, 255), transparent),
+       radial-gradient(ellipse calc(30px * var(--beam-w-b0l)) calc(22px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100% - 21px) calc(100%), rgb(2, 109, 214), transparent),
+       radial-gradient(ellipse calc(25px * var(--beam-w-b0l)) calc(28px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100% + 66px) calc(100% + 1px), rgb(208, 1, 153), transparent),
+       radial-gradient(ellipse calc(23px * var(--beam-w-b0l)) calc(30px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100% - 66px) calc(100% - 1px), rgb(5, 124, 114), transparent);
   -webkit-mask:
     radial-gradient(
       ellipse calc(78px * var(--beam-w-b0l)) calc(60px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100%) 100%,
@@ -520,16 +520,16 @@ button.stepn .ic{width:16px;height:16px}
   position: absolute;
   inset: 0;
   border-radius: 0px;
-  background: radial-gradient(ellipse calc(33px * var(--beam-w-b0l)) calc(30px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100%) calc(100%), rgba(212, 255, 0, 0.48), transparent),
-    radial-gradient(ellipse calc(24px * var(--beam-w-b0l)) calc(26px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100% + 39px) calc(100% - 3px), rgba(74, 74, 74, 0.42), transparent),
-    radial-gradient(ellipse calc(27px * var(--beam-w-b0l)) calc(24px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100% - 36px) calc(100%), rgba(177, 234, 0, 0.48), transparent),
-    radial-gradient(ellipse calc(23px * var(--beam-w-b0l)) calc(28px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100% - 54px) calc(100% - 2px), rgba(74, 74, 74, 0.42), transparent),
-    radial-gradient(ellipse calc(24px * var(--beam-w-b0l)) calc(24px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100% + 51px) calc(100% - 1px), rgba(177, 234, 0, 0.50), transparent),
-    radial-gradient(ellipse calc(30px * var(--beam-w-b0l)) calc(20px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100% + 21px) calc(100%), rgba(10, 10, 10, 0.45), transparent),
-    radial-gradient(ellipse calc(25px * var(--beam-w-b0l)) calc(18px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100% - 21px) calc(100% - 2px), rgba(10, 10, 10, 0.40), transparent),
-    radial-gradient(ellipse calc(21px * var(--beam-w-b0l)) calc(24px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100% + 66px) calc(100%), rgba(212, 255, 0, 0.45), transparent),
-    radial-gradient(ellipse calc(18px * var(--beam-w-b0l)) calc(26px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100% - 66px) calc(100% - 1px), rgba(74, 74, 74, 0.52), transparent);
-  box-shadow: inset 0 0 9px 1px rgba(10, 10, 10, 0.1);
+  background: radial-gradient(ellipse calc(33px * var(--beam-w-b0l)) calc(30px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100%) calc(100%), rgba(220, 0, 77, 0.48), transparent),
+    radial-gradient(ellipse calc(24px * var(--beam-w-b0l)) calc(26px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100% + 39px) calc(100% - 3px), rgba(1, 120, 150, 0.42), transparent),
+    radial-gradient(ellipse calc(27px * var(--beam-w-b0l)) calc(24px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100% - 36px) calc(100%), rgba(0, 128, 39, 0.48), transparent),
+    radial-gradient(ellipse calc(23px * var(--beam-w-b0l)) calc(28px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100% - 54px) calc(100% - 2px), rgba(174, 29, 234, 0.42), transparent),
+    radial-gradient(ellipse calc(24px * var(--beam-w-b0l)) calc(24px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100% + 51px) calc(100% - 1px), rgba(159, 96, 1, 0.50), transparent),
+    radial-gradient(ellipse calc(30px * var(--beam-w-b0l)) calc(20px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100% + 21px) calc(100%), rgba(100, 70, 255, 0.45), transparent),
+    radial-gradient(ellipse calc(25px * var(--beam-w-b0l)) calc(18px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100% - 21px) calc(100% - 2px), rgba(2, 109, 214, 0.40), transparent),
+    radial-gradient(ellipse calc(21px * var(--beam-w-b0l)) calc(24px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100% + 66px) calc(100%), rgba(208, 1, 153, 0.45), transparent),
+    radial-gradient(ellipse calc(18px * var(--beam-w-b0l)) calc(26px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100% - 66px) calc(100% - 1px), rgba(5, 124, 114, 0.52), transparent);
+  box-shadow: inset 0 0 9px 1px rgba(255, 255, 255, 0.1);
   -webkit-mask-image:
     radial-gradient(
       ellipse calc(78px * var(--beam-w-b0l)) calc(60px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100%) 100%,
@@ -570,15 +570,15 @@ button.stepn .ic{width:16px;height:16px}
     white 0%, rgba(255, 255, 255, 0.5) 35%, transparent 100%
   );
   mask-composite: add;
-  background: radial-gradient(ellipse calc(0.8px * var(--beam-spike-b0l) * var(--beam-spike-mul, 1)) calc(92px * var(--beam-h-b0l) * var(--beam-spike-mul, 1)) at 8% calc(100% - 2px), rgb(212, 255, 0), rgb(212, 255, 0) 30%, transparent 88%),
-       radial-gradient(ellipse calc(10px * var(--beam-spike2-b0l) * var(--beam-spike-mul, 1)) calc(35px * var(--beam-h-b0l) * var(--beam-spike-mul, 1)) at 22% calc(100% - 4px), rgba(74, 74, 74, 0.98), rgba(74, 74, 74, 0.49) 50%, transparent 95%),
-       radial-gradient(ellipse calc(2px * (2 - var(--beam-spike-b0l)) * var(--beam-spike-mul, 1)) calc(72px * var(--beam-h-b0l) * var(--beam-spike-mul, 1)) at 36% calc(100% - 3px), rgb(10, 10, 10), rgba(10, 10, 10, 1) 40%, transparent 90%),
-       radial-gradient(ellipse calc(14px * var(--beam-spike2-b0l) * var(--beam-spike-mul, 1)) calc(28px * var(--beam-h-b0l) * var(--beam-spike-mul, 1)) at 50% calc(100% - 2px), rgba(177, 234, 0, 0.59), rgba(177, 234, 0, 0.29) 55%, transparent 96%),
-       radial-gradient(ellipse calc(1.2px * (2 - var(--beam-spike2-b0l)) * var(--beam-spike-mul, 1)) calc(85px * var(--beam-h-b0l) * var(--beam-spike-mul, 1)) at 64% calc(100% - 4px), rgb(177, 234, 0), rgba(177, 234, 0, 1) 35%, transparent 89%),
-       radial-gradient(ellipse calc(7px * var(--beam-spike-b0l) * var(--beam-spike-mul, 1)) calc(45px * var(--beam-h-b0l) * var(--beam-spike-mul, 1)) at 78% calc(100% - 2px), rgba(74, 74, 74, 0.91), rgba(74, 74, 74, 0.45) 48%, transparent 94%),
-       radial-gradient(ellipse calc(0.6px * (2 - var(--beam-spike-b0l)) * var(--beam-spike-mul, 1)) calc(60px * var(--beam-h-b0l) * var(--beam-spike-mul, 1)) at 92% calc(100% - 3px), rgb(10, 10, 10), rgba(10, 10, 10, 1) 42%, transparent 91%),
-       radial-gradient(ellipse calc(21px * var(--beam-spike-b0l)) calc(15px * var(--beam-spike2-b0l)) at calc(var(--beam-x-b0l) * 100%) calc(100% + 1px), rgba(10, 10, 10, 1) 0%, rgba(10, 10, 10, 0.9) 20%, rgba(10, 10, 10, 0.5) 50%, transparent 100%),
-       radial-gradient(ellipse calc(42px * var(--beam-w-b0l)) calc(40px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100%) 100%, rgba(10, 10, 10, 0.3) 0%, rgba(10, 10, 10, 0.12) 25%, rgba(10, 10, 10, 0.03) 55%, transparent 80%);
+  background: radial-gradient(ellipse calc(0.8px * var(--beam-spike-b0l) * var(--beam-spike-mul, 1)) calc(92px * var(--beam-h-b0l) * var(--beam-spike-mul, 1)) at 8% calc(100% - 2px), rgb(222, 2, 53), rgb(222, 2, 53) 30%, transparent 88%),
+       radial-gradient(ellipse calc(10px * var(--beam-spike2-b0l) * var(--beam-spike-mul, 1)) calc(35px * var(--beam-h-b0l) * var(--beam-spike-mul, 1)) at 22% calc(100% - 4px), rgba(7, 124, 117, 0.98), rgba(7, 124, 117, 0.49) 50%, transparent 95%),
+       radial-gradient(ellipse calc(2px * (2 - var(--beam-spike-b0l)) * var(--beam-spike-mul, 1)) calc(72px * var(--beam-h-b0l) * var(--beam-spike-mul, 1)) at 36% calc(100% - 3px), rgb(100, 70, 255), rgba(100, 70, 255, 1) 40%, transparent 90%),
+       radial-gradient(ellipse calc(14px * var(--beam-spike2-b0l) * var(--beam-spike-mul, 1)) calc(28px * var(--beam-h-b0l) * var(--beam-spike-mul, 1)) at 50% calc(100% - 2px), rgba(154, 99, 3, 0.59), rgba(154, 99, 3, 0.29) 55%, transparent 96%),
+       radial-gradient(ellipse calc(1.2px * (2 - var(--beam-spike2-b0l)) * var(--beam-spike-mul, 1)) calc(85px * var(--beam-h-b0l) * var(--beam-spike-mul, 1)) at 64% calc(100% - 4px), rgb(5, 128, 56), rgba(5, 128, 56, 1) 35%, transparent 89%),
+       radial-gradient(ellipse calc(7px * var(--beam-spike-b0l) * var(--beam-spike-mul, 1)) calc(45px * var(--beam-h-b0l) * var(--beam-spike-mul, 1)) at 78% calc(100% - 2px), rgba(183, 19, 222, 0.91), rgba(183, 19, 222, 0.45) 48%, transparent 94%),
+       radial-gradient(ellipse calc(0.6px * (2 - var(--beam-spike-b0l)) * var(--beam-spike-mul, 1)) calc(60px * var(--beam-h-b0l) * var(--beam-spike-mul, 1)) at 92% calc(100% - 3px), rgb(2, 109, 214), rgba(2, 109, 214, 1) 42%, transparent 91%),
+       radial-gradient(ellipse calc(21px * var(--beam-spike-b0l)) calc(15px * var(--beam-spike2-b0l)) at calc(var(--beam-x-b0l) * 100%) calc(100% + 1px), rgba(255, 255, 255, 1) 0%, rgba(255, 255, 255, 0.9) 20%, rgba(255, 255, 255, 0.5) 50%, transparent 100%),
+       radial-gradient(ellipse calc(42px * var(--beam-w-b0l)) calc(40px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100%) 100%, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0.12) 25%, rgba(255, 255, 255, 0.03) 55%, transparent 80%);
   
   pointer-events: none;
   z-index: 3;

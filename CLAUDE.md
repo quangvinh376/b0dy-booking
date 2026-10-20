@@ -41,7 +41,8 @@ ID hai file Google Sheets: `BA_ID` (file BA: MEMBERS · SESSION LOG · TRIAL · 
   cho thẻ kích cầu ghép cặp 1:2. CSS **sinh từ chính gói** `border-beam` 1.4.1 (libraries.dev/beam, MIT — `licenses/border-beam.txt`) bằng
   `tools/beam_css.mjs` → khối `beam:start … beam:end` trong `app.css` (đừng sửa tay; `--check` so lại). Cấu hình = ví dụ trên trang
   (theme dark: md 1,96 s / vòng · line 3,1 s / lượt · mờ vào 0,6 s · viền ::after · quầng ::before · loé `[data-beam-bloom]`, độ đậm của
-  gói); chỉ đổi màu: đốm "colorful" → Acid · Acid đậm · Than · Mực (giữ vị trí / cỡ / độ trong), vệt sáng trắng → Mực (nền trang sáng),
+  gói); màu (1.3.2, chủ studio: "y hệt 9 đốm màu của ví dụ, chỉ tinh chỉnh cho tương phản tốt hơn, cấm Than và Mực"): 9 đốm "colorful" giữ
+  vị trí / cỡ / độ trong / sắc độ, màu nào dưới 4,5:1 trên nền thẻ #F2F2F2 thì hạ độ sáng (OKLCH) tới 4,5:1; vệt sáng trắng giữ như ví dụ;
   không trôi sắc độ. Thẻ = lớp bọc `data-beam="b0"` + `<i data-beam-bloom>`: dòng mời mobile · dòng Tập đôi trên phiếu khi có lời mời /
   "Mời bạn" / "Mời bạn khác". Dải sàn desktop có lời mời: lớp phủ `.flb` `data-beam="b0l"` (kiểu line của gói, lật lên viền trên).
   `data-active` do `sigWatch` bật khi trang vào xong / không có cửa sổ che / tab mở; chạy liên tục tới khi thẻ hết. Giảm chuyển động:

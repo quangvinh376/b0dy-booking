@@ -3,10 +3,8 @@
    Antalik) — không viết tay lại: cùng hình học (cửa sổ conic quay quanh tâm), cùng lớp (viền ::after · quầng trong ::before · loé
    [data-beam-bloom]), cùng độ đậm, cùng nhịp (md 1,96 s / vòng · line 3,1 s / lượt), cùng mờ vào 0,6 s.
    Cấu hình = ví dụ trên libraries.dev (sân khấu luôn theme="dark"); chỉ đổi màu:
-   · các đốm màu của bảng "colorful" (giữ nguyên vị trí · cỡ · độ trong) → B0DY theo sắc độ: đỏ / hồng / tím hồng → Acid #D4FF00 ·
-     cam / vàng / lục → Acid đậm #B1EA00 · xanh ngọc, tím → Than #4A4A4A · xanh lam / chàm → Mực #0A0A0A
-   · vệt sáng trắng của theme dark (trên nền tối) → Mực (trên nền sáng của trang trắng không thấy) — chỉ trong khai báo nền / bóng,
-     không đụng mặt nạ (mặt nạ dùng trắng làm độ phủ) · đen tuyệt đối → Mực (thương hiệu: không #000)
+   · 9 đốm màu của bảng "colorful" giữ y hệt (vị trí · cỡ · độ trong · sắc độ), chỉ hạ độ sáng màu nào chưa đạt ≥ 4,5:1 trên nền thẻ
+     #F2F2F2 (chủ studio 20/10: cấm Than / Mực) · vệt sáng trắng giữ như ví dụ
    · không trôi sắc độ (hueRange 0: Acid luôn là Acid), vẫn giữ bộ lọc brightness / saturate của gói
    Hai tia: "b0" (kiểu md — thẻ, bo 4 px) · "b0l" (kiểu line — dải sàn desktop, bo 0; gói chạy ở viền dưới → app.css lật lên viền trên).
    node tools/beam_css.mjs <thư mục gói border-beam 1.4.1>            → thay khối giữa hai mốc beam:start … beam:end trong app.css
@@ -34,21 +32,44 @@ const tmp = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'beam-')), 'bb.mjs')
 fs.writeFileSync(tmp, body);
 const { no, G, Se, Ve, Ue, Qe, pe, Ee } = await import(pathToFileURL(tmp).href);
 
-/* bảng màu b0dy: chép bảng "colorful", đổi màu theo sắc độ */
-const B0 = { acid: [212, 255, 0], acidg: [177, 234, 0], than: [74, 74, 74], muc: [10, 10, 10] };
-function hue(r, g, b) {
-  r /= 255; g /= 255; b /= 255;
-  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
-  if (!d) return -1;
-  let h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
-  h *= 60; return h < 0 ? h + 360 : h;
+/* bảng màu b0dy (chủ studio 20/10: "y hệt 9 đốm màu của ví dụ, chỉ tinh chỉnh cho tương phản tốt hơn, cấm Than và Mực"): chép bảng
+   "colorful", mỗi màu giữ sắc độ (OKLCH: giữ h, giữ độ rực tối đa trong gam sRGB, chỉ hạ độ sáng) tới khi đạt ≥ 4,5:1 trên nền thẻ
+   Giấy 2 #F2F2F2; màu đã đủ thì giữ nguyên. Độ trong của từng đốm giữ nguyên. */
+/* Chỉnh màu giữ sắc độ (OKLCH: giữ h, giữ C tối đa trong gam sRGB, hạ L) tới khi đạt tỉ lệ tương phản đích trên nền */
+const lin = c => { c /= 255; return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
+const gam = c => { const v = c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(c, 1 / 2.4) - 0.055; return v * 255; };
+const lum = ([r, g, b]) => 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+function toOklch([r, g, b]) {
+  r = lin(r); g = lin(g); b = lin(b);
+  const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b), m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b), s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
+  const L = 0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s, A = 1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s, B = 0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s;
+  return [L, Math.hypot(A, B), Math.atan2(B, A)];
 }
-function role(h) { return h < 0 ? null : h >= 300 || h < 15 ? 'acid' : h < 160 ? 'acidg' : h < 200 ? 'than' : h < 250 ? 'muc' : 'than'; }
+function fromOklch([L, C, h]) {
+  const A = C * Math.cos(h), B = C * Math.sin(h);
+  const l = Math.pow(L + 0.3963377774 * A + 0.2158037573 * B, 3), m = Math.pow(L - 0.1055613458 * A - 0.0638541728 * B, 3), s = Math.pow(L - 0.0894841775 * A - 1.2914855480 * B, 3);
+  return [4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s, -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s, -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s];
+}
+const inGamut = v => v.every(x => x >= -1e-6 && x <= 1 + 1e-6);
+function tune(rgb, bg, target) {
+  if (ratio(rgb, bg) >= target) return rgb;
+  let [L, C, h] = toOklch(rgb);
+  for (let i = 0; i < 400; i++) {
+    L -= 0.002;
+    let c = C, v = fromOklch([L, c, h]);
+    while (!inGamut(v) && c > 0) { c -= 0.002; v = fromOklch([L, c, h]); }
+    const out = v.map(x => Math.round(gam(Math.min(1, Math.max(0, x)))));
+    if (ratio(out, bg) >= target) return out;
+  }
+  throw new Error('không đạt đích');
+}
+
+const BG = [242, 242, 242], TARGET = 4.5;
 function mapColor(s) {
   const m = /^rgba?\(\s*(\d+),\s*(\d+),\s*(\d+)\s*(?:,+\s*([\d.]+))?\s*\)$/.exec(String(s).trim());
   if (!m) throw new Error('màu lạ trong bảng colorful: ' + s);
-  const k = role(hue(+m[1], +m[2], +m[3])); if (!k) return s;
-  const c = B0[k];
+  const c = tune([+m[1], +m[2], +m[3]], BG, TARGET);
   return m[4] != null ? `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${m[4]})` : `rgb(${c[0]}, ${c[1]}, ${c[2]})`;
 }
 function deepMap(o) {
@@ -65,9 +86,6 @@ function beam(id, size, radius) {
     strokeOpacity: F.strokeOpacity, innerOpacity: F.innerOpacity, bloomOpacity: F.bloomOpacity, innerShadow: F.innerShadow,
     size, colorVariant: 'b0dy', staticColors: false, brightness: F.brightness ?? 1.3, saturation: F.saturation, hueRange: 0,
     theme: 'dark', hairlineOpacity: F.hairlineOpacity, glowSize: 1 });
-  css = css.replace(/rgba\(0, 0, 0,/g, 'rgba(10, 10, 10,');
-  css = css.replace(/(\n\s*(?:background|background-image|box-shadow):)([\s\S]*?;)/g,
-    (m, k, v) => k + v.replace(/rgba\(255, 255, 255,/g, 'rgba(10, 10, 10,').replace(/\bwhite\b/g, '#0A0A0A'));
   return css.replace(/\n{3,}/g, '\n\n').trim();
 }
 const block = '/* beam:start — SINH BẰNG tools/beam_css.mjs từ border-beam 1.4.1 (MIT ©2026 Jakub Antalik — licenses/border-beam.txt), ĐỪNG SỬA TAY */\n' +
