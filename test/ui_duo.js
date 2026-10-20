@@ -41,13 +41,13 @@ async function run(browser, server, mobile) {
   const ctaIs = (re, on) => page.waitForFunction(([m, src, on]) => { const b = document.querySelector(m ? '#ctaM' : '#cta'); return !!b && new RegExp(src).test(b.textContent) && (!on || !b.disabled); },
     [mobile, re.source, !!on], { timeout: 4000 }).then(() => true, () => false);
   const book = async picks => { await waitView(page, 'book'); for (const [d, h] of picks) await cell(d, h).click(); await cta().click(); await waitView(page, 'ticket'); await flushed(); };
-  /* tia viền trên dòng Tập đôi (1.3.0): đã gắn (.sig-in), đủ 2 lớp, vòng tia đang chạy vô hạn */
+  /* tia viền trên dòng Tập đôi (1.3.1, sinh từ gói border-beam): lớp bọc data-beam="b0" đã bật (data-active), có lớp loé, tia quay vô hạn */
   const beamOn = async raw => {
-    await page.waitForSelector('#prLine .prl.beam.sig-in', { timeout: 4000 }).catch(() => {});
+    await page.waitForSelector('#prLine .prl[data-beam="b0"][data-active]', { timeout: 4000 }).catch(() => {});
     const b = await page.evaluate(() => { const e = document.querySelector('#prLine .prl'); if (!e) return null;
-      const a = e.getAnimations({ subtree: true }).filter(x => x.animationName === 'bmrun')[0];
-      return { beam: e.classList.contains('beam'), sig: e.classList.contains('sig-in'), layers: e.querySelectorAll('.bm-s, .bm-g').length, run: !!a && a.playState === 'running' && a.effect.getTiming().iterations === Infinity }; });
-    return raw ? b : !!b && b.beam && b.sig && b.layers === 2 && b.run;
+      const a = e.getAnimations().filter(x => x.animationName === 'beam-spin-b0')[0];
+      return { beam: e.getAttribute('data-beam'), act: e.hasAttribute('data-active'), bloom: e.querySelectorAll('[data-beam-bloom]').length, run: !!a && a.playState === 'running' && a.effect.getTiming().iterations === Infinity }; });
+    return raw ? b : !!b && b.beam === 'b0' && b.act && b.bloom === 1 && b.run;
   };
   const openPairs = async () => { await page.locator('#prLine .prl').click(); await page.waitForSelector(mobile ? '#sheet.on' : '#drawer.on'); await sleep(300); };
   const host = mobile ? '#sheet' : '#drawer';

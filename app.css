@@ -190,66 +190,482 @@ button.stepn .ic{width:16px;height:16px}
 .nt-b{font-size:14px;line-height:17px;color:var(--than)}
 .nt-act{display:flex;gap:16px;flex:none;margin-left:auto}
 .nt-act .btn{min-width:74px}
-/* ---------- tia viền "border beam" — thẻ kích cầu ghép cặp 1:2 (chủ studio 20/10) ----------
-   Dựng lại theo border-beam (libraries.dev/beam, MIT, kiểu "Large" + "Line"), bằng CSS thuần:
-   · thẻ (.beam: dòng mời trên mobile, dòng Tập đôi trên phiếu có lời mời / "Mời bạn" / "Mời bạn khác") — một tia chạy quanh viền.
-     Bản gốc quét theo góc (conic) từ tâm: trên thẻ dẹt 7:1 tia co còn ~40 px giữa cạnh dài và phủ kín cạnh ngắn. Ở đây chu vi được
-     "trải phẳng": tia dài cố định 160 px chạy đều tốc độ, gập qua góc liền mạch — 4 lớp nền (trên · phải · dưới · trái + một lớp trái
-     cho vòng sau), toạ độ = hàm bậc nhất của quãng đã chạy p (0 → chu vi), tính bằng đơn vị khung chứa (cqw · cqh của .bm-s / .bm-g,
-     container-type:size — lớp phủ inset:0 nên khung không phụ thuộc nội dung) → không cần JS đo, không cần @property.
-     .bm-s = vành 2 px (mặt nạ trừ khối lùi 2 px) · .bm-g = quầng Acid ngay sau đầu tia, toả vào trong mép (thẻ cắt phần ngoài)
-   · dải sàn desktop có lời mời (#floor:has(.nt.pair)) — chỉ viền trên: vạch 2 px + quầng chạy trái → phải, mờ vào / mờ ra ở hai đầu
-   Bảng màu Mực–Acid (nền trang sáng: Acid một mình trên Giấy chỉ ~1,1:1 — yếu như vòng sáng 1.2.2): thân tia Mực đậm dần (tương phản ~18:1
-   trên Giấy 2), đầu tia Acid nối liền thân Mực (cặp nhận diện của "chấm Acid viền Mực"), quầng Acid toả vào trong quanh đầu tia.
-   Nhịp: quanh thẻ 2,4 s / vòng · dải sàn 3,1 s / lượt (bản gốc 1,96 s · 3,1 s). Vào: mờ 0 → 1 trong 600 ms khi sigWatch (app.js) gắn
-   .sig-in (trang vào xong, không có cửa sổ che, tab đang mở) — không chạy lẫn vào cảnh trang trượt vào. Chạy liên tục tới khi thẻ hết
-   (lời mời được trả lời / đã có bạn tập).
-   Giảm chuyển động: không chạy — viền Mực 1,5 px đứng yên thay tia (khối luật cuối tệp). */
+/* ---------- tia viền "border beam" — thẻ kích cầu ghép cặp 1:2 (chủ studio 20/10: "y hệt như ví dụ, chỉ thay màu gradient") ----------
+   Khối giữa beam:start … beam:end SINH BẰNG tools/beam_css.mjs từ chính mã của gói border-beam 1.4.1 (libraries.dev/beam, MIT) — cấu hình
+   của ví dụ (theme dark: viền ::after · quầng ::before · loé [data-beam-bloom], md 1,96 s / vòng, line 3,1 s / lượt, mờ vào 0,6 s), chỉ
+   đổi màu: đốm màu → Acid · Acid đậm · Than · Mực, vệt sáng trắng → Mực (tương phản trên nền sáng). Đổi gì thì sửa tool rồi chạy lại.
+   · thẻ: data-beam="b0" + <i data-beam-bloom> (dòng mời mobile · dòng Tập đôi trên phiếu có lời mời / "Mời bạn" / "Mời bạn khác")
+   · dải sàn desktop có lời mời: lớp phủ .flb data-beam="b0l" (kiểu line của gói chạy ở viền dưới → lật lên viền trên)
+   Chạy khi có data-active — sigWatch (app.js) gắn khi trang vào xong, không có cửa sổ che, tab đang mở (không chạy lẫn cảnh vào trang).
+   Chạy liên tục tới khi thẻ hết. Giảm chuyển động: không gắn data-active (gói không tự xử lý kiểu xoay) → viền Mực đứng yên (cuối tệp). */
 .nt-ic{position:relative;display:flex;flex:none}
-.beam{position:relative;isolation:isolate;box-shadow:inset 0 0 0 1px var(--ke)}
-.bm-s,.bm-g{position:absolute;inset:0;z-index:-1;container-type:size;border-radius:inherit;overflow:hidden;pointer-events:none;opacity:0}
-/* vành 2 px: cả lớp trừ đi khối lùi 2 px (không dùng padding — cqw / cqh đo theo vùng nội dung, phải bằng đúng cỡ thẻ) */
-.bm-s{-webkit-mask:linear-gradient(#000 0 0) 2px 2px/calc(100% - 4px) calc(100% - 4px) no-repeat,linear-gradient(#000 0 0);-webkit-mask-composite:xor;
-      mask:linear-gradient(#000 0 0) 2px 2px/calc(100% - 4px) calc(100% - 4px) no-repeat exclude,linear-gradient(#000 0 0)}
-.bm-s::before,.bm-g::before{content:'';position:absolute;inset:0;background-repeat:no-repeat}
-/* thân tia: đuôi trong suốt → Mực đặc ở 91 %, đầu Acid 14 px */
-.bm-s::before{
-  --t:transparent,rgba(10,10,10,.1) 25%,rgba(10,10,10,.5) 60%,rgba(10,10,10,.92) 86%,#0A0A0A 91%,#D4FF00 91.5%;
-  background-image:linear-gradient(90deg,var(--t)),linear-gradient(180deg,var(--t)),linear-gradient(270deg,var(--t)),linear-gradient(0deg,var(--t)),linear-gradient(0deg,var(--t));
-  background-size:160px 2px,2px 160px,160px 2px,2px 160px,2px 160px}
-.bm-g::before{
-  background-image:radial-gradient(closest-side,rgba(212,255,0,.9),rgba(212,255,0,.34) 50%,transparent),radial-gradient(closest-side,rgba(212,255,0,.9),rgba(212,255,0,.34) 50%,transparent),
-                   radial-gradient(closest-side,rgba(212,255,0,.9),rgba(212,255,0,.34) 50%,transparent),radial-gradient(closest-side,rgba(212,255,0,.9),rgba(212,255,0,.34) 50%,transparent),
-                   radial-gradient(closest-side,rgba(212,255,0,.9),rgba(212,255,0,.34) 50%,transparent);
-  background-size:84px 28px,28px 84px,84px 28px,28px 84px,28px 84px}
-.beam.sig-in>.bm-s,.beam.sig-in>.bm-g{animation:bmin .6s var(--eo) both}
-.beam.sig-in>.bm-s::before{animation:bmrun 2.4s linear infinite}
-.beam.sig-in>.bm-g::before{animation:bmglow 2.4s linear infinite}
-/* p: 0 → chu vi P = 2 (W + H) · W = 100cqw, H = 100cqh · đầu tia: trên x = p · phải y = p − W · dưới x = 2W + H − p · trái y = P − p */
-@keyframes bmrun{
-  from{background-position:-160px 0,calc(100cqw - 2px) calc(-100cqw - 160px),calc(200cqw + 100cqh) calc(100cqh - 2px),0 calc(200cqw + 200cqh),0 0}
-  to{background-position:calc(200cqw + 200cqh - 160px) 0,calc(100cqw - 2px) calc(100cqw + 200cqh - 160px),calc(-100cqh) calc(100cqh - 2px),0 0,0 calc(-200cqw - 200cqh)}
+[data-beam="b0"]{isolation:isolate}   /* lớp tia z-index 1–3 chỉ xếp trong thẻ, không đè thứ khác của trang */
+#floor>.flb{position:absolute;inset:0;pointer-events:none}
+.flb::before,.flb::after,.flb [data-beam-bloom]{transform:scaleY(-1)}
+/* beam:start — SINH BẰNG tools/beam_css.mjs từ border-beam 1.4.1 (MIT ©2026 Jakub Antalik — licenses/border-beam.txt), ĐỪNG SỬA TAY */
+@property --beam-angle-b0 {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: true;
 }
-/* quầng 84 × 28: tâm lùi sau đầu tia 8 px, nửa elip nằm trong thẻ */
-@keyframes bmglow{
-  from{background-position:-50px -14px,calc(100cqw - 14px) calc(-100cqw - 50px),calc(200cqw + 100cqh - 34px) calc(100cqh - 14px),-14px calc(200cqw + 200cqh - 34px),-14px -34px}
-  to{background-position:calc(200cqw + 200cqh - 50px) -14px,calc(100cqw - 14px) calc(100cqw + 200cqh - 50px),calc(-100cqh - 34px) calc(100cqh - 14px),-14px -34px,-14px calc(-200cqw - 200cqh - 34px)}
+
+@property --beam-opacity-b0 {
+  syntax: "<number>";
+  initial-value: 0;
+  inherits: true;
 }
-@keyframes bmin{from{opacity:0}to{opacity:1}}
-/* dải sàn desktop: chỉ viền trên — sàn đã là khối định vị có z-index (lớp xếp riêng) → tia nằm trên nền sàn, dưới chữ / nút */
-#floor:has(.nt.pair.sig-in)::before,#floor:has(.nt.pair.sig-in)::after{content:'';position:absolute;left:0;right:0;z-index:-1;pointer-events:none;
-  background-repeat:no-repeat;animation:bmrail 3.1s linear infinite,bmin .6s var(--eo) both}
-#floor:has(.nt.pair.sig-in)::before{top:-1px;height:2px;background-size:300px 2px;
-  background-image:linear-gradient(90deg,transparent,rgba(10,10,10,.1) 25%,rgba(10,10,10,.5) 60%,rgba(10,10,10,.92) 86%,#0A0A0A 95.2%,#D4FF00 95.4%)}
-#floor:has(.nt.pair.sig-in)::after{top:0;height:32px;background-size:300px 32px;
-  background-image:radial-gradient(42px 14px at 285px 0,rgba(212,255,0,.9),rgba(212,255,0,.34) 50%,transparent),
-                   radial-gradient(150px 12px at 230px 0,rgba(212,255,0,.18),transparent)}
-@keyframes bmrail{
-  0%{background-position:-300px 0;opacity:0}
-  12%{opacity:1}
-  86%{opacity:1}
-  100%{background-position:calc(100% + 300px) 0;opacity:0}
+
+[data-beam="b0"] {
+  position: relative;
+  border-radius: 4px;
+  overflow: hidden;
 }
+
+[data-beam="b0"][data-active] {
+  animation:
+    beam-spin-b0 1.96s linear infinite,
+    beam-fade-in-b0 0.6s ease forwards;
+}
+
+[data-beam="b0"][data-fading] {
+  animation:
+    beam-spin-b0 1.96s linear infinite,
+    beam-fade-out-b0 0.5s ease forwards;
+}
+
+[data-beam="b0"][data-active]::after,
+[data-beam="b0"][data-fading]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 3px;
+  padding: 1px;
+  clip-path: inset(0 round 4px);
+  background: conic-gradient(
+        from var(--beam-angle-b0),
+        transparent 0%, transparent 54%,
+        rgba(10, 10, 10, 0.1) 57%,
+        rgba(10, 10, 10, 0.3) 60%,
+        rgba(10, 10, 10, 0.6) 63%,
+        rgba(10, 10, 10, 0.75) 66%,
+        rgba(10, 10, 10, 0.6) 69%,
+        rgba(10, 10, 10, 0.3) 72%,
+        rgba(10, 10, 10, 0.1) 75%,
+        transparent 78%, transparent 100%
+      ),radial-gradient(ellipse 70px 40px at 33% -7.4%, rgb(212, 255, 0), transparent),
+    radial-gradient(ellipse 60px 35px at 12% -5%, rgb(10, 10, 10), transparent),
+    radial-gradient(ellipse 40px 70px at 2.1% 68.3%, rgb(177, 234, 0), transparent),
+    radial-gradient(ellipse 20px 35px at 2.1% 68.3%, rgb(74, 74, 74), transparent),
+    radial-gradient(ellipse 180px 32px at 74.4% 100%, rgb(10, 10, 10), transparent),
+    radial-gradient(ellipse 85px 26px at 55% 100%, rgb(10, 10, 10), transparent),
+    radial-gradient(ellipse 74px 32px at 93.9% 0%, rgb(177, 234, 0), transparent),
+    radial-gradient(ellipse 26px 42px at 100% 27.1%, rgb(212, 255, 0), transparent),
+    radial-gradient(ellipse 52px 48px at 100% 27.1%, rgb(74, 74, 74), transparent);
+  -webkit-mask:
+    conic-gradient(
+      from var(--beam-angle-b0),
+      transparent 0%, transparent 30%,
+      rgba(255, 255, 255, 0.1) 36%, rgba(255, 255, 255, 0.35) 44%,
+      white 52%, white 80%,
+      rgba(255, 255, 255, 0.35) 86%, rgba(255, 255, 255, 0.1) 92%,
+      transparent 95%, transparent 100%
+    ),
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: source-in, xor;
+  mask:
+    conic-gradient(
+      from var(--beam-angle-b0),
+      transparent 0%, transparent 30%,
+      rgba(255, 255, 255, 0.1) 36%, rgba(255, 255, 255, 0.35) 44%,
+      white 52%, white 80%,
+      rgba(255, 255, 255, 0.35) 86%, rgba(255, 255, 255, 0.1) 92%,
+      transparent 95%, transparent 100%
+    ),
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask-composite: intersect, exclude;
+  pointer-events: none;
+  z-index: 2;
+  opacity: calc(var(--beam-opacity-b0) * 0.26 * var(--beam-stroke-opacity, 1) * var(--beam-strength, 1));
+  animation: beam-hue-shift-b0 12s ease-in-out infinite;
+}
+
+[data-beam="b0"][data-active]::before,
+[data-beam="b0"][data-fading]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 4px;
+  background: radial-gradient(ellipse 63px 36px at 33% -7.4%, rgba(212, 255, 0, 0.45), transparent),
+    radial-gradient(ellipse 54px 32px at 12% -5%, rgba(10, 10, 10, 0.45), transparent),
+    radial-gradient(ellipse 36px 63px at 2.1% 68.3%, rgba(177, 234, 0, 0.45), transparent),
+    radial-gradient(ellipse 18px 32px at 2.1% 68.3%, rgba(74, 74, 74, 0.45), transparent),
+    radial-gradient(ellipse 162px 29px at 74.4% 100%, rgba(10, 10, 10, 0.45), transparent),
+    radial-gradient(ellipse 77px 23px at 55% 100%, rgba(10, 10, 10, 0.45), transparent),
+    radial-gradient(ellipse 67px 29px at 93.9% 0%, rgba(177, 234, 0, 0.45), transparent),
+    radial-gradient(ellipse 23px 38px at 100% 27.1%, rgba(212, 255, 0, 0.45), transparent),
+    radial-gradient(ellipse 47px 43px at 100% 27.1%, rgba(74, 74, 74, 0.45), transparent);
+  box-shadow: inset 0 0 9px 1px rgba(10, 10, 10, 0.27);
+  -webkit-mask-image:
+    conic-gradient(
+      from var(--beam-angle-b0),
+      transparent 0%, transparent 30%,
+      rgba(255, 255, 255, 0.1) 36%, rgba(255, 255, 255, 0.35) 44%,
+      white 52%, white 80%,
+      rgba(255, 255, 255, 0.35) 86%, rgba(255, 255, 255, 0.1) 92%,
+      transparent 95%, transparent 100%
+    ),
+    linear-gradient(white, transparent 28px, transparent calc(100% - 28px), white),
+    linear-gradient(to right, white, transparent 28px, transparent calc(100% - 28px), white);
+  -webkit-mask-composite: source-in, source-over;
+  mask-image:
+    conic-gradient(
+      from var(--beam-angle-b0),
+      transparent 0%, transparent 30%,
+      rgba(255, 255, 255, 0.1) 36%, rgba(255, 255, 255, 0.35) 44%,
+      white 52%, white 80%,
+      rgba(255, 255, 255, 0.35) 86%, rgba(255, 255, 255, 0.1) 92%,
+      transparent 95%, transparent 100%
+    ),
+    linear-gradient(white, transparent 28px, transparent calc(100% - 28px), white),
+    linear-gradient(to right, white, transparent 28px, transparent calc(100% - 28px), white);
+  mask-composite: intersect, add;
+  pointer-events: none;
+  z-index: 1;
+  opacity: calc(var(--beam-opacity-b0) * 0.42 * var(--beam-inner-opacity, 1) * var(--beam-strength, 1));
+  clip-path: inset(0 round 4px);
+  animation: beam-hue-shift-b0 12s ease-in-out infinite;
+}
+
+[data-beam="b0"] [data-beam-bloom] {
+  display: none;
+  position: absolute;
+  inset: 0;
+  border-radius: 3px;
+  clip-path: inset(0 round 4px);
+  background: conic-gradient(
+        from var(--beam-angle-b0),
+        transparent 0%, transparent 58%,
+        rgba(10, 10, 10, 0.03) 62%,
+        rgba(10, 10, 10, 0.08) 65%,
+        rgba(10, 10, 10, 0.2) 67%,
+        rgba(10, 10, 10, 0.45) 69%,
+        rgba(10, 10, 10, 0.85) 70%,
+        rgba(10, 10, 10, 0.85) 70.5%,
+        rgba(10, 10, 10, 0.45) 71.5%,
+        rgba(10, 10, 10, 0.2) 73%,
+        rgba(10, 10, 10, 0.08) 75%,
+        rgba(10, 10, 10, 0.03) 78%,
+        transparent 82%
+      );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  padding: 1px;
+  filter: blur(8px) brightness(1.30) saturate(1.20);
+  pointer-events: none;
+  z-index: 3;
+  opacity: 0;
+}
+
+[data-beam="b0"][data-active] [data-beam-bloom],
+[data-beam="b0"][data-fading] [data-beam-bloom] {
+  display: block;
+  opacity: calc(var(--beam-opacity-b0) * 0.24 * var(--beam-bloom-opacity, 1) * var(--beam-strength, 1));
+}
+
+@keyframes beam-spin-b0 {
+  to { --beam-angle-b0: 360deg; }
+}
+
+@keyframes beam-fade-in-b0 {
+  to { --beam-opacity-b0: 1; }
+}
+
+@keyframes beam-fade-out-b0 {
+  from { --beam-opacity-b0: 1; }
+  to { --beam-opacity-b0: 0; }
+}
+
+@keyframes beam-hue-shift-b0 {
+  0% { filter: hue-rotate(calc(var(--beam-hue-base, 0deg) - 0deg)) brightness(1.30) saturate(1.20); }
+  50% { filter: hue-rotate(calc(var(--beam-hue-base, 0deg) + 0deg)) brightness(1.30) saturate(1.20); }
+  100% { filter: hue-rotate(calc(var(--beam-hue-base, 0deg) - 0deg)) brightness(1.30) saturate(1.20); }
+}
+
+[data-beam="b0"][data-paused],
+[data-beam="b0"][data-paused]::after,
+[data-beam="b0"][data-paused]::before,
+[data-beam="b0"][data-paused] [data-beam-bloom] {
+  animation-play-state: paused !important;
+}
+
+@property --beam-x-b0l {
+  syntax: "<number>";
+  initial-value: 0;
+  inherits: true;
+}
+
+@property --beam-w-b0l {
+  syntax: "<number>";
+  initial-value: 1;
+  inherits: true;
+}
+
+@property --beam-h-b0l {
+  syntax: "<number>";
+  initial-value: 1;
+  inherits: true;
+}
+
+@property --beam-spike-b0l {
+  syntax: "<number>";
+  initial-value: 1;
+  inherits: true;
+}
+
+@property --beam-spike2-b0l {
+  syntax: "<number>";
+  initial-value: 1;
+  inherits: true;
+}
+
+@property --beam-edge-b0l {
+  syntax: "<number>";
+  initial-value: 1;
+  inherits: true;
+}
+
+@property --beam-opacity-b0l {
+  syntax: "<number>";
+  initial-value: 0;
+  inherits: true;
+}
+
+[data-beam="b0l"] {
+  position: relative;
+  border-radius: 0px;
+  overflow: hidden;
+}
+
+[data-beam="b0l"][data-active] {
+  animation:
+    beam-travel-b0l 3.1s linear infinite,
+    beam-edge-fade-b0l 3.1s linear infinite,
+    beam-breathe-b0l 4.0s ease-in-out infinite,
+    beam-spike-b0l 4.1s ease-in-out infinite,
+    beam-spike2-b0l 5.3s ease-in-out infinite,
+    beam-fade-in-b0l 0.6s ease forwards;
+}
+
+[data-beam="b0l"][data-fading] {
+  animation:
+    beam-travel-b0l 3.1s linear infinite,
+    beam-edge-fade-b0l 3.1s linear infinite,
+    beam-breathe-b0l 4.0s ease-in-out infinite,
+    beam-spike-b0l 4.1s ease-in-out infinite,
+    beam-spike2-b0l 5.3s ease-in-out infinite,
+    beam-fade-out-b0l 0.5s ease forwards;
+}
+
+[data-beam="b0l"][data-active]::after,
+[data-beam="b0l"][data-fading]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 0px;
+  padding: 1px;
+  clip-path: inset(0 round 0px);
+  background: radial-gradient(
+        ellipse calc(24px * var(--beam-w-b0l)) calc(28px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100%) calc(100% + 2px),
+        rgba(10, 10, 10, 0.38) 0%,
+        rgba(10, 10, 10, 0.12) 30%,
+        transparent 65%
+      ), radial-gradient(ellipse calc(36px * var(--beam-w-b0l)) calc(36px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100%) calc(100% + 2px), rgb(212, 255, 0), transparent),
+       radial-gradient(ellipse calc(30px * var(--beam-w-b0l)) calc(32px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100% + 39px) calc(100%), rgb(74, 74, 74), transparent),
+       radial-gradient(ellipse calc(33px * var(--beam-w-b0l)) calc(28px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100% - 36px) calc(100% + 2px), rgb(177, 234, 0), transparent),
+       radial-gradient(ellipse calc(29px * var(--beam-w-b0l)) calc(34px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100% - 54px) calc(100%), rgb(74, 74, 74), transparent),
+       radial-gradient(ellipse calc(27px * var(--beam-w-b0l)) calc(30px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100% + 51px) calc(100% - 1px), rgb(177, 234, 0), transparent),
+       radial-gradient(ellipse calc(36px * var(--beam-w-b0l)) calc(24px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100% + 21px) calc(100% + 1px), rgb(10, 10, 10), transparent),
+       radial-gradient(ellipse calc(30px * var(--beam-w-b0l)) calc(22px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100% - 21px) calc(100%), rgb(10, 10, 10), transparent),
+       radial-gradient(ellipse calc(25px * var(--beam-w-b0l)) calc(28px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100% + 66px) calc(100% + 1px), rgb(212, 255, 0), transparent),
+       radial-gradient(ellipse calc(23px * var(--beam-w-b0l)) calc(30px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100% - 66px) calc(100% - 1px), rgb(74, 74, 74), transparent);
+  -webkit-mask:
+    radial-gradient(
+      ellipse calc(78px * var(--beam-w-b0l)) calc(60px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100%) 100%,
+      white 0%, rgba(255, 255, 255, 0.5) 45%, transparent 100%
+    ),
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: source-in, xor;
+  mask:
+    radial-gradient(
+      ellipse calc(78px * var(--beam-w-b0l)) calc(60px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100%) 100%,
+      white 0%, rgba(255, 255, 255, 0.5) 45%, transparent 100%
+    ),
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask-composite: intersect, exclude;
+  pointer-events: none;
+  z-index: 2;
+  opacity: calc(var(--beam-opacity-b0l) * var(--beam-edge-b0l) * 1.14 * var(--beam-stroke-opacity, 1) * var(--beam-strength, 1));
+  animation: beam-hue-shift-b0l 12s ease-in-out infinite;
+}
+
+[data-beam="b0l"][data-active]::before,
+[data-beam="b0l"][data-fading]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 0px;
+  background: radial-gradient(ellipse calc(33px * var(--beam-w-b0l)) calc(30px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100%) calc(100%), rgba(212, 255, 0, 0.48), transparent),
+    radial-gradient(ellipse calc(24px * var(--beam-w-b0l)) calc(26px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100% + 39px) calc(100% - 3px), rgba(74, 74, 74, 0.42), transparent),
+    radial-gradient(ellipse calc(27px * var(--beam-w-b0l)) calc(24px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100% - 36px) calc(100%), rgba(177, 234, 0, 0.48), transparent),
+    radial-gradient(ellipse calc(23px * var(--beam-w-b0l)) calc(28px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100% - 54px) calc(100% - 2px), rgba(74, 74, 74, 0.42), transparent),
+    radial-gradient(ellipse calc(24px * var(--beam-w-b0l)) calc(24px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100% + 51px) calc(100% - 1px), rgba(177, 234, 0, 0.50), transparent),
+    radial-gradient(ellipse calc(30px * var(--beam-w-b0l)) calc(20px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100% + 21px) calc(100%), rgba(10, 10, 10, 0.45), transparent),
+    radial-gradient(ellipse calc(25px * var(--beam-w-b0l)) calc(18px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100% - 21px) calc(100% - 2px), rgba(10, 10, 10, 0.40), transparent),
+    radial-gradient(ellipse calc(21px * var(--beam-w-b0l)) calc(24px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100% + 66px) calc(100%), rgba(212, 255, 0, 0.45), transparent),
+    radial-gradient(ellipse calc(18px * var(--beam-w-b0l)) calc(26px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100% - 66px) calc(100% - 1px), rgba(74, 74, 74, 0.52), transparent);
+  box-shadow: inset 0 0 9px 1px rgba(10, 10, 10, 0.1);
+  -webkit-mask-image:
+    radial-gradient(
+      ellipse calc(78px * var(--beam-w-b0l)) calc(60px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100%) 100%,
+      white 0%, rgba(255, 255, 255, 0.5) 45%, transparent 100%
+    ),
+    linear-gradient(white, transparent 28px, transparent calc(100% - 28px), white),
+    linear-gradient(to right, white, transparent 28px, transparent calc(100% - 28px), white);
+  -webkit-mask-composite: source-in, source-over;
+  mask-image:
+    radial-gradient(
+      ellipse calc(78px * var(--beam-w-b0l)) calc(60px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100%) 100%,
+      white 0%, rgba(255, 255, 255, 0.5) 45%, transparent 100%
+    ),
+    linear-gradient(white, transparent 28px, transparent calc(100% - 28px), white),
+    linear-gradient(to right, white, transparent 28px, transparent calc(100% - 28px), white);
+  mask-composite: intersect, add;
+  pointer-events: none;
+  z-index: 1;
+  opacity: calc(var(--beam-opacity-b0l) * var(--beam-edge-b0l) * 0.70 * var(--beam-inner-opacity, 1) * var(--beam-strength, 1));
+  clip-path: inset(0 round 0px);
+  animation: beam-hue-shift-b0l 12s ease-in-out infinite;
+}
+
+[data-beam="b0l"] [data-beam-bloom] {
+  display: none;
+  position: absolute;
+  inset: 0;
+  border-radius: 0px;
+  clip-path: inset(0 round 0px);
+  padding: 0;
+  -webkit-mask: radial-gradient(
+    ellipse calc(84px * var(--beam-w-b0l)) calc(110px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100%) 100%,
+    white 0%, rgba(255, 255, 255, 0.5) 35%, transparent 100%
+  );
+  -webkit-mask-composite: source-over;
+  mask: radial-gradient(
+    ellipse calc(84px * var(--beam-w-b0l)) calc(110px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100%) 100%,
+    white 0%, rgba(255, 255, 255, 0.5) 35%, transparent 100%
+  );
+  mask-composite: add;
+  background: radial-gradient(ellipse calc(0.8px * var(--beam-spike-b0l) * var(--beam-spike-mul, 1)) calc(92px * var(--beam-h-b0l) * var(--beam-spike-mul, 1)) at 8% calc(100% - 2px), rgb(212, 255, 0), rgb(212, 255, 0) 30%, transparent 88%),
+       radial-gradient(ellipse calc(10px * var(--beam-spike2-b0l) * var(--beam-spike-mul, 1)) calc(35px * var(--beam-h-b0l) * var(--beam-spike-mul, 1)) at 22% calc(100% - 4px), rgba(74, 74, 74, 0.98), rgba(74, 74, 74, 0.49) 50%, transparent 95%),
+       radial-gradient(ellipse calc(2px * (2 - var(--beam-spike-b0l)) * var(--beam-spike-mul, 1)) calc(72px * var(--beam-h-b0l) * var(--beam-spike-mul, 1)) at 36% calc(100% - 3px), rgb(10, 10, 10), rgba(10, 10, 10, 1) 40%, transparent 90%),
+       radial-gradient(ellipse calc(14px * var(--beam-spike2-b0l) * var(--beam-spike-mul, 1)) calc(28px * var(--beam-h-b0l) * var(--beam-spike-mul, 1)) at 50% calc(100% - 2px), rgba(177, 234, 0, 0.59), rgba(177, 234, 0, 0.29) 55%, transparent 96%),
+       radial-gradient(ellipse calc(1.2px * (2 - var(--beam-spike2-b0l)) * var(--beam-spike-mul, 1)) calc(85px * var(--beam-h-b0l) * var(--beam-spike-mul, 1)) at 64% calc(100% - 4px), rgb(177, 234, 0), rgba(177, 234, 0, 1) 35%, transparent 89%),
+       radial-gradient(ellipse calc(7px * var(--beam-spike-b0l) * var(--beam-spike-mul, 1)) calc(45px * var(--beam-h-b0l) * var(--beam-spike-mul, 1)) at 78% calc(100% - 2px), rgba(74, 74, 74, 0.91), rgba(74, 74, 74, 0.45) 48%, transparent 94%),
+       radial-gradient(ellipse calc(0.6px * (2 - var(--beam-spike-b0l)) * var(--beam-spike-mul, 1)) calc(60px * var(--beam-h-b0l) * var(--beam-spike-mul, 1)) at 92% calc(100% - 3px), rgb(10, 10, 10), rgba(10, 10, 10, 1) 42%, transparent 91%),
+       radial-gradient(ellipse calc(21px * var(--beam-spike-b0l)) calc(15px * var(--beam-spike2-b0l)) at calc(var(--beam-x-b0l) * 100%) calc(100% + 1px), rgba(10, 10, 10, 1) 0%, rgba(10, 10, 10, 0.9) 20%, rgba(10, 10, 10, 0.5) 50%, transparent 100%),
+       radial-gradient(ellipse calc(42px * var(--beam-w-b0l)) calc(40px * var(--beam-h-b0l)) at calc(var(--beam-x-b0l) * 100%) 100%, rgba(10, 10, 10, 0.3) 0%, rgba(10, 10, 10, 0.12) 25%, rgba(10, 10, 10, 0.03) 55%, transparent 80%);
+  
+  pointer-events: none;
+  z-index: 3;
+  opacity: 0;
+}
+
+[data-beam="b0l"][data-active] [data-beam-bloom],
+[data-beam="b0l"][data-fading] [data-beam-bloom] {
+  display: block;
+  opacity: calc(var(--beam-opacity-b0l) * var(--beam-edge-b0l) * 0.80 * var(--beam-bloom-opacity, 1) * var(--beam-strength, 1));
+  animation: beam-hue-shift-bloom-b0l 8s ease-in-out infinite;
+}
+
+@keyframes beam-travel-b0l {
+  0%   { --beam-x-b0l: 0.06;  --beam-w-b0l: 0.5; }
+  10%  { --beam-x-b0l: 0.15;  --beam-w-b0l: 0.8; }
+  20%  { --beam-x-b0l: 0.25;  --beam-w-b0l: 1.1; }
+  30%  { --beam-x-b0l: 0.35;  --beam-w-b0l: 1.3; }
+  40%  { --beam-x-b0l: 0.44;  --beam-w-b0l: 1.45; }
+  50%  { --beam-x-b0l: 0.5;   --beam-w-b0l: 1.5; }
+  60%  { --beam-x-b0l: 0.56;  --beam-w-b0l: 1.45; }
+  70%  { --beam-x-b0l: 0.65;  --beam-w-b0l: 1.3; }
+  80%  { --beam-x-b0l: 0.75;  --beam-w-b0l: 1.1; }
+  90%  { --beam-x-b0l: 0.85;  --beam-w-b0l: 0.8; }
+  100% { --beam-x-b0l: 0.94;  --beam-w-b0l: 0.5; }
+}
+
+@keyframes beam-edge-fade-b0l {
+  0%    { --beam-edge-b0l: 0; }
+  12.5% { --beam-edge-b0l: 0; }
+  32.5% { --beam-edge-b0l: 1; }
+  67.5% { --beam-edge-b0l: 1; }
+  87.5% { --beam-edge-b0l: 0; }
+  100%  { --beam-edge-b0l: 0; }
+}
+
+@keyframes beam-breathe-b0l {
+  0%, 100% { --beam-h-b0l: 0.8; }
+  25%      { --beam-h-b0l: 1.25; }
+  55%      { --beam-h-b0l: 0.85; }
+  80%      { --beam-h-b0l: 1.3; }
+}
+
+@keyframes beam-spike-b0l {
+  0%   { --beam-spike-b0l: 0.8; }
+  25%  { --beam-spike-b0l: 1.3; }
+  50%  { --beam-spike-b0l: 0.9; }
+  75%  { --beam-spike-b0l: 1.4; }
+  100% { --beam-spike-b0l: 0.8; }
+}
+
+@keyframes beam-spike2-b0l {
+  0%   { --beam-spike2-b0l: 1.2; }
+  25%  { --beam-spike2-b0l: 0.7; }
+  50%  { --beam-spike2-b0l: 1.4; }
+  75%  { --beam-spike2-b0l: 0.8; }
+  100% { --beam-spike2-b0l: 1.2; }
+}
+
+@keyframes beam-fade-in-b0l {
+  to { --beam-opacity-b0l: 1; }
+}
+
+@keyframes beam-fade-out-b0l {
+  from { --beam-opacity-b0l: 1; }
+  to { --beam-opacity-b0l: 0; }
+}
+
+@keyframes beam-hue-shift-b0l {
+  0% { filter: hue-rotate(calc(var(--beam-hue-base, 0deg) - 0deg)) brightness(1.30) saturate(1.20); }
+  50% { filter: hue-rotate(calc(var(--beam-hue-base, 0deg) + 0deg)) brightness(1.30) saturate(1.20); }
+  100% { filter: hue-rotate(calc(var(--beam-hue-base, 0deg) - 0deg)) brightness(1.30) saturate(1.20); }
+}
+
+@keyframes beam-hue-shift-bloom-b0l {
+  0% { filter: blur(8px) hue-rotate(calc(var(--beam-hue-base, 0deg) - 10deg)) brightness(1.30) saturate(1.20); }
+  50% { filter: blur(8px) hue-rotate(calc(var(--beam-hue-base, 0deg) + 10deg)) brightness(1.30) saturate(1.20); }
+  100% { filter: blur(8px) hue-rotate(calc(var(--beam-hue-base, 0deg) - 10deg)) brightness(1.30) saturate(1.20); }
+}
+
+[data-beam="b0l"][data-paused],
+[data-beam="b0l"][data-paused]::after,
+[data-beam="b0l"][data-paused]::before,
+[data-beam="b0l"][data-paused] [data-beam-bloom] {
+  animation-play-state: paused !important;
+}
+/* beam:end */
 
 .mnt{position:relative;display:flex;flex-direction:column;gap:6px;width:100%;padding:14px 16px;border-radius:var(--r);background:var(--giay2);text-align:left;transition:background-color var(--hov)}
 .mnt.warn{background:var(--giay);box-shadow:inset 0 0 0 1px var(--muc)}
@@ -488,7 +904,6 @@ button.stepn .ic{width:16px;height:16px}
 .prl-c{flex:none;margin-left:6px;font-family:var(--mono);font-size:10px;line-height:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muc)}
 .prl .chev{width:16px;height:16px;stroke:var(--than);stroke-width:1.5;flex:none;margin-left:2px}
 .prl.inv{background:var(--giay);box-shadow:inset 0 0 0 1px var(--muc)}
-.prl.inv.beam{box-shadow:inset 0 0 0 1px var(--ke)}   /* có tia: viền Mực sẵn có nuốt thân tia Mực → về đường ray mảnh */
 .prl-dot{width:8px;height:8px;margin:0 2px;border-radius:50%;background:var(--acid);box-shadow:0 0 0 1px var(--muc);flex:none}
 @media (hover:hover) and (pointer:fine){ .prl:hover{background-image:linear-gradient(var(--ke-manh),var(--ke-manh))} }
 /* vạch "bây giờ" */
@@ -834,8 +1249,7 @@ button.stepn .ic{width:16px;height:16px}
   *,*::before,*::after{animation-duration:.01ms!important;animation-delay:0s!important;animation-iteration-count:1!important;transition-duration:.01ms!important;transition-delay:0s!important}
   .page.enter-fwd>.st,.page.enter-back>.st{animation:fadein .2s linear both!important}
   .page.leave-fwd>.st,.page.leave-back>.st{animation:fadeout .2s linear both!important}
-  /* tia viền: không xoay / quét — viền Mực đứng yên thay tia (vẫn nổi hơn thẻ thường) */
-  .bm-s,.bm-g,#floor:has(.nt.pair.sig-in)::after{display:none}
-  .beam,.prl.inv.beam{box-shadow:inset 0 0 0 1.5px var(--muc)}
-  #floor:has(.nt.pair.sig-in)::before{animation:none!important;background:var(--muc);opacity:1}
+  /* tia viền: không chạy (không gắn data-active) — viền Mực đứng yên thay tia, vẫn nổi hơn thẻ thường */
+  [data-beam="b0"]{box-shadow:inset 0 0 0 1.5px var(--muc)}
+  #floor>.flb{box-shadow:inset 0 1.5px 0 var(--muc)}
 }

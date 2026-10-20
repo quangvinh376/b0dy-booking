@@ -27,6 +27,7 @@ và dời buổi đang chờ vào cặp có sẵn không tính lượt đổi.
 | `test/` | Test Playwright (giả máy chủ bằng chính `LichTuan.gs`), test Apps Script, test B0B |
 | `tools/bang_lich_tap.py` | Dựng tab `Bảng lịch tập` theo bảng giờ của trang (requests cho `spreadsheets.batchUpdate`, xem đầu tệp) |
 | `tools/lich_coach.py` | Tạo tab `Lịch coach` (5 khối coach, mặc định T2–T7 tick đủ, CN trống = đúng luật cũ) — chỉ để tạo lần đầu |
+| `tools/beam_css.mjs` | Sinh khối CSS tia viền (border beam) trong `app.css` từ chính mã gói `border-beam` 1.4.1 (libraries.dev/beam, MIT) — cấu hình của ví dụ, chỉ đổi màu sang bảng B0DY; `--check` so khối đang nhúng |
 | `tools/ba_fixture.py` · `tools/sim_week*.{mjs,py}` · `tools/worker_deploy_snippet.mjs` | BA xuất Excel → fixture riêng tư (`.local/`, không đẩy lên repo) · mô phỏng cả phòng đặt tuần tới theo lịch tập tuần trước (đúng luật máy chủ) + ghi / kiểm sổ · đoạn deploy Worker từ dashboard. Xem `CLAUDE.md` |
 
 Dữ liệu vào: file BA (MEMBERS, TRIAL, B0B, ⚙️ 2, SESSION LOG) + tab `Lịch coach` của sheet *[B0DY Studio] Lịch tập tuần*.
@@ -44,7 +45,7 @@ node test/ui_states.js              # 97 kiểm tra trạng thái giao diện (E
 node test/ui_qc.js                  # chế độ QC: kịch bản, hội viên thử, gây lỗi, không gọi mạng, không chạm bộ nhớ trang thật
 node test/ui_duo.js                 # gói 1:2: nhận lời mời bằng dời trong ngày, Ghép khác ngày, rời cặp tính lượt, từ chối → "Mời bạn khác"
 node test/ui_live.js                # kênh live: người khác đặt → bảng tự cập nhật, ô đang chọn bị lấy, "N người đang xem", nối lại / lui
-node test/ui_notice.js              # thẻ thông báo + tia viền (border beam) thẻ ghép cặp: chạy sau khi trang vào xong, đúng vị trí quanh viền, liên tục, tab ẩn / cửa sổ che thì chờ
+node test/ui_notice.js              # thẻ thông báo + tia viền (border beam) thẻ ghép cặp: bật sau khi trang vào xong, quay đúng nhịp của gói, liên tục, tab ẩn / cửa sổ che thì chờ
 node test/ui_smoke.js && node test/ui_sw.js && node test/ui_tk3d.js all && node test/ui_png.js all && node test/b0b_check.js
 node test/rv_h6_rid_discard.js      # … và các rv_*.js: tái hiện lỗi đã sửa (mất phản hồi, máy dùng chung, 06:00, …)
 node test/rv_find_dynamic.js        # tìm tên gõ tới đâu ra tới đó: tô phần khớp, more, giữ danh sách khi chờ, máy chủ cũ (need: 2)

@@ -9,7 +9,7 @@
 'use strict';
 
 /* ============================== CẤU HÌNH ============================== */
-var VER = '1.3.0';
+var VER = '1.3.1';
 var API_URL = 'https://b0dy-booking-api.little-bonus-1d87.workers.dev/';
 var API_SLOW = false;                 /* true khi chạy Apps Script (chậm hơn nhiều) → nới thời gian chờ */
 /* kênh live: Worker chỉ nhận từ trang thật (ALLOW_ORIGINS) → trang chạy chỗ khác (test trên máy) không nối, khỏi gõ cửa máy chủ thật.
@@ -742,18 +742,20 @@ function noticeHTML(n) {
     (acts ? '<div class="nt-act">' + acts + '</div>' : '') + '</div>';
 }
 function sigIco(n) { return '<span class="nt-ic">' + ico(n) + '</span>'; }
-/* tia viền (border beam, app.css) — thẻ kích cầu ghép cặp 1:2: lời mời cho mình · "Mời bạn" / "Mời bạn khác" (chủ studio 20/10).
-   Dải sàn desktop có lời mời (.nt.pair) chạy tia theo viền trên của sàn, không cần lớp riêng. */
-var BEAM = '<i class="bm-s" aria-hidden="true"></i><i class="bm-g" aria-hidden="true"></i>';
+/* tia viền (border beam — app.css, sinh từ gói border-beam bằng tools/beam_css.mjs) cho thẻ kích cầu ghép cặp 1:2: lời mời cho mình ·
+   "Mời bạn" / "Mời bạn khác" (chủ studio 20/10). Cấu trúc y như component của gói: thẻ = lớp bọc data-beam="b0" (lớp viền / quầng là
+   ::after / ::before của thẻ) + một lớp loé [data-beam-bloom] bên trong. Dải sàn desktop có lời mời (.nt.pair): lớp phủ .flb data-beam="b0l"
+   (kiểu line, lật lên viền trên). Chỉ chạy khi có data-active (sigWatch gắn). */
+var BEAM = ' data-beam="b0"', BLOOM = '<i data-beam-bloom aria-hidden="true"></i>', FLB = '<div class="flb" data-beam="b0l" aria-hidden="true">' + BLOOM + '</div>';
 /* thẻ thông báo / thẻ tia chỉ bắt đầu khi THẬT SỰ được thấy (1.2.0 chạy ngay lúc thẻ vào DOM — giữa cảnh trang trượt vào — nên chủ studio
    không thấy): trang vào xong · sàn / thẻ hiện xong · không có cửa sổ, ngăn kéo che · tab đang mở → lặng SIG_BEAT ms → gắn .sig-in (tia
    mờ vào rồi chạy liên tục), B0B quay nhìn thẻ thông báo đúng lúc đó. Thẻ đang ẩn (thẻ mobile trên desktop…) gắn luôn: animation CSS
    không chạy khi display:none, hiện ra lúc nào chạy lúc đó. Giảm chuyển động: gắn ngay. */
 var SIG = { calm: 0 }, SIG_BEAT = 160;
 function sigWatch() {
-  var els = $$('#floor .nt:not(.sig-in), #mNote .mnt:not(.sig-in), #prLine .prl.beam:not(.sig-in)'), seen = [];
+  var els = $$('#floor .nt:not(.sig-in), #mNote .mnt:not(.sig-in), #prLine .prl[data-beam]:not(.sig-in)'), seen = [];
   if (!els.length) return;
-  els.forEach(function (e) { if (rm() || !e.getClientRects().length) e.classList.add('sig-in'); else seen.push(e); });
+  els.forEach(function (e) { if (rm() || !e.getClientRects().length) sigOn(e); else seen.push(e); });
   if (!seen.length) return;
   var sh = $('#sheet'), dr = $('#drawer'), t = performance.now();
   var still = !document.hidden && !$('.page.enter-fwd, .page.enter-back, .page.leave-fwd, .page.leave-back') && $('#floor').style.opacity === '' &&
@@ -762,13 +764,20 @@ function sigWatch() {
   if (!SIG.calm) SIG.calm = t;
   if (t - SIG.calm < SIG_BEAT) return;
   SIG.calm = 0;
-  seen.forEach(function (e) { e.classList.add('sig-in'); });
+  seen.forEach(sigOn);
   try { bobWatch(); } catch (e) { /* bỏ qua */ }
+}
+/* gắn + bật tia (data-active, như prop active của gói) — giảm chuyển động: không bật, viền Mực đứng yên thay (app.css) */
+function sigOn(e) {
+  e.classList.add('sig-in');
+  if (rm()) return;
+  var b = e.hasAttribute('data-beam') ? e : e.classList.contains('pair') ? $('#floor > .flb') : null;
+  if (b) b.setAttribute('data-active', '');
 }
 function mNoteHTML(n) {
   if (!n) return '';
-  return '<button class="mnt' + (n.tone === 'warn' ? ' warn' : '') + (n.type === 'inv' ? ' beam' : '') + '" type="button" data-a="note">' + (n.type === 'inv' ? BEAM : '') +
-    '<span class="mnt-h">' + sigIco(n.tone === 'warn' ? 'warn' : 'info') + '<span class="mnt-t">' + esc(n.mtitle || n.title) + '</span>' + ico('chev', 'chev') + '</span></button>';
+  return '<button class="mnt' + (n.tone === 'warn' ? ' warn' : '') + '" type="button" data-a="note"' + (n.type === 'inv' ? BEAM : '') + '>' +
+    '<span class="mnt-h">' + sigIco(n.tone === 'warn' ? 'warn' : 'info') + '<span class="mnt-t">' + esc(n.mtitle || n.title) + '</span>' + ico('chev', 'chev') + '</span>' + (n.type === 'inv' ? BLOOM : '') + '</button>';
 }
 /* luật hiện trong Gói & luật: gói 1:2 thêm luật khung ghép (máy chủ cũ không gửi duo → như trước) */
 function rulesOf() {
@@ -1714,7 +1723,7 @@ function updateBook(first) {
 function announce(msg) { var l = $('#live'); if (!l) return; l.textContent = ''; setTimeout(function () { l.textContent = msg; }, 30); }
 function floorBook(n) {
   var st = S.st, me = st.me;
-  var html = n ? '<div class="fl">' + noticeHTML(n) + '</div>' + infoBtn()
+  var html = n ? (n.type === 'inv' ? FLB : '') + '<div class="fl">' + noticeHTML(n) + '</div>' + infoBtn()
     : '<div class="fl">' + specHTML(me.coach, 'Coach của bạn') + '<i class="spec-sep"></i>' + specHTML('Còn ' + me.left + ' buổi', 'Gói ' + (me.pkg ? me.pkg + ' · ' : '') + me.kind) +
       (me.exp ? '<i class="spec-sep"></i>' + specHTML(yy(me.exp), 'Ngày hết hạn') : '') + '</div>' + infoBtn();
   setFloor(html);
@@ -2654,19 +2663,19 @@ function savePng() {
 function pairLineHTML() {
   var d = duoSt(); if (!d || !S.st) return '';
   var up = upcoming(), iv = (d.invIn || [])[0];
-  if (iv) return '<button class="prl inv beam" type="button" data-a="pairs">' + BEAM + '<i class="prl-dot" aria-hidden="true"></i><span class="prl-t">' + esc(iv.from) + ' mời bạn tập đôi · ' +
-    esc(dShort(iv.date).split(' ')[0] + ' ' + hm(iv.h)) + '</span><span class="prl-c">Xem</span>' + ico('chev', 'chev') + '</button>';
+  if (iv) return '<button class="prl inv" type="button" data-a="pairs"' + BEAM + '><i class="prl-dot" aria-hidden="true"></i><span class="prl-t">' + esc(iv.from) + ' mời bạn tập đôi · ' +
+    esc(dShort(iv.date).split(' ')[0] + ' ' + hm(iv.h)) + '</span><span class="prl-c">Xem</span>' + ico('chev', 'chev') + BLOOM + '</button>';
   if (!up.length) return '';
   var paired = up.filter(function (x) { return pairName(x.date, x.h); }), wait = up.filter(function (x) { return !pairName(x.date, x.h); });
   var no = wait.slice().sort(byDate).filter(function (x) { return invOutOf(x).st === 'no' && canInvite(x); })[0];
-  if (no) return '<button class="prl beam" type="button" data-a="pairs" data-d="' + esc(no.date) + '" data-h="' + esc(no.h) + '">' + BEAM + ico('pair') + '<span class="prl-t">' +
-    esc(declinedTxt(invOutOf(no).to) + ' · ' + dShort(no.date).split(' ')[0] + ' ' + hm(no.h)) + '</span><span class="prl-c">Mời bạn khác</span>' + ico('chev', 'chev') + '</button>';
+  if (no) return '<button class="prl" type="button" data-a="pairs" data-d="' + esc(no.date) + '" data-h="' + esc(no.h) + '"' + BEAM + '>' + ico('pair') + '<span class="prl-t">' +
+    esc(declinedTxt(invOutOf(no).to) + ' · ' + dShort(no.date).split(' ')[0] + ' ' + hm(no.h)) + '</span><span class="prl-c">Mời bạn khác</span>' + ico('chev', 'chev') + BLOOM + '</button>';
   var names = []; paired.forEach(function (x) { var n = pairName(x.date, x.h); if (names.indexOf(n) < 0) names.push(n); });
   var txt = wait.length ? wait.length + ' buổi đang chờ bạn tập' + (paired.length ? ' · ' + paired.length + ' buổi tập đôi' : '')
     : 'Tập đôi cả ' + paired.length + ' buổi · cùng ' + names.join(', ');
   var ask = wait.some(canInvite);
-  return '<button class="prl' + (ask ? ' beam' : '') + '" type="button" data-a="pairs">' + (ask ? BEAM : '') + ico('pair') + '<span class="prl-t">' + esc(txt) + '</span>' +
-    (ask ? '<span class="prl-c">Mời bạn</span>' : '') + ico('chev', 'chev') + '</button>';
+  return '<button class="prl" type="button" data-a="pairs"' + (ask ? BEAM : '') + '>' + ico('pair') + '<span class="prl-t">' + esc(txt) + '</span>' +
+    (ask ? '<span class="prl-c">Mời bạn</span>' : '') + ico('chev', 'chev') + (ask ? BLOOM : '') + '</button>';
 }
 function updatePairLine() {
   var el = S.view === 'ticket' && S.page ? S.page.querySelector('#prLine') : null; if (!el) return;

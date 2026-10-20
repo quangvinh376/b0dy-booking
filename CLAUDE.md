@@ -137,3 +137,4 @@ node test/ui_tk3d.js all && node test/ui_png.js all && node test/b0b_check.js &&
 | `sim_week_payload.mjs` | Từ kết quả mô phỏng → 2 lượt `batchUpdate` ghi sổ (tên điền bằng công thức tra `_dữ liệu` rồi dán giá trị) — **xoá sổ**, chỉ chạy khi được yêu cầu |
 | `sim_week_verify.py` | So sổ đọc ngược với dòng dự kiến (không in tên) |
 | `worker_deploy_snippet.mjs` | In đoạn deploy Worker cho Console dashboard, SHA tính từ git |
+| `beam_css.mjs` | Sinh khối tia viền trong `app.css` (giữa `beam:start` … `beam:end`, đừng sửa tay) từ gói `border-beam` 1.4.1: `npm pack border-beam@1.4.1 && tar xzf border-beam-1.4.1.tgz` → `node tools/beam_css.mjs package` (`--check` để so) |
