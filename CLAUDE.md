@@ -30,27 +30,35 @@ ID hai file Google Sheets: `BA_ID` (file BA: MEMBERS · SESSION LOG · TRIAL · 
 6. Sau mỗi lần đẩy: xác minh commit bằng hash và SHA-256 từng tệp trên `raw.githubusercontent.com/quangvinh376/b0dy-booking/<commit>/…`.
 7. Chỉ MỘT tiến trình Playwright / Chromium một lúc (máy test nhỏ từng hết RAM).
 
-## Đang ở đâu (20/10/2026, 13:25)
+## Đang ở đâu (20/10/2026, 16:09)
 
-- Trang **v1.3.1** (`6958b08`) trên GitHub Pages `main` — live 13:19 20/10, 19 tệp tĩnh SHA-256 khớp (CSP có `wss://` của Worker). Worker
+- Trang **v1.4.0** (`9353b2a`) trên GitHub Pages `main` — live 16:09 20/10, 20 tệp tĩnh SHA-256 khớp (CSP có `wss://` của Worker); `lt_ping` 16:10 `pending 0`. Worker
   không đổi từ 1.2.0 — `b0dy-booking-api` chạy `worker/src` của `3f91f21` (7 module, có `live.js`) — deploy ~17:01 19/10 qua Claude chat
   (`tools/worker_deploy_snippet.mjs`; chủ studio đồng ý 19/10 và cho tự deploy từ nay — luật 3): `OK etag=c1dc6462b7`, 5 binding (DO `BOOK` ·
   `ALLOW_ORIGINS` · `BA_ID` · `OUT_ID` · secret `SA_JSON`), cron `* * * * *`, `lt_ping` `pending 0`. Claude Code kiểm 17:01–17:05
   bằng `curl`: `lt_ping` `pending 0`, `lastError` rỗng · tuần 43 trả 7 ngày · `/live` trả 101 + `{"t":"hi","r":0,"n":1}` · origin lạ 403.
-- **1.3.1 (chủ studio 20/10: "y hệt như ví dụ, chỉ thay màu gradient — tương phản tốt với nền, hợp palette B0DY") — tia viền border beam**
-  cho thẻ kích cầu ghép cặp 1:2. CSS **sinh từ chính gói** `border-beam` 1.4.1 (libraries.dev/beam, MIT — `licenses/border-beam.txt`) bằng
-  `tools/beam_css.mjs` → khối `beam:start … beam:end` trong `app.css` (đừng sửa tay; `--check` so lại). Cấu hình = ví dụ trên trang
-  (theme dark: md 1,96 s / vòng · line 3,1 s / lượt · mờ vào 0,6 s · viền ::after · quầng ::before · loé `[data-beam-bloom]`, độ đậm của
-  gói); màu (1.3.2, chủ studio: "y hệt 9 đốm màu của ví dụ, chỉ tinh chỉnh cho tương phản tốt hơn, cấm Than và Mực"): 9 đốm "colorful" giữ
-  vị trí / cỡ / độ trong / sắc độ, màu nào dưới 4,5:1 trên nền thẻ #F2F2F2 thì hạ độ sáng (OKLCH) tới 4,5:1; vệt sáng trắng giữ như ví dụ;
-  không trôi sắc độ. Thẻ = lớp bọc `data-beam="b0"` + `<i data-beam-bloom>`: dòng mời mobile · dòng Tập đôi trên phiếu khi có lời mời /
-  "Mời bạn" / "Mời bạn khác". Dải sàn desktop có lời mời: lớp phủ `.flb` `data-beam="b0l"` (kiểu line của gói, lật lên viền trên).
-  `data-active` do `sigWatch` bật khi trang vào xong / không có cửa sổ che / tab mở; chạy liên tục tới khi thẻ hết. Giảm chuyển động:
-  không bật, viền Mực 1,5 px. Bỏ hết vòng sáng / vạch quét / vạch toast cũ (1.2.x) và tia tự dựng của 1.3.0. Thẻ 1:2 thông tin ("Gói
-  1:2 · tập theo khung ghép") cố ý không tia. Cần xem trên iPhone thật: độ mượt (gói vẽ lại gradient + mặt nạ mỗi khung). Test
-  `test/ui_notice.js` 46 + `ui_duo` 48.
+- **1.4.0 (chủ studio 20/10: "tia viền rất tệ, thiếu đồng nhất; 2 thiết kế thẻ; chuyển màn khựng giật; dải sàn thiếu đầu tư — QC toàn
+  bộ, đạt chuẩn Apple")** — tia viền **dựng lại, chỉ chạy trên compositor** (`beamMount` trong `app.js`, CSS mục "tia viền"); bỏ CSS sinh
+  từ gói (1.3.1–1.3.2: góc `@property` vẽ lại conic + mặt nạ + blur mỗi khung trên luồng chính → ~22 khung/s khi có tia; quét góc quanh tâm
+  thẻ dẹt 7:1 nhanh chậm ×68; theme tối trên nền sáng gần như vô hình) và `tools/beam_css.mjs`. Giữ ý tưởng + 9 đốm màu của ví dụ
+  (libraries.dev/beam, MIT — `licenses/border-beam.txt`), màu đã sẫm ≥ 4,5:1 (1.3.2), không Than / Mực.
+  · Thẻ (`data-beam="card"`: dòng mời mobile · dòng Tập đôi trên phiếu khi có lời mời / "Mời bạn" / "Mời bạn khác"): "cửa sổ trượt theo chu
+  vi" — 4 vùng cạnh × (vành 1,5 px · quầng 12 px nhạt), mỗi vùng một cửa sổ mặt nạ dáng tia (đuôi 30 % chu vi sáng dần, mũi tắt mềm) trượt
+  dọc cạnh, trường màu bên trong trượt ngược → màu đứng yên theo vị trí như ví dụ; 16 Web Animations chỉ transform, linear, vô hạn; đi đều
+  360 px/s, liền qua góc bo; KHÔNG mix-blend-mode / filter / @property (bản thử dùng hoà trộn bị bỏ vì rủi ro Safari iOS không kiểm được ở
+  đây); góc bo cắt bằng clip-path một lần (không lộ cung màu ở điểm ảnh rìa). Đầu tia xuất phát ở mép trên trên biểu tượng, mờ vào 480 ms.
+  · Dải sàn desktop có lời mời (`.flb data-beam="strip"`, CHỈ viền trên — chủ studio yêu cầu): ray phổ 1 px cố định + tia 2 px + quầng dưới
+  đầu tia; 9 màu xếp theo sắc độ trái → phải (không vệt bùn); 2 cửa sổ cách nhau 1 bề ngang → luôn đúng một đầu tia trên màn; cùng 360 px/s.
+  · Vòng đời: vẽ lại đúng chỗ (tin live đổi tập đôi vẽ lại cả phiếu · thay dòng Tập đôi · thay nội dung sàn) → tia nối pha, không mờ vào lại,
+  chữ mờ vào nhẹ (.swap); đổi cỡ → giữ phần vòng; cửa sổ / ngăn kéo che (#app inert) → tia dừng tại chỗ, đóng → chạy tiếp; giảm chuyển
+  động → viền màu tĩnh thở opacity 3,2 s. `.sig-in` / B0B nhìn thẻ giữ như 1.2.1 (chỉ #floor .nt · #mNote .mnt).
+  · Mặt thẻ thống nhất (`.mnt` = `.prl`, `pcIn`): nền Giấy 2, KHÔNG viền Mực ở mọi trạng thái (kể cả cảnh báo — nhận ra bằng icon Mực), bo 4,
+  icon ghép cho mọi thẻ ghép cặp (bỏ chấm Acid trên dòng phiếu), chữ 16 ở x = 46; mobile thẻ có giờ (.w): tiêu đề dòng 1, giờ + nhãn dòng 2
+  (mono) → không còn cắt mất giờ; thẻ mời mobile thêm nhãn "Xem"; rê chuột: nền đậm có chuyển tiếp (thẻ có tia: lớp phủ .bm-hv), bấm lún .985.
+  · Đo (Chromium headless, swiftshader): có tia 0 Paint, 180 khung / 3 s (đủ 60). WebKit (Playwright, Linux) hiển thị như Chromium. Loại B
+  chờ chủ studio xem trên iPhone thật: độ đậm quầng (.2), tốc độ 360 px/s, độ dài đuôi, ray sàn (.28). Test `ui_notice` 93 · `ui_duo` 48 (đủ bộ test PASS 20/10).
 - **1.2.0 (chủ studio 19/10)**: (1) từ chối lời mời → người mời thấy "<tên> đã từ chối tham gia" + nút "Mời bạn khác" (bảng Tập đôi +
-  dòng Tập đôi trên phiếu, bấm mở thẳng phần chọn bạn) · (2) thẻ thông báo "tín hiệu đến" (thay bằng tia viền ở 1.3.x);
+  dòng Tập đôi trên phiếu, bấm mở thẳng phần chọn bạn) · (2) thẻ thông báo "tín hiệu đến" (thay bằng tia viền ở 1.3.x → 1.4.0);
   B0B quay nhìn thẻ mới · (3) **kênh live mức 1**: WebSocket vào DO (`worker/src/live.js`), bảng tự cập nhật ~1 s
   sau mỗi lượt đặt / đổi / mời của người khác (sửa tay trên sheet ≤ 1 phút), ô đang chọn bị lấy → báo trước khi bấm, B0B nhìn quanh +
   "N người đang xem" (ẩn danh, theo mã máy). Trang chỉ nối từ booking.b0dy.studio. Chi phí Cloudflare (bảng giá 19/10): mở kết nối =
@@ -140,4 +148,3 @@ node test/ui_tk3d.js all && node test/ui_png.js all && node test/b0b_check.js &&
 | `sim_week_payload.mjs` | Từ kết quả mô phỏng → 2 lượt `batchUpdate` ghi sổ (tên điền bằng công thức tra `_dữ liệu` rồi dán giá trị) — **xoá sổ**, chỉ chạy khi được yêu cầu |
 | `sim_week_verify.py` | So sổ đọc ngược với dòng dự kiến (không in tên) |
 | `worker_deploy_snippet.mjs` | In đoạn deploy Worker cho Console dashboard, SHA tính từ git |
-| `beam_css.mjs` | Sinh khối tia viền trong `app.css` (giữa `beam:start` … `beam:end`, đừng sửa tay) từ gói `border-beam` 1.4.1: `npm pack border-beam@1.4.1 && tar xzf border-beam-1.4.1.tgz` → `node tools/beam_css.mjs package` (`--check` để so) |
