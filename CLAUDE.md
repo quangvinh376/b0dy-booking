@@ -30,24 +30,26 @@ ID hai file Google Sheets: `BA_ID` (file BA: MEMBERS · SESSION LOG · TRIAL · 
 6. Sau mỗi lần đẩy: xác minh commit bằng hash và SHA-256 từng tệp trên `raw.githubusercontent.com/quangvinh376/b0dy-booking/<commit>/…`.
 7. Chỉ MỘT tiến trình Playwright / Chromium một lúc (máy test nhỏ từng hết RAM).
 
-## Đang ở đâu (20/10/2026, 11:45)
+## Đang ở đâu (20/10/2026, 13:25)
 
-- Trang **v1.3.0** (`bdfb476`) trên GitHub Pages `main` — live 11:43 20/10, 19 tệp tĩnh SHA-256 khớp (CSP có `wss://` của Worker). Worker
+- Trang **v1.3.1** (`6958b08`) trên GitHub Pages `main` — live 13:19 20/10, 19 tệp tĩnh SHA-256 khớp (CSP có `wss://` của Worker). Worker
   không đổi từ 1.2.0 — `b0dy-booking-api` chạy `worker/src` của `3f91f21` (7 module, có `live.js`) — deploy ~17:01 19/10 qua Claude chat
   (`tools/worker_deploy_snippet.mjs`; chủ studio đồng ý 19/10 và cho tự deploy từ nay — luật 3): `OK etag=c1dc6462b7`, 5 binding (DO `BOOK` ·
   `ALLOW_ORIGINS` · `BA_ID` · `OUT_ID` · secret `SA_JSON`), cron `* * * * *`, `lt_ping` `pending 0`. Claude Code kiểm 17:01–17:05
   bằng `curl`: `lt_ping` `pending 0`, `lastError` rỗng · tuần 43 trả 7 ngày · `/live` trả 101 + `{"t":"hi","r":0,"n":1}` · origin lạ 403.
-- **1.3.0 (chủ studio 20/10) — tia viền "border beam" cho thẻ kích cầu ghép cặp 1:2**, bỏ vòng sáng + vạch quét (1.2.1–1.2.2) + vạch dưới
-  toast. Dựng lại theo border-beam 1.4.1 (libraries.dev/beam, MIT) bằng CSS thuần (`app.css` mục "tia viền"): chu vi trải phẳng — tia dài
-  160 px chạy đều, gập qua góc (5 lớp nền theo quãng p, `cqw`/`cqh` của `.bm-s`/`.bm-g`), không `@property`. Màu Mực–Acid: thân Mực đậm
-  dần, đầu Acid 14 px, quầng Acid 84 × 28. Có tia: dòng mời mobile (`#mNote .mnt.beam`) · dòng Tập đôi trên phiếu khi có lời mời /
-  "Mời bạn" / "Mời bạn khác" (2,4 s / vòng). Dải sàn desktop có lời mời (`.nt.pair`): tia chỉ viền trên (3,1 s / lượt). Chạy liên tục
-  tới khi thẻ hết. `sigWatch` vẫn chỉ gắn `.sig-in` khi trang vào xong / không có cửa sổ che / tab mở (lý do 1.2.1: chạy lẫn cảnh vào
-  trang thì không thấy), B0B nhìn thẻ đúng lúc đó. Giảm chuyển động: viền Mực 1,5 px đứng yên. Thẻ 1:2 thông tin ("Gói 1:2 · tập theo
-  khung ghép") cố ý KHÔNG có tia (thấy mọi lần mở bảng → tia mất nghĩa khẩn). Loại B chờ chủ studio xem trên máy thật: bảng màu, nhịp
-  2,4 s / 3,1 s, độ đậm quầng; cần đo 60 fps iPhone. Test `test/ui_notice.js` 46 + `ui_duo` 48.
+- **1.3.1 (chủ studio 20/10: "y hệt như ví dụ, chỉ thay màu gradient — tương phản tốt với nền, hợp palette B0DY") — tia viền border beam**
+  cho thẻ kích cầu ghép cặp 1:2. CSS **sinh từ chính gói** `border-beam` 1.4.1 (libraries.dev/beam, MIT — `licenses/border-beam.txt`) bằng
+  `tools/beam_css.mjs` → khối `beam:start … beam:end` trong `app.css` (đừng sửa tay; `--check` so lại). Cấu hình = ví dụ trên trang
+  (theme dark: md 1,96 s / vòng · line 3,1 s / lượt · mờ vào 0,6 s · viền ::after · quầng ::before · loé `[data-beam-bloom]`, độ đậm của
+  gói); chỉ đổi màu: đốm "colorful" → Acid · Acid đậm · Than · Mực (giữ vị trí / cỡ / độ trong), vệt sáng trắng → Mực (nền trang sáng),
+  không trôi sắc độ. Thẻ = lớp bọc `data-beam="b0"` + `<i data-beam-bloom>`: dòng mời mobile · dòng Tập đôi trên phiếu khi có lời mời /
+  "Mời bạn" / "Mời bạn khác". Dải sàn desktop có lời mời: lớp phủ `.flb` `data-beam="b0l"` (kiểu line của gói, lật lên viền trên).
+  `data-active` do `sigWatch` bật khi trang vào xong / không có cửa sổ che / tab mở; chạy liên tục tới khi thẻ hết. Giảm chuyển động:
+  không bật, viền Mực 1,5 px. Bỏ hết vòng sáng / vạch quét / vạch toast cũ (1.2.x) và tia tự dựng của 1.3.0. Thẻ 1:2 thông tin ("Gói
+  1:2 · tập theo khung ghép") cố ý không tia. Cần xem trên iPhone thật: độ mượt (gói vẽ lại gradient + mặt nạ mỗi khung). Test
+  `test/ui_notice.js` 46 + `ui_duo` 48.
 - **1.2.0 (chủ studio 19/10)**: (1) từ chối lời mời → người mời thấy "<tên> đã từ chối tham gia" + nút "Mời bạn khác" (bảng Tập đôi +
-  dòng Tập đôi trên phiếu, bấm mở thẳng phần chọn bạn) · (2) thẻ thông báo "tín hiệu đến" (thay bằng tia viền ở 1.3.0);
+  dòng Tập đôi trên phiếu, bấm mở thẳng phần chọn bạn) · (2) thẻ thông báo "tín hiệu đến" (thay bằng tia viền ở 1.3.x);
   B0B quay nhìn thẻ mới · (3) **kênh live mức 1**: WebSocket vào DO (`worker/src/live.js`), bảng tự cập nhật ~1 s
   sau mỗi lượt đặt / đổi / mời của người khác (sửa tay trên sheet ≤ 1 phút), ô đang chọn bị lấy → báo trước khi bấm, B0B nhìn quanh +
   "N người đang xem" (ẩn danh, theo mã máy). Trang chỉ nối từ booking.b0dy.studio. Chi phí Cloudflare (bảng giá 19/10): mở kết nối =
