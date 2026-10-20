@@ -17,7 +17,7 @@ và dời buổi đang chờ vào cặp có sẵn không tính lượt đổi.
 
 | Thư mục / tệp | Vai trò |
 |---|---|
-| `index.html` · `app.css` · `app.js` | Trang (JavaScript thuần, không build). Luật khung giờ chạy cả ở trang (hiện bảng) lẫn máy chủ (quyết định) |
+| `index.html` · `app.css` · `app.js` | Trang (JavaScript thuần, không build). Luật khung giờ chạy cả ở trang (hiện bảng) lẫn máy chủ (quyết định). Tia viền (border beam) của thẻ kích cầu ghép cặp: `beamMount` trong `app.js` — chỉ Web Animations transform trên compositor, ý tưởng + 9 đốm màu từ libraries.dev/beam (gói `border-beam`, MIT — `licenses/border-beam.txt`) |
 | `b0b.js` | Linh vật B0B 1.1 (WebGL): hệ thần kinh 7 lớp — biểu cảm (lò xo tới hạn), chú ý (ngăn ưu tiên), đầu – mắt (giật mắt, bám, vi giật), cử chỉ, chớp mắt, hơi thở, bộ não (rảnh, ngủ gật, ngủ). Trang chỉ kể việc qua `B0B.emit(loại, dữ liệu)` (cầu nối `bobBridge` / `bobWatch` trong `app.js`), B0B tự phản ứng. Giảm chuyển động → tư thế tĩnh |
 | `tk3d.js` | Phiếu giấy 3D (WebGL2) vẽ lại đúng phiếu DOM, xoay theo chuột / vuốt (`TK3D.rot`; không có GPU → vé DOM nghiêng bằng CSS 3D). `TK3D.snapshot(vé)` vẽ lại đúng vé đang hiện bằng canvas 2D cho "Lưu về máy" (desktop vé ngang, mobile vé dọc) |
 | `sw.js` | Service worker: mở lại trang tức thì, không bao giờ chạm vào lệnh gọi máy chủ |
@@ -27,7 +27,6 @@ và dời buổi đang chờ vào cặp có sẵn không tính lượt đổi.
 | `test/` | Test Playwright (giả máy chủ bằng chính `LichTuan.gs`), test Apps Script, test B0B |
 | `tools/bang_lich_tap.py` | Dựng tab `Bảng lịch tập` theo bảng giờ của trang (requests cho `spreadsheets.batchUpdate`, xem đầu tệp) |
 | `tools/lich_coach.py` | Tạo tab `Lịch coach` (5 khối coach, mặc định T2–T7 tick đủ, CN trống = đúng luật cũ) — chỉ để tạo lần đầu |
-| `tools/beam_css.mjs` | Sinh khối CSS tia viền (border beam) trong `app.css` từ chính mã gói `border-beam` 1.4.1 (libraries.dev/beam, MIT) — cấu hình của ví dụ, 9 đốm màu gốc chỉ sẫm lại cho đạt ≥ 4,5:1 trên nền thẻ (không Than / Mực); `--check` so khối đang nhúng |
 | `tools/ba_fixture.py` · `tools/sim_week*.{mjs,py}` · `tools/worker_deploy_snippet.mjs` | BA xuất Excel → fixture riêng tư (`.local/`, không đẩy lên repo) · mô phỏng cả phòng đặt tuần tới theo lịch tập tuần trước (đúng luật máy chủ) + ghi / kiểm sổ · đoạn deploy Worker từ dashboard. Xem `CLAUDE.md` |
 
 Dữ liệu vào: file BA (MEMBERS, TRIAL, B0B, ⚙️ 2, SESSION LOG) + tab `Lịch coach` của sheet *[B0DY Studio] Lịch tập tuần*.
@@ -45,7 +44,7 @@ node test/ui_states.js              # 97 kiểm tra trạng thái giao diện (E
 node test/ui_qc.js                  # chế độ QC: kịch bản, hội viên thử, gây lỗi, không gọi mạng, không chạm bộ nhớ trang thật
 node test/ui_duo.js                 # gói 1:2: nhận lời mời bằng dời trong ngày, Ghép khác ngày, rời cặp tính lượt, từ chối → "Mời bạn khác"
 node test/ui_live.js                # kênh live: người khác đặt → bảng tự cập nhật, ô đang chọn bị lấy, "N người đang xem", nối lại / lui
-node test/ui_notice.js              # thẻ thông báo + tia viền (border beam) thẻ ghép cặp: bật sau khi trang vào xong, quay đúng nhịp của gói, liên tục, tab ẩn / cửa sổ che thì chờ
+node test/ui_notice.js              # thẻ thông báo + tia viền thẻ ghép cặp: chỉ compositor (0 Paint), đi đều liền qua góc, nối pha khi vẽ lại, cửa sổ che → dừng tại chỗ, mặt thẻ thống nhất
 node test/ui_smoke.js && node test/ui_sw.js && node test/ui_tk3d.js all && node test/ui_png.js all && node test/b0b_check.js
 node test/rv_h6_rid_discard.js      # … và các rv_*.js: tái hiện lỗi đã sửa (mất phản hồi, máy dùng chung, 06:00, …)
 node test/rv_find_dynamic.js        # tìm tên gõ tới đâu ra tới đó: tô phần khớp, more, giữ danh sách khi chờ, máy chủ cũ (need: 2)
