@@ -9,7 +9,7 @@
 'use strict';
 
 /* ============================== CẤU HÌNH ============================== */
-var VER = '1.2.2';
+var VER = '1.3.0';
 var API_URL = 'https://b0dy-booking-api.little-bonus-1d87.workers.dev/';
 var API_SLOW = false;                 /* true khi chạy Apps Script (chậm hơn nhiều) → nới thời gian chờ */
 /* kênh live: Worker chỉ nhận từ trang thật (ALLOW_ORIGINS) → trang chạy chỗ khác (test trên máy) không nối, khỏi gõ cửa máy chủ thật.
@@ -737,25 +737,23 @@ function noticeHTML(n) {
   var acts = (n.sugs || []).map(function (s) { return '<button class="btn btn-s btn-phu" type="button" data-a="sug" data-d="' + esc(s.date) + '" data-h="' + esc(s.h) + '">' + esc(hm(s.h)) + '</button>'; }).join('') +
     /* sàn desktop: Acid dành cho nút chốt (Đặt lịch) ở cột trái → hành động chính của thông báo dùng nút Mực */
     (n.acts || []).map(function (x) { return '<button class="btn btn-s ' + (x.main ? 'btn-toi' : 'btn-phu') + '" type="button" data-a="' + esc(x.a) + '" data-d="' + esc(x.d) + '" data-h="' + esc(x.h) + '"><span>' + esc(x.label) + '</span></button>'; }).join('');
-  return '<div class="nt' + (n.tone === 'warn' ? ' warn' : '') + '" role="status" data-k="' + esc(sigKey(n)) + '">' + sigIco(n.tone === 'warn' ? 'warn' : 'info') +
+  return '<div class="nt' + (n.tone === 'warn' ? ' warn' : '') + (n.type === 'inv' ? ' pair' : '') + '" role="status">' + sigIco(n.tone === 'warn' ? 'warn' : 'info') +
     '<div class="nt-tx"><p class="nt-t">' + esc(n.title) + '</p>' + (n.body ? '<p class="nt-b">' + esc(n.body) + '</p>' : '') + '</div>' +
     (acts ? '<div class="nt-act">' + acts + '</div>' : '') + '</div>';
 }
-/* biểu tượng thẻ thông báo — vòng sáng Acid phát ra từ chính biểu tượng (chủ studio 19/10: thẻ thông báo phải bắt mắt — xem "tín hiệu
-   đến" trong app.css) */
 function sigIco(n) { return '<span class="nt-ic">' + ico(n) + '</span>'; }
-/* tín hiệu chạy khi thẻ THẬT SỰ được thấy (1.2.0 chạy một lần ngay lúc thẻ vào DOM — giữa cảnh trang trượt vào — nên chủ studio không thấy):
-   trang vào xong · sàn / thẻ hiện xong · không có cửa sổ, ngăn kéo che · tab đang mở → lặng SIG_BEAT ms → gắn .sig-in, B0B quay nhìn đúng
-   lúc đó. Rồi LẶP mỗi 2 s (.sig-loop, app.css — chủ studio 19/10: không lặp thì không gây chú ý) cho tới khi người xem đã đọc thẻ: chạm /
-   bấm vào thẻ, hay rê chuột dừng trên thẻ SIG_READ ms (sigAck) → thôi lặp. "Đã đọc" nhớ theo nội dung thẻ (data-k = tiêu đề + thân:
-   lời mời thứ hai của cùng người, khung khác → thẻ mới) tới khi tải lại trang: vẽ lại cùng thẻ không lặp lại, thẻ mới thì lặp từ đầu.
-   Thẻ đang ẩn (thẻ mobile trên desktop…) gắn luôn: animation CSS không chạy khi display:none, hiện ra lúc nào chạy lúc đó.
-   Giảm chuyển động: gắn ngay, không lặp. */
-var SIG = { calm: 0, ack: {}, hov: null, hovT: 0 }, SIG_BEAT = 160, SIG_READ = 600;
+/* tia viền (border beam, app.css) — thẻ kích cầu ghép cặp 1:2: lời mời cho mình · "Mời bạn" / "Mời bạn khác" (chủ studio 20/10).
+   Dải sàn desktop có lời mời (.nt.pair) chạy tia theo viền trên của sàn, không cần lớp riêng. */
+var BEAM = '<i class="bm-s" aria-hidden="true"></i><i class="bm-g" aria-hidden="true"></i>';
+/* thẻ thông báo / thẻ tia chỉ bắt đầu khi THẬT SỰ được thấy (1.2.0 chạy ngay lúc thẻ vào DOM — giữa cảnh trang trượt vào — nên chủ studio
+   không thấy): trang vào xong · sàn / thẻ hiện xong · không có cửa sổ, ngăn kéo che · tab đang mở → lặng SIG_BEAT ms → gắn .sig-in (tia
+   mờ vào rồi chạy liên tục), B0B quay nhìn thẻ thông báo đúng lúc đó. Thẻ đang ẩn (thẻ mobile trên desktop…) gắn luôn: animation CSS
+   không chạy khi display:none, hiện ra lúc nào chạy lúc đó. Giảm chuyển động: gắn ngay. */
+var SIG = { calm: 0 }, SIG_BEAT = 160;
 function sigWatch() {
-  var els = $$('#floor .nt:not(.sig-in), #mNote .mnt:not(.sig-in)'), seen = [];
+  var els = $$('#floor .nt:not(.sig-in), #mNote .mnt:not(.sig-in), #prLine .prl.beam:not(.sig-in)'), seen = [];
   if (!els.length) return;
-  els.forEach(function (e) { if (rm() || !e.getClientRects().length) sigOn(e); else seen.push(e); });
+  els.forEach(function (e) { if (rm() || !e.getClientRects().length) e.classList.add('sig-in'); else seen.push(e); });
   if (!seen.length) return;
   var sh = $('#sheet'), dr = $('#drawer'), t = performance.now();
   var still = !document.hidden && !$('.page.enter-fwd, .page.enter-back, .page.leave-fwd, .page.leave-back') && $('#floor').style.opacity === '' &&
@@ -764,33 +762,13 @@ function sigWatch() {
   if (!SIG.calm) SIG.calm = t;
   if (t - SIG.calm < SIG_BEAT) return;
   SIG.calm = 0;
-  seen.forEach(sigOn);
+  seen.forEach(function (e) { e.classList.add('sig-in'); });
   try { bobWatch(); } catch (e) { /* bỏ qua */ }
-}
-function sigKey(n) { return n.title + ' · ' + (n.body || ''); }
-function sigOn(e) { e.classList.add('sig-in'); if (!rm() && !SIG.ack[e.getAttribute('data-k')]) e.classList.add('sig-loop'); }
-/* đã đọc thẻ → mọi thẻ cùng nội dung (sàn desktop + dòng mobile) thôi lặp */
-function sigAck(c) {
-  var k = c.getAttribute('data-k'); if (k == null) return;
-  SIG.ack[k] = 1;
-  $$('#floor .nt.sig-loop, #mNote .mnt.sig-loop').forEach(function (e) { if (e.getAttribute('data-k') === k) { e.classList.remove('sig-loop'); e.classList.add('sig-done'); } });
-}
-function sigListen() {
-  document.addEventListener('click', function (e) { var c = e.target && e.target.closest && e.target.closest('#floor .nt, #mNote .mnt'); if (c) sigAck(c); }, true);
-  document.addEventListener('pointerover', function (e) {
-    if (e.pointerType !== 'mouse') return;
-    var c = e.target && e.target.closest ? e.target.closest('#floor .nt.sig-loop, #mNote .mnt.sig-loop') : null;
-    if (c === SIG.hov) return;
-    clearTimeout(SIG.hovT); SIG.hov = c;
-    if (c) SIG.hovT = setTimeout(function () { if (SIG.hov === c) sigAck(c); }, SIG_READ);
-  });
-  document.addEventListener('pointerout', function (e) { if (!e.relatedTarget) { clearTimeout(SIG.hovT); SIG.hov = null; } });
-  setInterval(sigWatch, 80);
 }
 function mNoteHTML(n) {
   if (!n) return '';
-  return '<button class="mnt' + (n.tone === 'warn' ? ' warn' : '') + '" type="button" data-a="note" data-k="' + esc(sigKey(n)) + '"><span class="mnt-h">' + sigIco(n.tone === 'warn' ? 'warn' : 'info') +
-    '<span class="mnt-t">' + esc(n.mtitle || n.title) + '</span>' + ico('chev', 'chev') + '</span></button>';
+  return '<button class="mnt' + (n.tone === 'warn' ? ' warn' : '') + (n.type === 'inv' ? ' beam' : '') + '" type="button" data-a="note">' + (n.type === 'inv' ? BEAM : '') +
+    '<span class="mnt-h">' + sigIco(n.tone === 'warn' ? 'warn' : 'info') + '<span class="mnt-t">' + esc(n.mtitle || n.title) + '</span>' + ico('chev', 'chev') + '</span></button>';
 }
 /* luật hiện trong Gói & luật: gói 1:2 thêm luật khung ghép (máy chủ cũ không gửi duo → như trước) */
 function rulesOf() {
@@ -2676,18 +2654,19 @@ function savePng() {
 function pairLineHTML() {
   var d = duoSt(); if (!d || !S.st) return '';
   var up = upcoming(), iv = (d.invIn || [])[0];
-  if (iv) return '<button class="prl inv" type="button" data-a="pairs"><i class="prl-dot" aria-hidden="true"></i><span class="prl-t">' + esc(iv.from) + ' mời bạn tập đôi · ' +
+  if (iv) return '<button class="prl inv beam" type="button" data-a="pairs">' + BEAM + '<i class="prl-dot" aria-hidden="true"></i><span class="prl-t">' + esc(iv.from) + ' mời bạn tập đôi · ' +
     esc(dShort(iv.date).split(' ')[0] + ' ' + hm(iv.h)) + '</span><span class="prl-c">Xem</span>' + ico('chev', 'chev') + '</button>';
   if (!up.length) return '';
   var paired = up.filter(function (x) { return pairName(x.date, x.h); }), wait = up.filter(function (x) { return !pairName(x.date, x.h); });
   var no = wait.slice().sort(byDate).filter(function (x) { return invOutOf(x).st === 'no' && canInvite(x); })[0];
-  if (no) return '<button class="prl" type="button" data-a="pairs" data-d="' + esc(no.date) + '" data-h="' + esc(no.h) + '">' + ico('pair') + '<span class="prl-t">' +
+  if (no) return '<button class="prl beam" type="button" data-a="pairs" data-d="' + esc(no.date) + '" data-h="' + esc(no.h) + '">' + BEAM + ico('pair') + '<span class="prl-t">' +
     esc(declinedTxt(invOutOf(no).to) + ' · ' + dShort(no.date).split(' ')[0] + ' ' + hm(no.h)) + '</span><span class="prl-c">Mời bạn khác</span>' + ico('chev', 'chev') + '</button>';
   var names = []; paired.forEach(function (x) { var n = pairName(x.date, x.h); if (names.indexOf(n) < 0) names.push(n); });
   var txt = wait.length ? wait.length + ' buổi đang chờ bạn tập' + (paired.length ? ' · ' + paired.length + ' buổi tập đôi' : '')
     : 'Tập đôi cả ' + paired.length + ' buổi · cùng ' + names.join(', ');
-  return '<button class="prl" type="button" data-a="pairs">' + ico('pair') + '<span class="prl-t">' + esc(txt) + '</span>' +
-    (wait.some(canInvite) ? '<span class="prl-c">Mời bạn</span>' : '') + ico('chev', 'chev') + '</button>';
+  var ask = wait.some(canInvite);
+  return '<button class="prl' + (ask ? ' beam' : '') + '" type="button" data-a="pairs">' + (ask ? BEAM : '') + ico('pair') + '<span class="prl-t">' + esc(txt) + '</span>' +
+    (ask ? '<span class="prl-c">Mời bạn</span>' : '') + ico('chev', 'chev') + '</button>';
 }
 function updatePairLine() {
   var el = S.view === 'ticket' && S.page ? S.page.querySelector('#prLine') : null; if (!el) return;
@@ -3229,7 +3208,7 @@ function boot() {
     if ((S.view === 'book' || S.view === 'change' || S.view === 'ticket') && Date.now() - S.lastFetch > 110000) refresh(true);
     if (S.view === 'book') updateBook(); else if (S.view === 'change') updateChange();
   }, 30000);
-  sigListen();
+  setInterval(sigWatch, 80);
   window.addEventListener('resize', function () { tkFit(); nowLine(); if (S.view === 'ticket') tkPaper(); mbarSize(); });
   if (window.ResizeObserver) new ResizeObserver(mbarSize).observe($('#mbar'));
   MQ_DESK.addEventListener && MQ_DESK.addEventListener('change', function () { if (S.view === 'ticket') { tkFit(); tkPaper(); } bobSlot(S.page); });

@@ -41,6 +41,14 @@ async function run(browser, server, mobile) {
   const ctaIs = (re, on) => page.waitForFunction(([m, src, on]) => { const b = document.querySelector(m ? '#ctaM' : '#cta'); return !!b && new RegExp(src).test(b.textContent) && (!on || !b.disabled); },
     [mobile, re.source, !!on], { timeout: 4000 }).then(() => true, () => false);
   const book = async picks => { await waitView(page, 'book'); for (const [d, h] of picks) await cell(d, h).click(); await cta().click(); await waitView(page, 'ticket'); await flushed(); };
+  /* tia viền trên dòng Tập đôi (1.3.0): đã gắn (.sig-in), đủ 2 lớp, vòng tia đang chạy vô hạn */
+  const beamOn = async raw => {
+    await page.waitForSelector('#prLine .prl.beam.sig-in', { timeout: 4000 }).catch(() => {});
+    const b = await page.evaluate(() => { const e = document.querySelector('#prLine .prl'); if (!e) return null;
+      const a = e.getAnimations({ subtree: true }).filter(x => x.animationName === 'bmrun')[0];
+      return { beam: e.classList.contains('beam'), sig: e.classList.contains('sig-in'), layers: e.querySelectorAll('.bm-s, .bm-g').length, run: !!a && a.playState === 'running' && a.effect.getTiming().iterations === Infinity }; });
+    return raw ? b : !!b && b.beam && b.sig && b.layers === 2 && b.run;
+  };
   const openPairs = async () => { await page.locator('#prLine .prl').click(); await page.waitForSelector(mobile ? '#sheet.on' : '#drawer.on'); await sleep(300); };
   const host = mobile ? '#sheet' : '#drawer';
 
@@ -74,6 +82,7 @@ async function run(browser, server, mobile) {
   /* 2 */
   await signOut(); await login('thuc quyen', '1212'); await waitView(page, 'ticket'); await sleep(800);
   ok('Thục Quyên: dòng Tập đôi báo "Uyển Nhi mời bạn tập đôi · T4 09:00"', /Uyển Nhi mời bạn tập đôi · T4 09:00/.test(await page.textContent('#prLine')), await page.textContent('#prLine'));
+  ok('… dòng lời mời có tia viền (border beam) đang chạy', await beamOn(), await beamOn(true));
   await openPairs();
   await page.locator(host + ' [data-a="invok"]').click();
   await waitView(page, 'change'); await sleep(600);
@@ -137,6 +146,7 @@ async function run(browser, server, mobile) {
   const ln = await page.evaluate(() => { const b = document.querySelector('#prLine .prl'); return b ? [b.querySelector('.prl-t').textContent, (b.querySelector('.prl-c') || {}).textContent || '', b.dataset.d || '', b.dataset.h || ''] : null; });
   ok('Thục Quyên: dòng Tập đôi "Uyển Nhi đã từ chối tham gia · T6 19:00" + "Mời bạn khác"',
      !!ln && ln[0] === 'Uyển Nhi đã từ chối tham gia · T6 19:00' && ln[1] === 'Mời bạn khác' && ln[2] === '2026-10-23' && ln[3] === '19', ln);
+  ok('… dòng "Mời bạn khác" có tia viền (border beam) đang chạy', await beamOn(), await beamOn(true));
   await openPairs();
   const pk = await page.evaluate(h => ({ pick: window.__lt.S.invPick, open: !!document.querySelector(h + ' .pr-pick .pr-opt'), q: (document.querySelector(h + ' #prQ') || {}).textContent || '' }), host);
   ok('Bấm dòng đó → bảng Tập đôi mở sẵn phần chọn bạn cho T6 19:00', pk.pick && pk.pick.date === '2026-10-23' && pk.pick.h === 19 && pk.open && /23\.10/.test(pk.q), pk);

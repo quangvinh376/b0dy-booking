@@ -190,38 +190,65 @@ button.stepn .ic{width:16px;height:16px}
 .nt-b{font-size:14px;line-height:17px;color:var(--than)}
 .nt-act{display:flex;gap:16px;flex:none;margin-left:auto}
 .nt-act .btn{min-width:74px}
-/* ---------- tín hiệu đến (chủ studio 19/10: thẻ thông báo phải bắt mắt — và LẶP, vì để gây chú ý) ----------
-   Mỗi nhịp, cùng ngôn ngữ với vạch Acid "đang xử lý" ở mép header:
-   1 · vạch Acid 2 px quét mép trên của thẻ từ trái sang (325 ms) rồi tắt dần (tới 740 ms) ·
-   2 · vòng sáng Acid 2 px phát ra từ chính biểu tượng (đường tròn r 9 của "i" / "!" = 75 % khung): bắt đầu trùng đường tròn của biểu
-       tượng lúc vạch quét qua (80 ms), loang ra 2,4 lần rồi tắt (tới 780 ms).
-   Nhịp 2 s (0,8 s chuyển động · 1,2 s lặng — chủ studio: lặp dày hơn 4 s của bản 1.2.1, bỏ chấm Acid ở góc): lặp cho tới khi người xem
-   đã đọc thẻ — chạm / bấm vào thẻ, hay rê chuột dừng trên thẻ ≥ 600 ms (sigAck, app.js) → thôi lặp. Thẻ mới (nội dung khác) lặp từ đầu.
-   sigWatch (app.js) gắn .sig-in (+ .sig-loop nếu chưa đọc) khi trang đã vào xong, sàn hiện xong, không có cửa sổ che, tab đang mở, rồi
-   lặng 160 ms: trong khung đứng yên, chuyển động đầu tiên là thứ mắt bắt ngay (1.2.0 chạy một lần ngay lúc thẻ vào DOM = giữa cảnh trang
-   trượt vào). Thẻ đã đọc mà vẽ lại: .sig-in không .sig-loop → chạy một nhịp rồi thôi.
-   Giảm chuyển động: gắn .sig-in ngay, không .sig-loop + khối luật cuối tệp tắt mọi animation → về thẳng trạng thái cuối (vạch, vòng tắt).
-   Keyframe lặp ghi sẵn đường cong của --eo cho từng đoạn chuyển động (đoạn đứng yên không cần). */
+/* ---------- tia viền "border beam" — thẻ kích cầu ghép cặp 1:2 (chủ studio 20/10) ----------
+   Dựng lại theo border-beam (libraries.dev/beam, MIT, kiểu "Large" + "Line"), bằng CSS thuần:
+   · thẻ (.beam: dòng mời trên mobile, dòng Tập đôi trên phiếu có lời mời / "Mời bạn" / "Mời bạn khác") — một tia chạy quanh viền.
+     Bản gốc quét theo góc (conic) từ tâm: trên thẻ dẹt 7:1 tia co còn ~40 px giữa cạnh dài và phủ kín cạnh ngắn. Ở đây chu vi được
+     "trải phẳng": tia dài cố định 160 px chạy đều tốc độ, gập qua góc liền mạch — 4 lớp nền (trên · phải · dưới · trái + một lớp trái
+     cho vòng sau), toạ độ = hàm bậc nhất của quãng đã chạy p (0 → chu vi), tính bằng đơn vị khung chứa (cqw · cqh của .bm-s / .bm-g,
+     container-type:size — lớp phủ inset:0 nên khung không phụ thuộc nội dung) → không cần JS đo, không cần @property.
+     .bm-s = vành 2 px (mặt nạ trừ khối lùi 2 px) · .bm-g = quầng Acid ngay sau đầu tia, toả vào trong mép (thẻ cắt phần ngoài)
+   · dải sàn desktop có lời mời (#floor:has(.nt.pair)) — chỉ viền trên: vạch 2 px + quầng chạy trái → phải, mờ vào / mờ ra ở hai đầu
+   Bảng màu Mực–Acid (nền trang sáng: Acid một mình trên Giấy chỉ ~1,1:1 — yếu như vòng sáng 1.2.2): thân tia Mực đậm dần (tương phản ~18:1
+   trên Giấy 2), đầu tia Acid nối liền thân Mực (cặp nhận diện của "chấm Acid viền Mực"), quầng Acid toả vào trong quanh đầu tia.
+   Nhịp: quanh thẻ 2,4 s / vòng · dải sàn 3,1 s / lượt (bản gốc 1,96 s · 3,1 s). Vào: mờ 0 → 1 trong 600 ms khi sigWatch (app.js) gắn
+   .sig-in (trang vào xong, không có cửa sổ che, tab đang mở) — không chạy lẫn vào cảnh trang trượt vào. Chạy liên tục tới khi thẻ hết
+   (lời mời được trả lời / đã có bạn tập).
+   Giảm chuyển động: không chạy — viền Mực 1,5 px đứng yên thay tia (khối luật cuối tệp). */
 .nt-ic{position:relative;display:flex;flex:none}
-.nt-ic::after{content:'';position:absolute;inset:12.5%;border-radius:50%;box-shadow:0 0 0 2px var(--acid);opacity:0;pointer-events:none}
-.nt::before,.mnt::before{content:'';position:absolute;left:0;right:0;top:-1px;height:2px;background:var(--acid);transform-origin:0 50%;pointer-events:none;opacity:0}
-.sig-in .nt-ic::after{animation:ntring .7s var(--eo) .08s both}
-.nt.sig-in::before,.mnt.sig-in::before{animation:ntline .74s var(--eo) both}
-.sig-loop .nt-ic::after{animation:ntringL 2s linear infinite}
-.nt.sig-loop::before,.mnt.sig-loop::before{animation:ntlineL 2s linear infinite}
-.sig-done .nt-ic::after,.nt.sig-done::before,.mnt.sig-done::before{animation:none}
-@keyframes ntring{from{opacity:1;transform:scale(1)}to{opacity:0;transform:scale(2.4)}}
-@keyframes ntline{0%{transform:scaleX(0);opacity:1}44%{transform:scaleX(1);opacity:1}72%{transform:scaleX(1);opacity:1}100%{transform:scaleX(1);opacity:0}}
-@keyframes ntlineL{
-  0%{transform:scaleX(0);opacity:1;animation-timing-function:cubic-bezier(.22,.85,.22,1)}
-  16.25%{transform:scaleX(1);opacity:1}
-  26.65%{transform:scaleX(1);opacity:1;animation-timing-function:cubic-bezier(.22,.85,.22,1)}
-  37%,100%{transform:scaleX(1);opacity:0}
+.beam{position:relative;isolation:isolate;box-shadow:inset 0 0 0 1px var(--ke)}
+.bm-s,.bm-g{position:absolute;inset:0;z-index:-1;container-type:size;border-radius:inherit;overflow:hidden;pointer-events:none;opacity:0}
+/* vành 2 px: cả lớp trừ đi khối lùi 2 px (không dùng padding — cqw / cqh đo theo vùng nội dung, phải bằng đúng cỡ thẻ) */
+.bm-s{-webkit-mask:linear-gradient(#000 0 0) 2px 2px/calc(100% - 4px) calc(100% - 4px) no-repeat,linear-gradient(#000 0 0);-webkit-mask-composite:xor;
+      mask:linear-gradient(#000 0 0) 2px 2px/calc(100% - 4px) calc(100% - 4px) no-repeat exclude,linear-gradient(#000 0 0)}
+.bm-s::before,.bm-g::before{content:'';position:absolute;inset:0;background-repeat:no-repeat}
+/* thân tia: đuôi trong suốt → Mực đặc ở 91 %, đầu Acid 14 px */
+.bm-s::before{
+  --t:transparent,rgba(10,10,10,.1) 25%,rgba(10,10,10,.5) 60%,rgba(10,10,10,.92) 86%,#0A0A0A 91%,#D4FF00 91.5%;
+  background-image:linear-gradient(90deg,var(--t)),linear-gradient(180deg,var(--t)),linear-gradient(270deg,var(--t)),linear-gradient(0deg,var(--t)),linear-gradient(0deg,var(--t));
+  background-size:160px 2px,2px 160px,160px 2px,2px 160px,2px 160px}
+.bm-g::before{
+  background-image:radial-gradient(closest-side,rgba(212,255,0,.9),rgba(212,255,0,.34) 50%,transparent),radial-gradient(closest-side,rgba(212,255,0,.9),rgba(212,255,0,.34) 50%,transparent),
+                   radial-gradient(closest-side,rgba(212,255,0,.9),rgba(212,255,0,.34) 50%,transparent),radial-gradient(closest-side,rgba(212,255,0,.9),rgba(212,255,0,.34) 50%,transparent),
+                   radial-gradient(closest-side,rgba(212,255,0,.9),rgba(212,255,0,.34) 50%,transparent);
+  background-size:84px 28px,28px 84px,84px 28px,28px 84px,28px 84px}
+.beam.sig-in>.bm-s,.beam.sig-in>.bm-g{animation:bmin .6s var(--eo) both}
+.beam.sig-in>.bm-s::before{animation:bmrun 2.4s linear infinite}
+.beam.sig-in>.bm-g::before{animation:bmglow 2.4s linear infinite}
+/* p: 0 → chu vi P = 2 (W + H) · W = 100cqw, H = 100cqh · đầu tia: trên x = p · phải y = p − W · dưới x = 2W + H − p · trái y = P − p */
+@keyframes bmrun{
+  from{background-position:-160px 0,calc(100cqw - 2px) calc(-100cqw - 160px),calc(200cqw + 100cqh) calc(100cqh - 2px),0 calc(200cqw + 200cqh),0 0}
+  to{background-position:calc(200cqw + 200cqh - 160px) 0,calc(100cqw - 2px) calc(100cqw + 200cqh - 160px),calc(-100cqh) calc(100cqh - 2px),0 0,0 calc(-200cqw - 200cqh)}
 }
-@keyframes ntringL{
-  0%,3.99%{opacity:0;transform:scale(1)}
-  4%{opacity:1;transform:scale(1);animation-timing-function:cubic-bezier(.22,.85,.22,1)}
-  39%,100%{opacity:0;transform:scale(2.4)}
+/* quầng 84 × 28: tâm lùi sau đầu tia 8 px, nửa elip nằm trong thẻ */
+@keyframes bmglow{
+  from{background-position:-50px -14px,calc(100cqw - 14px) calc(-100cqw - 50px),calc(200cqw + 100cqh - 34px) calc(100cqh - 14px),-14px calc(200cqw + 200cqh - 34px),-14px -34px}
+  to{background-position:calc(200cqw + 200cqh - 50px) -14px,calc(100cqw - 14px) calc(100cqw + 200cqh - 50px),calc(-100cqh - 34px) calc(100cqh - 14px),-14px -34px,-14px calc(-200cqw - 200cqh - 34px)}
+}
+@keyframes bmin{from{opacity:0}to{opacity:1}}
+/* dải sàn desktop: chỉ viền trên — sàn đã là khối định vị có z-index (lớp xếp riêng) → tia nằm trên nền sàn, dưới chữ / nút */
+#floor:has(.nt.pair.sig-in)::before,#floor:has(.nt.pair.sig-in)::after{content:'';position:absolute;left:0;right:0;z-index:-1;pointer-events:none;
+  background-repeat:no-repeat;animation:bmrail 3.1s linear infinite,bmin .6s var(--eo) both}
+#floor:has(.nt.pair.sig-in)::before{top:-1px;height:2px;background-size:300px 2px;
+  background-image:linear-gradient(90deg,transparent,rgba(10,10,10,.1) 25%,rgba(10,10,10,.5) 60%,rgba(10,10,10,.92) 86%,#0A0A0A 95.2%,#D4FF00 95.4%)}
+#floor:has(.nt.pair.sig-in)::after{top:0;height:32px;background-size:300px 32px;
+  background-image:radial-gradient(42px 14px at 285px 0,rgba(212,255,0,.9),rgba(212,255,0,.34) 50%,transparent),
+                   radial-gradient(150px 12px at 230px 0,rgba(212,255,0,.18),transparent)}
+@keyframes bmrail{
+  0%{background-position:-300px 0;opacity:0}
+  12%{opacity:1}
+  86%{opacity:1}
+  100%{background-position:calc(100% + 300px) 0;opacity:0}
 }
 
 .mnt{position:relative;display:flex;flex-direction:column;gap:6px;width:100%;padding:14px 16px;border-radius:var(--r);background:var(--giay2);text-align:left;transition:background-color var(--hov)}
@@ -229,7 +256,6 @@ button.stepn .ic{width:16px;height:16px}
 .mnt-h{display:flex;align-items:center;gap:10px}
 .mnt-h .ic{width:20px;height:20px;stroke:var(--than)}
 .mnt.warn .mnt-h .ic{stroke:var(--muc)}
-.mnt::before{top:0;border-radius:var(--r) var(--r) 0 0}
 .mnt-t{flex:1 1 auto;font-size:16px;line-height:19px;color:var(--muc)}
 .mnt-h .chev{width:16px;height:16px;stroke:var(--than);stroke-width:1.5}
 @media (hover:hover) and (pointer:fine){ .mnt:hover{background-image:linear-gradient(var(--ke-manh),var(--ke-manh))} }
@@ -462,6 +488,7 @@ button.stepn .ic{width:16px;height:16px}
 .prl-c{flex:none;margin-left:6px;font-family:var(--mono);font-size:10px;line-height:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muc)}
 .prl .chev{width:16px;height:16px;stroke:var(--than);stroke-width:1.5;flex:none;margin-left:2px}
 .prl.inv{background:var(--giay);box-shadow:inset 0 0 0 1px var(--muc)}
+.prl.inv.beam{box-shadow:inset 0 0 0 1px var(--ke)}   /* có tia: viền Mực sẵn có nuốt thân tia Mực → về đường ray mảnh */
 .prl-dot{width:8px;height:8px;margin:0 2px;border-radius:50%;background:var(--acid);box-shadow:0 0 0 1px var(--muc);flex:none}
 @media (hover:hover) and (pointer:fine){ .prl:hover{background-image:linear-gradient(var(--ke-manh),var(--ke-manh))} }
 /* vạch "bây giờ" */
@@ -607,10 +634,6 @@ button.stepn .ic{width:16px;height:16px}
        background:var(--muc);color:var(--giay);font-size:14px;line-height:17px;transform:translate(-50%,-8px);opacity:0;pointer-events:none;transition:opacity .18s linear,transform .18s var(--eio)}
 .toast.on{opacity:1;transform:translate(-50%,0);transition:opacity .22s var(--eo),transform .22s var(--eo)}
 .toast .ic{width:18px;height:18px;stroke:var(--giay)}
-/* toast cùng tín hiệu: vạch Acid quét mép dưới mỗi lần hiện (trên nền Mực Acid đủ tương phản) */
-.toast{overflow:hidden}
-.toast::after{content:'';position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--acid);transform-origin:0 50%;transform:scaleX(0);pointer-events:none}
-.toast.on::after{animation:ntline .74s var(--eo) .06s both}
 
 /* =====================================================================
    MOBILE · < 960 px (khung 393×852)
@@ -811,4 +834,8 @@ button.stepn .ic{width:16px;height:16px}
   *,*::before,*::after{animation-duration:.01ms!important;animation-delay:0s!important;animation-iteration-count:1!important;transition-duration:.01ms!important;transition-delay:0s!important}
   .page.enter-fwd>.st,.page.enter-back>.st{animation:fadein .2s linear both!important}
   .page.leave-fwd>.st,.page.leave-back>.st{animation:fadeout .2s linear both!important}
+  /* tia viền: không xoay / quét — viền Mực đứng yên thay tia (vẫn nổi hơn thẻ thường) */
+  .bm-s,.bm-g,#floor:has(.nt.pair.sig-in)::after{display:none}
+  .beam,.prl.inv.beam{box-shadow:inset 0 0 0 1.5px var(--muc)}
+  #floor:has(.nt.pair.sig-in)::before{animation:none!important;background:var(--muc);opacity:1}
 }

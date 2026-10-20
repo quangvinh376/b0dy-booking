@@ -1,44 +1,42 @@
-/* "Tín hiệu đến" của thẻ thông báo (1.2.1): chạy khi thẻ THẬT SỰ được thấy — không lẫn vào cảnh trang trượt vào (1.2.0: chạy một lần ngay
-   lúc thẻ vào DOM, chủ studio "không thấy hiệu ứng") — rồi LẶP mỗi 2 s tới khi người xem đã đọc thẻ (1.2.2: bỏ chấm Acid, vòng sáng
-   phát ra từ chính biểu tượng, nhịp 4 s → 2 s). Chế độ QC (dữ liệu bịa), desktop + mobile.
+/* Thẻ thông báo + tia viền "border beam" cho thẻ kích cầu ghép cặp 1:2 (1.3.0). Chế độ QC (dữ liệu bịa), desktop + mobile.
    node test/ui_notice.js
-   1. Mở bảng (Uyển Nhi: thẻ lời mời tập đôi): trước tín hiệu chấm + vạch ẩn · tín hiệu chạy SAU khi trang vào xong ≥ 150 ms · đủ chuyển động
-      (vạch quét lặp · vòng sáng lặp) · không còn chấm ở góc · vòng sáng đồng tâm, bắt đầu trùng đường tròn của biểu tượng · giữa hai nhịp
-      vạch + vòng tắt · nhịp thứ hai thật sự chạy (~2 s sau) · B0B nhìn
-      thẻ đúng lúc tín hiệu, không trước
-   2. Kênh live hỏi lại (QC "Người khác vừa đặt"), thẻ không đổi → cùng phần tử, nhịp không chạy lại từ đầu
-   3. Đã đọc: desktop rê chuột qua nhanh → vẫn lặp, dừng trên thẻ ≥ 600 ms → thôi lặp (chấm ở lại), thẻ mobile cùng nội dung cũng thôi
-      (thu cửa sổ về khổ mobile) · mobile chạm thẻ → mở cửa sổ chi tiết, đóng lại → thôi lặp
-   4. Thẻ mới giữa phiên (Minh Khôi chọn T5 09:00, người khác đặt trước): desktop chạy sau khi sàn hiện xong · mobile: cửa sổ báo đang che →
-      chờ, đóng cửa sổ rồi mới chạy · B0B nhìn thẻ cảnh báo đúng lúc · thẻ mới thì lặp
-   5. Tab ẩn lúc thẻ vào → chưa chạy; mở lại tab → chạy
-   6. Giảm chuyển động → gắn ngay, không lặp, về thẳng trạng thái cuối (chấm hiện, vạch tắt) */
+   Bối cảnh: 1.2.x có vòng sáng quanh biểu tượng + vạch quét mép trên cho MỌI thẻ — chủ studio 20/10: bỏ (thiếu thẩm mỹ, yếu tương phản),
+   thay bằng tia viền (libraries.dev/beam) chỉ cho thẻ mời / được mời tập đôi; dải sàn desktop có lời mời: tia chỉ ở viền trên.
+   1. Uyển Nhi (có lời mời): thẻ vào cùng cảnh trang trượt vào → tia chưa chạy · gắn .sig-in SAU khi trang vào xong ≥ 150 ms, B0B nhìn
+      đúng lúc · mobile: thẻ mời có tia (vành + quầng, chạy vô hạn 2,4 s / vòng) · toán học đầu tia: đúng vị trí trên cả 4 cạnh, liền qua
+      góc, dài không đổi · desktop: sàn có tia viền trên (vạch 2 px + quầng, 3,1 s / lượt) · chạy liên tục: không dừng khi đã đọc (rê chuột /
+      chạm thẻ) · kênh live hỏi lại → cùng phần tử, tia không chạy lại từ đầu · không còn vòng sáng / vạch quét / vạch dưới toast cũ
+   2. Minh Khôi chọn T5 09:00, người khác đặt trước (thẻ cảnh báo, không phải ghép cặp): không có tia (thẻ lẫn sàn) · mobile: cửa sổ báo
+      đang che → chờ, đóng rồi mới gắn · B0B nhìn thẻ cảnh báo đúng lúc
+   3. Thục Quyên đặt 2 buổi 1:2 → phiếu: dòng Tập đôi "… · Mời bạn" có tia, gắn sau khi trang vào xong
+   4. Tab ẩn lúc thẻ vào → chưa gắn; mở lại tab → gắn
+   5. Giảm chuyển động → gắn ngay, không tia chạy: viền Mực 1,5 px đứng yên thay tia */
 'use strict';
 const { chromium } = require('playwright');
 const { startServer, API } = require('./ui_harness');
 const EXE = require('./pw_exe'), ARGS = ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'];
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let pass = 0, fail = 0;
-function ok(label, cond, extra) { if (cond) { pass++; console.log('  PASS  ' + label); } else { fail++; console.log('  FAIL  ' + label + (extra !== undefined ? '  ' + JSON.stringify(extra).slice(0, 600) : '')); } }
+function ok(label, cond, extra) { if (cond) { pass++; console.log('  PASS  ' + label); } else { fail++; console.log('  FAIL  ' + label + (extra !== undefined ? '  ' + JSON.stringify(extra).slice(0, 700) : '')); } }
 async function waitView(page, v) { await page.waitForFunction(x => window.__lt && window.__lt.S.view === x && !document.querySelector('.page.leave-fwd,.page.leave-back'), v, { timeout: 10000 }); }
+async function until(f, ms) { const t0 = Date.now(); while (!(await f())) { if (Date.now() - t0 > ms) return false; await sleep(50); } return true; }
 
-/* nhật ký trong trang: thẻ vào (kèm độ mờ chấm / vạch lúc đó) · trang vào xong · tín hiệu gắn (kèm tên animation) · cửa sổ đóng · B0B */
+/* nhật ký trong trang: thẻ vào · trang vào xong · gắn .sig-in · cửa sổ đóng · B0B nhìn thẻ */
 function instrument() {
   const L = window.__sg = [], t = () => performance.now();
-  const vis = e => e.getClientRects().length > 0;
-  const card = e => e.nodeType === 1 && e.matches && e.matches('#floor .nt, #mNote .mnt');
+  const vis = e => e.getClientRects().length > 0, SELS = '#floor .nt, #mNote .mnt, #prLine .prl';
+  const card = e => e.nodeType === 1 && e.matches && e.matches(SELS);
   new MutationObserver(ms => ms.forEach(m => {
     if (m.type === 'childList') m.addedNodes.forEach(n => {
-      const cs = n.nodeType === 1 ? [n].filter(card).concat(Array.from(n.querySelectorAll('#floor .nt, #mNote .mnt'))) : [];
+      const cs = n.nodeType === 1 ? [n].filter(card).concat(Array.from(n.querySelectorAll(SELS))) : [];
       cs.forEach(c => { if (!vis(c)) return; c.__id = c.__id || Math.random().toString(36).slice(2);
-        L.push({ k: 'in', at: t(), id: c.__id, warn: c.classList.contains('warn'), sig: c.classList.contains('sig-in'),
-                 ring: getComputedStyle(c.querySelector('.nt-ic'), '::after').opacity, line: getComputedStyle(c, '::before').opacity }); });
+        const s = c.querySelector('.bm-s');
+        L.push({ k: 'in', at: t(), id: c.__id, warn: c.classList.contains('warn'), sig: c.classList.contains('sig-in'), bm: s ? getComputedStyle(s).opacity : null }); });
     });
     if (m.type === 'attributes' && m.target.nodeType === 1) {
       const e = m.target, was = m.oldValue || '';
       if (e.classList.contains('page') && /enter-(fwd|back)/.test(was) && !/enter-(fwd|back)/.test(e.className)) L.push({ k: 'settle', at: t() });
-      if (card(e) && vis(e) && e.classList.contains('sig-in') && !/\bsig-in\b/.test(was))
-        L.push({ k: 'sig', at: t(), id: e.__id, names: Array.from(new Set(e.getAnimations({ subtree: true }).map(a => a.animationName))).sort().join(',') });
+      if (card(e) && vis(e) && e.classList.contains('sig-in') && !/\bsig-in\b/.test(was)) L.push({ k: 'sig', at: t(), id: e.__id });
       if (e.id === 'sheet' && m.attributeName === 'hidden' && e.hidden) L.push({ k: 'sheetoff', at: t() });
     }
   })).observe(document.body, { subtree: true, childList: true, attributes: true, attributeOldValue: true, attributeFilter: ['class', 'hidden'] });
@@ -50,26 +48,51 @@ function instrument() {
   };
   return !!o;
 }
-/* B0B được gọi ngay trong lượt gắn .sig-in, MutationObserver ghi mốc "sig" sau đó một nhịp vi tác vụ → cho lệch ≤ SAME ms
-   (nhìn sớm kiểu 1.2.0 = lúc thẻ vào, sớm hơn hàng trăm ms) */
+/* B0B được gọi ngay trong lượt gắn .sig-in, MutationObserver ghi mốc "sig" sau đó một nhịp vi tác vụ → cho lệch ≤ SAME ms */
 const SAME = 30;
 const log = page => page.evaluate(() => window.__sg.slice());
 const lastIn = (l, warn) => l.filter(x => x.k === 'in' && (warn == null || x.warn === warn)).pop();
-async function until(f, ms) { const t0 = Date.now(); while (!(await f())) { if (Date.now() - t0 > ms) return false; await sleep(50); } return true; }
+/* trạng thái thẻ đang hiện: tia (lớp vành / quầng) · animation đang chạy · sàn (viền trên) */
 async function state(page, sel) {
   return page.evaluate(s => {
     const e = Array.from(document.querySelectorAll(s)).filter(x => x.getClientRects().length)[0]; if (!e) return null;
-    const an = e.getAnimations({ subtree: true }), L = an.filter(a => a.animationName === 'ntlineL')[0];
-    return { id: e.__id, sig: e.classList.contains('sig-in'), loop: e.classList.contains('sig-loop'), done: e.classList.contains('sig-done'),
-             ring: +getComputedStyle(e.querySelector('.nt-ic'), '::after').opacity, line: +getComputedStyle(e, '::before').opacity,
+    const an = e.getAnimations({ subtree: true }), run = an.filter(a => a.animationName === 'bmrun')[0], bs = e.querySelector('.bm-s');
+    const fl = document.querySelector('#floor'), fa = fl.getAnimations().concat(document.getAnimations().filter(a => a.effect && a.effect.target === fl));
+    const rail = Array.from(new Set(fa)).filter(a => a.effect.pseudoElement === '::before' && a.animationName === 'bmrail')[0];
+    const fb = getComputedStyle(fl, '::before');
+    return { id: e.__id, sig: e.classList.contains('sig-in'), beam: e.classList.contains('beam'), pair: e.classList.contains('pair'),
+             layers: e.querySelectorAll('.bm-s, .bm-g').length, bm: bs ? +getComputedStyle(bs).opacity : null, bmDisp: bs ? getComputedStyle(bs).display : null,
+             shadow: getComputedStyle(e).boxShadow,
              running: an.filter(a => a.playState === 'running').map(a => a.animationName).sort().join(','),
-             it: L ? L.effect.getComputedTiming().currentIteration : null, start: L ? L.startTime : null };
+             run: run ? { dur: run.effect.getTiming().duration, it: run.effect.getTiming().iterations, start: run.startTime } : null,
+             rail: rail ? { dur: rail.effect.getTiming().duration, it: rail.effect.getTiming().iterations, state: rail.playState } : null,
+             floorBefore: fb.content, floorTop: fb.top, floorH: fb.height,
+             oldRing: getComputedStyle(e.querySelector('.nt-ic') || e, '::after').content, oldLine: getComputedStyle(e, '::before').content };
+  }, sel);
+}
+/* toán học đầu tia: dừng bmrun ở các phân số của vòng, đọc background-position 5 lớp của .bm-s::before, so với công thức
+   (W, H = cỡ thẻ, L = 160, P = 2W + 2H, p = phân số × P): trên (p − L, 0) · phải (W − 2, p − W − L) · dưới (2W + H − p, H − 2) ·
+   trái (0, P − p) · trái vòng sau (0, −p) → đầu tia nằm đúng một chỗ trên chu vi, liền qua góc, dài không đổi */
+async function geometry(page, sel) {
+  return page.evaluate(async s => {
+    const e = document.querySelector(s), bs = e.querySelector('.bm-s'), r = bs.getBoundingClientRect(), W = r.width, H = r.height, P = 2 * (W + H), L = 160;
+    const a = bs.getAnimations({ subtree: true }).filter(x => x.animationName === 'bmrun')[0];
+    const D = a.effect.getTiming().duration, out = [];
+    a.pause();
+    for (const f of [0, .05, .2, .3, W / P, .35, .5, .6, (2 * W + H) / P, .8, .9, .97]) {
+      a.currentTime = f * D;
+      const pos = getComputedStyle(bs, '::before').backgroundPosition.split(',').map(x => x.trim().split(/\s+/).map(parseFloat)), p = f * P;
+      const want = [[p - L, 0], [W - 2, p - W - L], [2 * W + H - p, H - 2], [0, P - p], [0, -p]];
+      const err = Math.max.apply(null, want.map((w, i) => Math.max(Math.abs(w[0] - pos[i][0]), Math.abs(w[1] - pos[i][1]))));
+      out.push({ f: +f.toFixed(3), err: +err.toFixed(2) });
+    }
+    a.play();
+    return { W: W, H: H, out: out, max: Math.max.apply(null, out.map(x => x.err)) };
   }, sel);
 }
 
-async function run(browser, server, mobile, opt) {
+async function newPage(browser, server, mobile, opt) {
   opt = opt || {};
-  console.log('\n== ' + (mobile ? 'mobile 393×852' : 'desktop 1440×900') + (opt.rm ? ' · giảm chuyển động' : '') + (opt.hidden ? ' · tab ẩn lúc thẻ vào' : '') + ' ==');
   const ctx = await browser.newContext(Object.assign(mobile ? { viewport: { width: 393, height: 852 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true } : { viewport: { width: 1440, height: 900 } },
                                                      opt.rm ? { reducedMotion: 'reduce' } : {}));
   const page = await ctx.newPage(); const errs = [];
@@ -78,7 +101,6 @@ async function run(browser, server, mobile, opt) {
   await page.route(API + '**', r => r.abort());
   await page.goto(server.url + 'img/favicon.svg'); await page.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
   await page.goto(server.url + '?qc&tk3d=0'); await page.waitForSelector('.qc-tab');
-  const SEL = mobile ? '#mNote .mnt' : '#floor .nt';
   const qc = async sel => {
     await page.click('.qc-tab'); await page.waitForSelector('#qcp:not([hidden])');
     await page.click('#qcp ' + sel); await sleep(150);
@@ -93,153 +115,165 @@ async function run(browser, server, mobile, opt) {
     await page.locator(mobile ? '#vgoM' : '#vgo').click();
     return bob;
   };
-  const armed = () => until(async () => { const s = await state(page, SEL); return s && s.sig; }, 6000);
+  return { ctx, page, errs, qc, login };
+}
+const armedOn = (page, sel) => until(async () => { const s = await state(page, sel); return s && s.sig; }, 6000);
 
-  if (opt.rm) {
-    await login('uyen nhi', '5555'); await waitView(page, 'book'); await armed(); await sleep(150);
-    const l = await log(page), i = lastIn(l), g = l.filter(x => x.k === 'sig').pop(), s = await state(page, SEL);
-    ok('Giảm chuyển động: gắn tín hiệu ngay (≤ 250 ms sau khi thẻ vào), không chờ', !!i && !!g && g.at - i.at <= 250, [i, g]);
-    ok('… không lặp, về thẳng trạng thái cuối: vạch + vòng sáng tắt, không còn chuyển động', !!s && !s.loop && s.ring === 0 && s.line === 0 && !s.running, s);
-    ok('0 lỗi console / pageerror', errs.length === 0, errs);
-    await ctx.close(); return;
-  }
-  if (opt.hidden) {
-    const hide = v => page.evaluate(h => {
-      Object.defineProperty(document, 'hidden', { configurable: true, get: () => h });
-      Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => h ? 'hidden' : 'visible' });
-      if (!h) document.dispatchEvent(new Event('visibilitychange'));
-    }, v);
-    await login('uyen nhi', '5555', () => hide(true)); await waitView(page, 'book'); await sleep(1500);
-    const s0 = await state(page, SEL);
-    ok('Tab ẩn lúc thẻ vào → chưa chạy tín hiệu', !!s0 && !s0.sig && s0.ring === 0 && !s0.running, s0);
-    const t0 = await page.evaluate(() => performance.now());
-    await hide(false); await armed();
-    const g = (await log(page)).filter(x => x.k === 'sig').pop();
-    ok('Mở lại tab → tín hiệu chạy sau ≥ 150 ms lặng (≤ 900 ms)', !!g && g.at - t0 >= 150 && g.at - t0 <= 900, g && Math.round(g.at - t0));
-    ok('0 lỗi console / pageerror', errs.length === 0, errs);
-    await ctx.close(); return;
-  }
-
-  /* 1 */
+async function invitee(browser, server, mobile) {
+  console.log('\n== ' + (mobile ? 'mobile 393×852' : 'desktop 1440×900') + ' · được mời (Uyển Nhi) ==');
+  const { ctx, page, errs, qc, login } = await newPage(browser, server, mobile);
+  const SEL = mobile ? '#mNote .mnt' : '#floor .nt';
   const bob = await login('uyen nhi', '5555'); await waitView(page, 'book');
   ok('Có B0B để theo dõi (B0B.emit)', bob);
-  await armed(); await sleep(60);
+  const s0 = await state(page, SEL);
+  if (mobile) ok('Thẻ mời mobile có tia: lớp vành + lớp quầng', !!s0 && s0.beam && s0.layers === 2, s0);
+  else ok('Thẻ mời trên sàn desktop đánh dấu ghép cặp (.pair), không tia quanh thẻ (chỉ viền trên của sàn)', !!s0 && s0.pair && !s0.beam && s0.layers === 0, s0);
+  await armedOn(page, SEL); await sleep(60);
   let l = await log(page);
   const i1 = lastIn(l), g1 = l.filter(x => x.k === 'sig' && i1 && x.id === i1.id)[0], st1 = l.filter(x => x.k === 'settle' && i1 && x.at >= i1.at - 1).pop();
-  ok('Thẻ vào cùng cảnh trang trượt vào: lúc đó vạch + vòng sáng còn ẩn', !!i1 && !i1.sig && i1.ring === '0' && i1.line === '0', i1);
-  ok('Tín hiệu chạy SAU khi trang vào xong, lặng ≥ 150 ms (≤ 900 ms)', !!g1 && !!st1 && g1.at - st1.at >= 150 && g1.at - st1.at <= 900,
+  ok('Thẻ vào cùng cảnh trang trượt vào: lúc đó chưa gắn, tia còn ẩn', !!i1 && !i1.sig && (mobile ? i1.bm === '0' : i1.bm === null), i1);
+  ok('Gắn .sig-in SAU khi trang vào xong, lặng ≥ 150 ms (≤ 900 ms)', !!g1 && !!st1 && g1.at - st1.at >= 150 && g1.at - st1.at <= 900,
      [st1 && Math.round(st1.at - i1.at), g1 && Math.round(g1.at - i1.at)]);
-  ok('Đủ chuyển động: vạch quét lặp (ntlineL) · vòng sáng lặp (ntringL)', !!g1 && g1.names === 'ntlineL,ntringL', g1);
-  /* vòng sáng: ::after của khung biểu tượng (khung = đúng ô svg), lùi 12,5 % mỗi cạnh = đường tròn r 9 / 24 của "i" → đồng tâm, cùng cỡ */
-  const geo = await page.evaluate(s => {
-    const c = document.querySelector(s), w = c.querySelector('.nt-ic'), svg = w.querySelector('svg'), a = getComputedStyle(w, '::after');
-    const rw = w.getBoundingClientRect(), rs = svg.getBoundingClientRect(), circ = svg.querySelector('circle');
-    return { dots: c.querySelectorAll('.nt-sig').length, same: Math.abs(rw.left - rs.left) < .5 && Math.abs(rw.top - rs.top) < .5 && Math.abs(rw.width - rs.width) < .5 && Math.abs(rw.height - rs.height) < .5,
-             inset: [a.top, a.left, a.right, a.bottom].map(parseFloat), size: rw.width, r: circ && +circ.getAttribute('r'), cx: circ && +circ.getAttribute('cx'), cy: circ && +circ.getAttribute('cy'),
-             vb: svg.getAttribute('viewBox'), shadow: a.boxShadow, radius: a.borderRadius };
-  }, SEL);
-  ok('Không còn chấm Acid ở góc biểu tượng', geo.dots === 0, geo);
-  ok('Vòng sáng đồng tâm với biểu tượng, bắt đầu trùng đường tròn r 9 / 24 của nó (lùi 12,5 % mỗi cạnh), viền Acid 2 px',
-     geo.same && geo.vb === '0 0 24 24' && geo.r === 9 && geo.cx === 12 && geo.cy === 12 && geo.inset.every(v => Math.abs(v - geo.size * .125) < .01) &&
-     /rgb\(212, 255, 0\) 0px 0px 0px 2px/.test(geo.shadow) && geo.radius === '50%', geo);
   const b1 = l.filter(x => x.k === 'bob' && i1 && x.id === i1.id);
-  ok('B0B nhìn thẻ đúng lúc tín hiệu (không trước) · thẻ thường → "toast"', b1.length === 1 && !!g1 && b1[0].at >= g1.at - SAME && b1[0].at - g1.at <= 200 && b1[0].type === 'toast',
+  ok('B0B nhìn thẻ đúng lúc gắn (không trước) · thẻ thường → "toast"', b1.length === 1 && !!g1 && b1[0].at >= g1.at - SAME && b1[0].at - g1.at <= 200 && b1[0].type === 'toast',
      b1.map(x => [x.type, Math.round(x.at - (g1 ? g1.at : 0))]));
-  await sleep(1200);
+  await sleep(800);
   const s1 = await state(page, SEL);
-  ok('Giữa hai nhịp: vạch + vòng sáng đã tắt, chỉ còn nhịp lặp chạy (vạch + vòng sáng)', !!s1 && s1.loop && s1.ring === 0 && s1.line === 0 && s1.running === 'ntlineL,ntringL', s1);
-  const t1 = await page.evaluate(() => performance.now());
-  const again = await until(async () => { const s = await state(page, SEL); return s && s.it >= 1 && s.line > 0.5 && s.ring > 0.3; }, 5000);
-  const t1b = await page.evaluate(() => performance.now());
-  ok('Lặp: ~2 s sau nhịp đầu vạch Acid quét lại, vòng sáng phát lại (nhịp thứ hai)', again && !!g1 && t1b - g1.at >= 1900 && t1b - g1.at <= 3200, [again, g1 && Math.round(t1b - g1.at), Math.round(t1b - t1)]);
-
-  /* 2 */
-  const f2 = await page.evaluate(() => window.__lt.S.lastFetch);
-  await qc('[data-qc="other"]');
-  await page.waitForFunction(f => window.__lt.S.lastFetch > f, f2, { timeout: 6000 }).catch(() => {});
-  await sleep(500);
-  const s2 = await state(page, SEL), n2 = (await log(page)).filter(x => x.k === 'sig' && x.at > (g1 ? g1.at : 0)).length;
-  ok('Kênh live hỏi lại, thẻ không đổi → cùng phần tử, nhịp không chạy lại từ đầu', !!s2 && !!s1 && s2.id === s1.id && s2.loop && s2.start === s1.start && n2 === 0,
-     [s2, n2, await page.evaluate(f => window.__lt.S.lastFetch > f, f2)]);
-  /* 3 */
+  if (mobile) {
+    ok('Tia quanh thẻ: mờ vào xong (vành hiện hẳn), chạy vô hạn 2,4 s / vòng (vành + quầng)', !!s1 && s1.bm === 1 && /bmglow/.test(s1.running) && /bmrun/.test(s1.running) &&
+       !!s1.run && s1.run.dur === 2400 && s1.run.it === Infinity, s1);
+    const geo = await geometry(page, SEL);
+    ok('Đầu tia đúng vị trí trên cả 4 cạnh, liền qua góc, dài không đổi (12 mốc, sai ≤ 0,6 px)', geo.max <= 0.6, geo);
+  } else {
+    ok('Sàn desktop: tia viền trên (vạch 2 px ở mép trên), chạy vô hạn 3,1 s / lượt', !!s1 && s1.floorBefore !== 'none' && s1.floorTop === '-1px' && s1.floorH === '2px' &&
+       !!s1.rail && s1.rail.dur === 3100 && s1.rail.it === Infinity && s1.rail.state === 'running', s1);
+  }
+  ok('Không còn hiệu ứng cũ: vòng sáng quanh biểu tượng, vạch quét mép trên', !!s1 && s1.oldRing === 'none' && s1.oldLine === 'none', s1);
+  /* đã đọc: rê chuột dừng trên thẻ (desktop) / chạm thẻ → cửa sổ chi tiết → đóng (mobile) — tia vẫn chạy */
   if (!mobile) {
     const box = await page.evaluate(s => { const r = document.querySelector(s).getBoundingClientRect(); return { x: r.left + 40, y: r.top + r.height / 2 }; }, SEL);
-    await page.mouse.move(box.x, box.y); await sleep(250); await page.mouse.move(box.x, 120); await sleep(800);
-    const s3a = await state(page, SEL);
-    ok('Rê chuột qua thẻ nhanh (250 ms) → vẫn lặp', !!s3a && s3a.loop && !s3a.done, s3a);
-    await page.mouse.move(box.x, box.y); await sleep(900);
-    const s3b = await state(page, SEL);
-    ok('Dừng chuột trên thẻ ≥ 600 ms (đã đọc) → thôi lặp: không còn chuyển động, vạch + vòng sáng tắt', !!s3b && !s3b.loop && s3b.done && !s3b.running && s3b.ring === 0 && s3b.line === 0, s3b);
-    await page.mouse.move(box.x, 120);
-    await page.setViewportSize({ width: 393, height: 852 }); await sleep(700);
-    const s3c = await state(page, '#mNote .mnt');
-    ok('Thu cửa sổ về khổ mobile: thẻ mobile cùng nội dung cũng không lặp (đã đọc theo nội dung thẻ)', !!s3c && !s3c.loop && s3c.done && !/ntlineL|ntringL/.test(s3c.running), s3c);
+    await page.mouse.move(box.x, box.y); await sleep(1200); await page.mouse.move(box.x, 120); await sleep(200);
+    const s2 = await state(page, SEL);
+    ok('Rê chuột dừng trên thẻ 1,2 s → tia viền trên vẫn chạy (gây chú ý liên tục, không dừng khi đã đọc)', !!s2 && !!s2.rail && s2.rail.state === 'running', s2);
   } else {
     await page.locator(SEL).tap(); await page.waitForSelector('#sheet.on', { timeout: 4000 }).catch(() => {});
     const open = await page.evaluate(() => !!document.querySelector('#sheet.on'));
     await page.keyboard.press('Escape'); await page.waitForFunction(() => document.querySelector('#sheet').hidden, null, { timeout: 4000 }).catch(() => {});
     await sleep(300);
-    const s3 = await state(page, SEL);
-    ok('Chạm thẻ → mở cửa sổ chi tiết · đóng lại → thẻ thôi lặp', open && !!s3 && !s3.loop && s3.done && !s3.running && s3.ring === 0, [open, s3]);
+    const s2 = await state(page, SEL);
+    ok('Chạm thẻ → cửa sổ chi tiết · đóng lại → tia vẫn chạy (không dừng khi đã đọc)', open && !!s2 && /bmrun/.test(s2.running) && s2.bm === 1, [open, s2]);
   }
-  ok('0 lỗi console / pageerror (Uyển Nhi)', errs.length === 0, errs);
+  /* kênh live */
+  const before = await state(page, SEL), f2 = await page.evaluate(() => window.__lt.S.lastFetch);
+  await qc('[data-qc="other"]');
+  await page.waitForFunction(f => window.__lt.S.lastFetch > f, f2, { timeout: 6000 }).catch(() => {});
+  await sleep(500);
+  const s3 = await state(page, SEL);
+  ok('Kênh live hỏi lại, thẻ không đổi → cùng phần tử, tia không chạy lại từ đầu', !!s3 && !!before && s3.id === before.id && s3.sig &&
+     (mobile ? !!s3.run && s3.run.start === before.run.start : !!s3.rail && s3.rail.state === 'running'), [before && before.run, s3 && s3.run]);
+  /* toast cũ: vạch Acid mép dưới đã bỏ */
+  const toast = await page.evaluate(() => { const t = document.querySelector('#toast') || Object.assign(document.createElement('div'), { className: 'toast on' }); if (!t.isConnected) document.body.appendChild(t);
+    const c = getComputedStyle(t, '::after').content; if (!t.id) t.remove(); return c; });
+  ok('Toast: không còn vạch Acid quét mép dưới', toast === 'none', toast);
+  ok('0 lỗi console / pageerror', errs.length === 0, errs);
   await ctx.close();
+}
 
-  /* 4 */
-  const ctx3 = await browser.newContext(mobile ? { viewport: { width: 393, height: 852 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true } : { viewport: { width: 1440, height: 900 } });
-  const p3 = await ctx3.newPage(); const errs3 = [];
-  p3.on('pageerror', e => errs3.push('pageerror: ' + e.message));
-  p3.on('console', m => { if (m.type() === 'error') errs3.push('console: ' + m.text()); });
-  await p3.route(API + '**', r => r.abort());
-  await p3.goto(server.url + 'img/favicon.svg'); await p3.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
-  await p3.goto(server.url + '?qc&tk3d=0'); await p3.waitForSelector('.qc-tab');
-  const qc3 = async sel => {
-    await p3.click('.qc-tab'); await p3.waitForSelector('#qcp:not([hidden])');
-    await p3.click('#qcp ' + sel); await sleep(150);
-    await p3.focus('#qcT'); await p3.keyboard.press('Escape'); await p3.waitForSelector('#qcp', { state: 'hidden' });
-  };
-  await waitView(p3, 'find');
-  await p3.fill('#q', 'minh khoi'); await p3.waitForSelector('.rrow'); await p3.locator('.rrow').first().click();
-  await waitView(p3, 'verify'); await p3.focus('#pin'); await p3.keyboard.type('1111');
-  await p3.evaluate(instrument);
-  await p3.locator(mobile ? '#vgoM' : '#vgo').click(); await waitView(p3, 'book'); await sleep(900);
-  await p3.locator('#wkb .c[data-d="2026-10-22"][data-h="9"] >> visible=true').first().click(); await sleep(200);
-  await qc3('[data-qc="other"]');
-  await p3.waitForFunction(() => window.__lt.S.notice && window.__lt.S.notice.type === 'gone', null, { timeout: 6000 }).catch(() => {});
+async function warnCard(browser, server, mobile) {
+  console.log('\n== ' + (mobile ? 'mobile' : 'desktop') + ' · thẻ cảnh báo (không ghép cặp) ==');
+  const { ctx, page, errs, qc, login } = await newPage(browser, server, mobile);
+  const SEL = mobile ? '#mNote .mnt' : '#floor .nt';
+  await login('minh khoi', '1111'); await waitView(page, 'book'); await sleep(900);
+  await page.locator('#wkb .c[data-d="2026-10-22"][data-h="9"] >> visible=true').first().click(); await sleep(200);
+  await qc('[data-qc="other"]');
+  await page.waitForFunction(() => window.__lt.S.notice && window.__lt.S.notice.type === 'gone', null, { timeout: 6000 }).catch(() => {});
   if (mobile) {
-    await p3.waitForSelector('#sheet.on', { timeout: 4000 }).catch(() => {});
+    await page.waitForSelector('#sheet.on', { timeout: 4000 }).catch(() => {});
     await sleep(1200);
-    const s3 = await state(p3, SEL);
-    ok('Mobile: thẻ cảnh báo mới vào khi cửa sổ báo đang che → chưa chạy tín hiệu', !!s3 && !s3.sig && s3.ring === 0 && !s3.running && await p3.evaluate(() => !document.querySelector('#sheet').hidden), s3);
-    await p3.keyboard.press('Escape');
+    const s = await state(page, SEL);
+    ok('Mobile: thẻ cảnh báo mới vào khi cửa sổ báo đang che → chưa gắn', !!s && !s.sig && await page.evaluate(() => !document.querySelector('#sheet').hidden), s);
+    await page.keyboard.press('Escape');
   }
-  const ok3 = await until(async () => { const s = await state(p3, SEL + '.warn'); return s && s.sig; }, 6000);
-  await sleep(60);
-  const l3 = await log(p3), i3 = lastIn(l3, true), g3 = l3.filter(x => x.k === 'sig' && i3 && x.id === i3.id)[0], b3 = l3.filter(x => x.k === 'bob' && i3 && x.id === i3.id);
+  const okArm = await until(async () => { const s = await state(page, SEL + '.warn'); return s && s.sig; }, 6000);
+  await sleep(700);
+  const l = await log(page), i = lastIn(l, true), g = l.filter(x => x.k === 'sig' && i && x.id === i.id)[0], b = l.filter(x => x.k === 'bob' && i && x.id === i.id);
   if (mobile) {
-    const off = l3.filter(x => x.k === 'sheetoff').pop();
-    ok('… đóng cửa sổ → tín hiệu chạy sau khi cửa sổ khuất ≥ 150 ms', ok3 && !!g3 && !!off && g3.at - off.at >= 150 && g3.at - off.at <= 900, [off && Math.round(off.at - i3.at), g3 && Math.round(g3.at - i3.at)]);
+    const off = l.filter(x => x.k === 'sheetoff').pop();
+    ok('… đóng cửa sổ → gắn sau khi cửa sổ khuất ≥ 150 ms', okArm && !!g && !!off && g.at - off.at >= 150 && g.at - off.at <= 900, [off && Math.round(off.at - i.at), g && Math.round(g.at - i.at)]);
   } else {
-    /* sàn đổi nội dung bằng fade-through: thẻ vào lúc sàn còn mờ 0 → hiện trong 220 ms → lặng 160 ms */
-    ok('Desktop: thẻ cảnh báo mới trên sàn → tín hiệu chạy sau khi sàn hiện xong (≥ 220 + 150 ms sau khi thẻ vào)', ok3 && !!i3 && !!g3 && g3.at - i3.at >= 370 && g3.at - i3.at <= 1400,
-       [i3, g3 && Math.round(g3.at - i3.at)]);
+    ok('Desktop: thẻ cảnh báo mới trên sàn → gắn sau khi sàn hiện xong (≥ 220 + 150 ms sau khi thẻ vào)', okArm && !!i && !!g && g.at - i.at >= 370 && g.at - i.at <= 1400, [i, g && Math.round(g.at - i.at)]);
   }
-  const s4 = await state(p3, SEL + '.warn');
-  ok('Thẻ mới lặp từ đầu', !!s4 && s4.loop && /ntlineL/.test(s4.running), s4);
-  ok('B0B nhìn thẻ cảnh báo đúng lúc tín hiệu · "error"', b3.length === 1 && !!g3 && b3[0].at >= g3.at - SAME && b3[0].at - g3.at <= 200 && b3[0].type === 'error',
-     b3.map(x => [x.type, Math.round(x.at - (g3 ? g3.at : 0))]));
-  ok('0 lỗi console / pageerror (Minh Khôi)', errs3.length === 0, errs3);
-  await ctx3.close();
+  const s = await state(page, SEL + '.warn');
+  ok('Thẻ cảnh báo không phải ghép cặp → không tia (thẻ lẫn sàn), không animation nào chạy', !!s && !s.beam && !s.pair && s.layers === 0 && s.floorBefore === 'none' && !s.running, s);
+  ok('B0B nhìn thẻ cảnh báo đúng lúc gắn · "error"', b.length === 1 && !!g && b[0].at >= g.at - SAME && b[0].at - g.at <= 200 && b[0].type === 'error',
+     b.map(x => [x.type, Math.round(x.at - (g ? g.at : 0))]));
+  ok('0 lỗi console / pageerror', errs.length === 0, errs);
+  await ctx.close();
+}
+
+async function ticketLine(browser, server, mobile) {
+  console.log('\n== ' + (mobile ? 'mobile' : 'desktop') + ' · phiếu: dòng Tập đôi "Mời bạn" (Thục Quyên) ==');
+  const { ctx, page, errs, login } = await newPage(browser, server, mobile);
+  await login('thuc quyen', '1212'); await waitView(page, 'book'); await sleep(700);
+  for (const [d, h] of [['2026-10-21', 11], ['2026-10-22', 11]]) { await page.locator('#wkb .c[data-d="' + d + '"][data-h="' + h + '"] >> visible=true').first().click(); await sleep(200); }
+  await page.locator(mobile ? '#ctaM' : '#cta').click();
+  await waitView(page, 'ticket');
+  await armedOn(page, '#prLine .prl');
+  /* trang phiếu nặng (vẽ tờ phiếu) → animation có thể bắt đầu muộn hơn lúc gắn lớp: chờ tia mờ vào xong thay vì đợi cố định */
+  await until(async () => { const x = await state(page, '#prLine .prl'); return x && x.bm === 1; }, 4000);
+  const l = await log(page), i = l.filter(x => x.k === 'in').pop(), g = l.filter(x => x.k === 'sig' && i && x.id === i.id)[0], st = l.filter(x => x.k === 'settle' && i && x.at >= i.at - 1).pop();
+  const s = await state(page, '#prLine .prl');
+  const txt = await page.evaluate(() => document.querySelector('#prLine .prl').textContent);
+  ok('Dòng "… đang chờ bạn tập · Mời bạn" có tia, chạy vô hạn', /Mời bạn/.test(txt) && !!s && s.beam && s.layers === 2 && s.bm === 1 && /bmrun/.test(s.running) && !!s.run && s.run.it === Infinity, [txt, s]);
+  ok('… gắn sau khi trang phiếu vào xong (≥ 150 ms)', !!g && !!st && g.at - st.at >= 150 && g.at - st.at <= 900, [st && Math.round(st.at - i.at), g && Math.round(g.at - i.at)]);
+  const geo = await geometry(page, '#prLine .prl');
+  ok('Đầu tia đúng vị trí trên chu vi dòng Tập đôi (sai ≤ 0,6 px)', geo.max <= 0.6, geo);
+  ok('0 lỗi console / pageerror', errs.length === 0, errs);
+  await ctx.close();
+}
+
+async function hiddenTab(browser, server) {
+  console.log('\n== desktop · tab ẩn lúc thẻ vào ==');
+  const { ctx, page, errs, login } = await newPage(browser, server, false);
+  const hide = v => page.evaluate(h => {
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => h });
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => h ? 'hidden' : 'visible' });
+    if (!h) document.dispatchEvent(new Event('visibilitychange'));
+  }, v);
+  await login('uyen nhi', '5555', () => hide(true)); await waitView(page, 'book'); await sleep(1500);
+  const s0 = await state(page, '#floor .nt');
+  ok('Tab ẩn lúc thẻ vào → chưa gắn, sàn chưa có tia', !!s0 && !s0.sig && s0.floorBefore === 'none', s0);
+  const t0 = await page.evaluate(() => performance.now());
+  await hide(false); await armedOn(page, '#floor .nt');
+  const g = (await log(page)).filter(x => x.k === 'sig').pop();
+  ok('Mở lại tab → gắn sau ≥ 150 ms lặng (≤ 900 ms), tia viền trên bắt đầu', !!g && g.at - t0 >= 150 && g.at - t0 <= 900 && (await state(page, '#floor .nt')).floorBefore !== 'none', g && Math.round(g.at - t0));
+  ok('0 lỗi console / pageerror', errs.length === 0, errs);
+  await ctx.close();
+}
+
+async function reduced(browser, server) {
+  console.log('\n== mobile · giảm chuyển động ==');
+  const { ctx, page, errs, login } = await newPage(browser, server, true, { rm: true });
+  await login('uyen nhi', '5555'); await waitView(page, 'book'); await armedOn(page, '#mNote .mnt'); await sleep(150);
+  const l = await log(page), i = lastIn(l), g = l.filter(x => x.k === 'sig').pop(), s = await state(page, '#mNote .mnt');
+  ok('Giảm chuyển động: gắn ngay (≤ 250 ms sau khi thẻ vào), không chờ', !!i && !!g && g.at - i.at <= 250, [i, g]);
+  ok('… tia không chạy: lớp tia ẩn, viền Mực 1,5 px đứng yên thay tia, không animation nào chạy', !!s && s.bmDisp === 'none' && /rgb\(10, 10, 10\) 0px 0px 0px 1\.5px inset/.test(s.shadow) && !s.running, s);
+  ok('0 lỗi console / pageerror', errs.length === 0, errs);
+  await ctx.close();
 }
 
 (async () => {
   const server = await startServer();
   const browser = await chromium.launch(Object.assign({ args: ARGS }, EXE ? { executablePath: EXE } : {}));
   try {
-    await run(browser, server, false);
-    await run(browser, server, true);
-    await run(browser, server, false, { hidden: true });
-    await run(browser, server, true, { rm: true });
+    await invitee(browser, server, false);
+    await invitee(browser, server, true);
+    await warnCard(browser, server, false);
+    await warnCard(browser, server, true);
+    await ticketLine(browser, server, true);
+    await ticketLine(browser, server, false);
+    await hiddenTab(browser, server);
+    await reduced(browser, server);
   } catch (e) { fail++; console.log('  FAIL  lỗi chạy test: ' + (e && e.stack || e)); }
   await browser.close(); server.srv.close();
   console.log('\n' + pass + ' PASS, ' + fail + ' FAIL');
