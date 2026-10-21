@@ -30,10 +30,10 @@ ID hai file Google Sheets: `BA_ID` (file BA: MEMBERS · SESSION LOG · TRIAL · 
 6. Sau mỗi lần đẩy: xác minh commit bằng hash và SHA-256 từng tệp trên `raw.githubusercontent.com/quangvinh376/b0dy-booking/<commit>/…`.
 7. Chỉ MỘT tiến trình Playwright / Chromium một lúc (máy test nhỏ từng hết RAM).
 
-## Đang ở đâu (21/10/2026, 17:05)
+## Đang ở đâu (21/10/2026, 17:40)
 
-- Trang **v1.5.1** (`d6aa78a`) trên GitHub Pages `main` — "pages build and deployment" success 17:02:14 21/10; 20 tệp tĩnh SHA-256 khớp
-  trên raw.githubusercontent tại commit; trang thật trả `app.js` / `sw.js` VER 1.5.1 +
+- Trang **v1.5.2** (`328ebcf`) trên GitHub Pages `main` — "pages build and deployment" success 17:36:20 21/10; 20 tệp tĩnh SHA-256 khớp
+  trên raw.githubusercontent tại commit; trang thật trả `app.js` / `sw.js` VER 1.5.2 (có `sigCount`, không còn `bobCap`) +
   CSS mới (máy cloud Claude Code KHÔNG curl được booking.b0dy.studio — proxy chặn 403 — kiểm trang thật bằng WebFetch). Worker
   không đổi từ 1.2.0 — `b0dy-booking-api` chạy `worker/src` của `3f91f21` (7 module, có `live.js`) — deploy ~17:01 19/10 qua Claude chat
   (`tools/worker_deploy_snippet.mjs`; chủ studio đồng ý 19/10 và cho tự deploy từ nay — luật 3): `OK etag=c1dc6462b7`, 5 binding (DO `BOOK` ·
