@@ -2,8 +2,8 @@
    node test/ui_live.js
    1. Khôi mở bảng · QC "Người khác vừa đặt" → trang tự hỏi lại (không tải lại trang), phòng thêm đúng 1 suất
    2. Khôi chọn T5 09:00 (còn 1) · người khác đặt đúng khung đó → báo "vừa có người đặt trước" NGAY, trước khi bấm Đặt lịch
-   3. "Thêm 2 người đang xem" → "3 người đang xem" (mobile "3 đang xem") trong tín hiệu header, sau trạng thái tuần (1.5.2 — không còn
-      chữ dưới chân B0B); B0B nhận "viewers" kèm phần tử con số để nhìn tới · tắt → mờ đi rồi gỡ
+   3. "Thêm 2 người đang xem" → icon mắt + "3" trong tín hiệu header, sau trạng thái tuần (1.5.2 — không còn chữ dưới chân B0B); câu đủ
+      "3 người đang xem" cho trình đọc màn hình + chú thích rê chuột; B0B nhận "viewers" kèm phần tử con số để nhìn tới · tắt → mờ đi rồi gỡ
    4. Phiếu đang mở · người khác đặt → không dựng lại vé (cùng phần tử), vẫn hỏi lại
    5. Đường kết nối thật của trang (không QC) với máy chủ live giả của ui_harness: nối · bump → hỏi lại (gom tin dồn) · máy chủ đóng →
       nối lại + hỏi lại · ẩn tab → đóng, hiện lại → nối lại · máy chủ không có kênh (Worker cũ) → thử tối đa 4 lần rồi thôi */
@@ -65,20 +65,22 @@ async function run(browser, server, mobile) {
   await page.evaluate(() => { const o = window.B0B && window.B0B.emit; window.__vw = [];
     if (o) window.B0B.emit = function (ty, d) { if (ty === 'viewers') window.__vw.push({ n: d && d.n, el: d && d.el ? d.el.id : null }); return o.apply(this, arguments); }; });
   await qc('[data-qc="watch"]');
-  const want = mobile ? '3 đang xem' : '3 người đang xem';
-  await page.waitForFunction(w => { const e = document.querySelector('#sigN'); if (!e || e.hidden) return false;
-    const v = Array.from(e.querySelectorAll('.sig-t')).find(x => x.getClientRects().length); return !!v && v.textContent === w; }, want, { timeout: 4000 }).catch(() => {});
+  const want = '3';
+  await page.waitForFunction(w => { const e = document.querySelector('#sigN'); return !!e && !e.hidden && document.querySelector('#sigNv').textContent === w; }, want, { timeout: 4000 }).catch(() => {});
   await sleep(450);
   const hc = await page.evaluate(m => {
     const e = document.querySelector('#sigN'), hd = document.querySelector('#hd').getBoundingClientRect(), r = e.getBoundingClientRect();
-    const v = Array.from(e.querySelectorAll('.sig-t')).find(x => x.getClientRects().length), st = document.querySelector(m ? '#sigM' : '#sigD').getBoundingClientRect();
+    const v = document.querySelector('#sigNv'), ic = e.querySelector('svg.ic'), icr = ic ? ic.getBoundingClientRect() : null, st = document.querySelector(m ? '#sigM' : '#sigD').getBoundingClientRect();
     const oth = document.querySelector(m ? '#stepn' : '#steps'), o = oth && oth.getClientRects().length ? oth.getBoundingClientRect() : null;
     return { shown: !e.hidden, t: v ? v.textContent : '', inHd: r.top >= hd.top - .5 && r.bottom <= hd.bottom + .5, inView: r.left >= 0 && r.right <= innerWidth + .5,
              clear: !o || !o.width || r.right <= o.left - 4, after: r.left >= st.right - .5, op: +getComputedStyle(e).opacity, st: document.querySelector(m ? '#sigM' : '#sigD').textContent,
+             eye: !!icr && icr.width === 14 && icr.height === 14 && icr.right <= v.getBoundingClientRect().left + .5 && ic.getAttribute('aria-hidden') === 'true',
+             sr: document.querySelector('#sigNs').textContent, title: e.title, vh: v.getAttribute('aria-hidden'), w: Math.round(r.width),
              cap: !!document.querySelector('.bob-cap'), vw: window.__vw.slice() };
   }, mobile);
-  ok('Thêm 2 người đang xem → "' + want + '" trong tín hiệu header, sau trạng thái tuần, trong khung header, không chạm ' + (mobile ? 'số bước' : 'dãy bước') + ' · không còn chữ dưới chân B0B',
-     hc.shown && hc.t === want && hc.inHd && hc.inView && hc.clear && hc.after && hc.op === 1 && !hc.cap, hc);
+  ok('Thêm 2 người đang xem → icon mắt 14 px + "3" trong tín hiệu header, sau trạng thái tuần, trong khung header, không chạm ' + (mobile ? 'số bước' : 'dãy bước') + ' · gọn (≤ 48 px) · không còn chữ dưới chân B0B',
+     hc.shown && hc.t === want && hc.eye && hc.inHd && hc.inView && hc.clear && hc.after && hc.op === 1 && !hc.cap && hc.w <= 48, hc);
+  ok('… câu đủ "3 người đang xem" cho trình đọc màn hình (icon + số ẩn với trình đọc) và làm chú thích khi rê chuột', hc.sr === '3 người đang xem' && hc.title === '3 người đang xem' && hc.vh === 'true', hc);
   ok('B0B (người dẫn đường) nhận "viewers" kèm đúng phần tử con số trên header để nhìn tới, không tự đọc số', hc.vw.length === 1 && hc.vw[0].n === 3 && hc.vw[0].el === 'sigN', hc.vw);
   await qc('[data-qc="watch"]');
   await page.waitForFunction(() => document.querySelector('#sigN').hidden, null, { timeout: 4000 }).catch(() => {});
@@ -125,7 +127,7 @@ async function real(browser, server) {
   await sleep(1500);
   ok('Ba tin dồn dập → chỉ hỏi lại một lần', boots() === b0 + 1, [b0, boots()]);
   t.liveSend({ t: 'n', n: 3 });
-  ok('Tin n: 3 → "3 người đang xem" trong tín hiệu header', await until(() => page.evaluate(() => { const e = document.querySelector('#sigN'); return !!e && !e.hidden && document.querySelector('#sigND').textContent === '3 người đang xem'; }), 2000));
+  ok('Tin n: 3 → icon mắt + "3" trong tín hiệu header', await until(() => page.evaluate(() => { const e = document.querySelector('#sigN'); return !!e && !e.hidden && document.querySelector('#sigNv').textContent === '3' && document.querySelector('#sigNs').textContent === '3 người đang xem'; }), 2000));
   b0 = boots(); const c0 = t.liveConns;
   t.liveWs[0].close({ code: 1001, reason: 'tat' });
   ok('Máy chủ đóng kết nối → trang nối lại (~1 s) rồi hỏi lại vì có thể đã lỡ tin', await until(() => t.liveConns === c0 + 1 && t.liveWs.length === 1, 4000) && await until(() => boots() > b0, 2000), [t.liveConns, boots()]);
