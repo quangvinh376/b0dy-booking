@@ -56,6 +56,12 @@ ID hai file Google Sheets: `BA_ID` (file BA: MEMBERS · SESSION LOG · TRIAL · 
   · Không filter / mix-blend-mode / @property / stroke-dashoffset (Figma ghi dashoffset + drop-shadow: vẽ lại mỗi khung). Bỏ
   `licenses/border-beam.txt` (không còn dùng màu / mã của gói). Loại B chờ chủ studio xem trên iPhone thật (máy cloud không tải được WebKit):
   độ đậm hào quang trên mobile, bóng phát sáng, tốc độ tia sàn.
+  · Rà soát độc lập (agent riêng, 2 vòng) → đã sửa: WebKit cũ bỏ qua `iterationStart` trên compositor (hai nguồn sáng sẽ chồng nhau trên
+  iPhone) → pha nằm sẵn trong keyframe, MỌI animation cùng timing {24 s, 1 lượt}; dải sàn so "thông báo đổi chưa" theo chữ thông báo trên
+  sàn; hồ sáng chỉ vẽ nửa trên (clip-path) + tắt dần 160 ms khi dải bị gỡ; hào quang gộp 2 mặt nạ + opacity vào một lớp.
+  · Đo (Chromium headless, swiftshader = vẽ bằng CPU): 0 Paint; khi hào quang chạy ~36 khung/s ở mobile 3× (1.4.0 ~54) vì cả vùng hào quang
+  ghép lại mỗi khung — trên GPU thật không đáng kể, và hết 24 s thì 0 chi phí (1.4.0 chạy vô hạn). Test `ui_notice` 110 · `ui_duo` 48
+  (đủ bộ test PASS 21/10 16:05).
 - **1.4.0 (20/10)** — tia viền chỉ compositor (thay CSS sinh từ gói 1.3.x: `@property` vẽ lại mỗi khung, ~22 khung/s) · mặt thẻ thống nhất
   (`.mnt` = `.prl`, `pcIn`): nền Giấy 2, KHÔNG viền Mực ở mọi trạng thái (cảnh báo nhận ra bằng icon Mực), bo 4, icon ghép, chữ 16 ở x = 46;
   mobile thẻ có giờ (.w): tiêu đề dòng 1, giờ + nhãn dòng 2 (mono); rê chuột: lớp phủ `.bm-hv`, bấm lún .985. `.sig-in` / B0B nhìn thẻ giữ
