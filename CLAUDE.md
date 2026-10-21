@@ -37,26 +37,29 @@ ID hai file Google Sheets: `BA_ID` (file BA: MEMBERS · SESSION LOG · TRIAL · 
   (`tools/worker_deploy_snippet.mjs`; chủ studio đồng ý 19/10 và cho tự deploy từ nay — luật 3): `OK etag=c1dc6462b7`, 5 binding (DO `BOOK` ·
   `ALLOW_ORIGINS` · `BA_ID` · `OUT_ID` · secret `SA_JSON`), cron `* * * * *`, `lt_ping` `pending 0`. Claude Code kiểm 17:01–17:05
   bằng `curl`: `lt_ping` `pending 0`, `lastError` rỗng · tuần 43 trả 7 ngày · `/live` trả 101 + `{"t":"hi","r":0,"n":1}` · origin lạ 403.
-- **1.4.0 (chủ studio 20/10: "tia viền rất tệ, thiếu đồng nhất; 2 thiết kế thẻ; chuyển màn khựng giật; dải sàn thiếu đầu tư — QC toàn
-  bộ, đạt chuẩn Apple")** — tia viền **dựng lại, chỉ chạy trên compositor** (`beamMount` trong `app.js`, CSS mục "tia viền"); bỏ CSS sinh
-  từ gói (1.3.1–1.3.2: góc `@property` vẽ lại conic + mặt nạ + blur mỗi khung trên luồng chính → ~22 khung/s khi có tia; quét góc quanh tâm
-  thẻ dẹt 7:1 nhanh chậm ×68; theme tối trên nền sáng gần như vô hình) và `tools/beam_css.mjs`. Giữ ý tưởng + 9 đốm màu của ví dụ
-  (libraries.dev/beam, MIT — `licenses/border-beam.txt`), màu đã sẫm ≥ 4,5:1 (1.3.2), không Than / Mực.
-  · Thẻ (`data-beam="card"`: dòng mời mobile · dòng Tập đôi trên phiếu khi có lời mời / "Mời bạn" / "Mời bạn khác"): "cửa sổ trượt theo chu
-  vi" — 4 vùng cạnh × (vành 1,5 px · quầng 12 px nhạt), mỗi vùng một cửa sổ mặt nạ dáng tia (đuôi 30 % chu vi sáng dần, mũi tắt mềm) trượt
-  dọc cạnh, trường màu bên trong trượt ngược → màu đứng yên theo vị trí như ví dụ; 16 Web Animations chỉ transform, linear, vô hạn; đi đều
-  360 px/s, liền qua góc bo; KHÔNG mix-blend-mode / filter / @property (bản thử dùng hoà trộn bị bỏ vì rủi ro Safari iOS không kiểm được ở
-  đây); góc bo cắt bằng clip-path một lần (không lộ cung màu ở điểm ảnh rìa). Đầu tia xuất phát ở mép trên trên biểu tượng, mờ vào 480 ms.
-  · Dải sàn desktop có lời mời (`.flb data-beam="strip"`, CHỈ viền trên — chủ studio yêu cầu): ray phổ 1 px cố định + tia 2 px + quầng dưới
-  đầu tia; 9 màu xếp theo sắc độ trái → phải (không vệt bùn); 2 cửa sổ cách nhau 1 bề ngang → luôn đúng một đầu tia trên màn; cùng 360 px/s.
-  · Vòng đời: vẽ lại đúng chỗ (tin live đổi tập đôi vẽ lại cả phiếu · thay dòng Tập đôi · thay nội dung sàn) → tia nối pha, không mờ vào lại,
-  chữ mờ vào nhẹ (.swap); đổi cỡ → giữ phần vòng; cửa sổ / ngăn kéo che (#app inert) → tia dừng tại chỗ, đóng → chạy tiếp; giảm chuyển
-  động → viền màu tĩnh thở opacity 3,2 s. `.sig-in` / B0B nhìn thẻ giữ như 1.2.1 (chỉ #floor .nt · #mNote .mnt).
-  · Mặt thẻ thống nhất (`.mnt` = `.prl`, `pcIn`): nền Giấy 2, KHÔNG viền Mực ở mọi trạng thái (kể cả cảnh báo — nhận ra bằng icon Mực), bo 4,
-  icon ghép cho mọi thẻ ghép cặp (bỏ chấm Acid trên dòng phiếu), chữ 16 ở x = 46; mobile thẻ có giờ (.w): tiêu đề dòng 1, giờ + nhãn dòng 2
-  (mono) → không còn cắt mất giờ; thẻ mời mobile thêm nhãn "Xem"; rê chuột: nền đậm có chuyển tiếp (thẻ có tia: lớp phủ .bm-hv), bấm lún .985.
-  · Đo (Chromium headless, swiftshader): có tia 0 Paint, 180 khung / 3 s (đủ 60). WebKit (Playwright, Linux) hiển thị như Chromium. Loại B
-  chờ chủ studio xem trên iPhone thật: độ đậm quầng (.2), tốc độ 360 px/s, độ dài đuôi, ray sàn (.28). Test `ui_notice` 93 · `ui_duo` 48 (đủ bộ test PASS 20/10).
+- **1.5.0 (chủ studio 21/10: thiết kế "Hào quang Acid" trên Figma section 00e, "code lên bản live, tự deploy, cover mọi scenario, audit kỹ")**
+  — thay phần HÌNH của tia viền 1.4.0, giữ chuẩn compositor + vòng đời (`beamMount` trong `app.js` mục "HÀO QUANG ACID", CSS mục "hào quang
+  Acid"). Chu kỳ 8 s × **3 rồi đứng tĩnh** (viền nền + hào quang 45 % = giảm chuyển động): bật 0–1,5 s (viền nền 1 px Lá 40 % kẻ từ giữa mép
+  trên tách hai ngả theo cubic-bezier(.65, 0, .35, 1) · hào quang bừng, nhoè 40 → 22 · hai nguồn sáng hiện 0,7–1,3 s) · duy trì (Acid +
+  Bạc hà lệch nửa vòng, 1 vòng / 8 s, đều qua góc · hào quang thở 2 s, phổ xoay đúng 180° / chu kỳ, 2 s cuối chuỗi giảm tốc dừng ở 157,5°)
+  · tắt 7–8 s (xoá cùng chiều kẻ). Chỉ chạy khi thật sự được thấy: IntersectionObserver · tab mở · không cửa sổ / ngăn kéo che.
+  · Thẻ (`data-beam="card"`): `.bm` (mặt thẻ, clip-path một lần) = 6 đoạn viền nền + nắp 1 px · lõi 4 vùng cạnh × 2 cửa sổ (8 nấc màu Figma
+  hợp "over", nội suy liền) · mặt thẻ · rê chuột │ `.bmx` bóng phát sáng 3·10·26 px = mặt nạ tổng 3 Gauss (σ = bán kính Figma / 2) quanh nét,
+  góc bo bằng mặt nạ tròn, trên mặt thẻ dưới chữ │ `.bma` hào quang: 2 mặt nạ Gauss σ 11 lồng nhau × phổ conic xoay. 27 Web Animations,
+  một đồng hồ (cùng startTime, mốc nằm trong keyframe).
+  · Sàn desktop (`.flb data-beam="strip"`, hộp trùm đường kẻ ±18 px): viền nền Lá 45 % kẻ từ giữa thông báo ra · tia Acid trái / Bạc hà
+  phải 380 px/s, đuôi 150, lượt 0,9 s + 4,5 s (sàn rất rộng → phía đó tắt dần 7,1–7,85 s) · hồ sáng `.flp` (2 radial-gradient khớp bình
+  phương tối thiểu với quầng 640 × 128 + lõi, nhoè 36 — sai số trung bình 0,2 %) nằm trong `#app` TRƯỚC `<main>` → dưới nội dung trang,
+  tâm ở mép trên sàn giữa thông báo, neo đáy. 14 Web Animations.
+  · Vòng đời giữ của 1.4.0: vẽ lại đúng chỗ → chạy tiếp từ đúng mốc (`.bm-now`), chữ mờ vào (`.swap`); mới thêm: đã đứng tĩnh mà chữ đổi
+  (thông báo mới) → bật lại từ đầu; đổi cỡ → setKeyframes, đồng hồ giữ nguyên; huỷ sạch khi gỡ (cả hồ sáng nằm ngoài sàn).
+  · Không filter / mix-blend-mode / @property / stroke-dashoffset (Figma ghi dashoffset + drop-shadow: vẽ lại mỗi khung). Bỏ
+  `licenses/border-beam.txt` (không còn dùng màu / mã của gói). Loại B chờ chủ studio xem trên iPhone thật (máy cloud không tải được WebKit):
+  độ đậm hào quang trên mobile, bóng phát sáng, tốc độ tia sàn.
+- **1.4.0 (20/10)** — tia viền chỉ compositor (thay CSS sinh từ gói 1.3.x: `@property` vẽ lại mỗi khung, ~22 khung/s) · mặt thẻ thống nhất
+  (`.mnt` = `.prl`, `pcIn`): nền Giấy 2, KHÔNG viền Mực ở mọi trạng thái (cảnh báo nhận ra bằng icon Mực), bo 4, icon ghép, chữ 16 ở x = 46;
+  mobile thẻ có giờ (.w): tiêu đề dòng 1, giờ + nhãn dòng 2 (mono); rê chuột: lớp phủ `.bm-hv`, bấm lún .985. `.sig-in` / B0B nhìn thẻ giữ
+  như 1.2.1 (chỉ #floor .nt · #mNote .mnt).
 - **1.2.0 (chủ studio 19/10)**: (1) từ chối lời mời → người mời thấy "<tên> đã từ chối tham gia" + nút "Mời bạn khác" (bảng Tập đôi +
   dòng Tập đôi trên phiếu, bấm mở thẳng phần chọn bạn) · (2) thẻ thông báo "tín hiệu đến" (thay bằng tia viền ở 1.3.x → 1.4.0);
   B0B quay nhìn thẻ mới · (3) **kênh live mức 1**: WebSocket vào DO (`worker/src/live.js`), bảng tự cập nhật ~1 s

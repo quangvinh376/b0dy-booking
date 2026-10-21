@@ -41,14 +41,15 @@ async function run(browser, server, mobile) {
   const ctaIs = (re, on) => page.waitForFunction(([m, src, on]) => { const b = document.querySelector(m ? '#ctaM' : '#cta'); return !!b && new RegExp(src).test(b.textContent) && (!on || !b.disabled); },
     [mobile, re.source, !!on], { timeout: 4000 }).then(() => true, () => false);
   const book = async picks => { await waitView(page, 'book'); for (const [d, h] of picks) await cell(d, h).click(); await cta().click(); await waitView(page, 'ticket'); await flushed(); };
-  /* tia viền trên dòng Tập đôi (1.4.0): lớp .bm do beamMount dựng, 16 Web Animations (4 cạnh × vành / quầng × cửa sổ / trường màu) — chỉ transform, vô hạn, đang chạy */
+  /* hào quang Acid trên dòng Tập đôi (1.5.0): 3 lớp do beamMount dựng (.bm · .bmx · .bma), 27 Web Animations một đồng hồ, chuỗi 3 × 8 s, đang chạy */
   const beamOn = async raw => {
-    await page.waitForSelector('#prLine .prl[data-beam="card"] > .bm .bm-k', { timeout: 4000, state: 'attached' }).catch(() => {});
+    await page.waitForFunction(() => { const e = document.querySelector('#prLine .prl[data-beam="card"]'); return !!e && !!e._bm && e._bm.run; }, null, { timeout: 4000 }).catch(() => {});
     const b = await page.evaluate(() => { const e = document.querySelector('#prLine .prl'); if (!e) return null;
       const an = e.getAnimations({ subtree: true }).filter(a => !a.animationName);
-      return { beam: e.getAttribute('data-beam'), bm: !!e.querySelector(':scope > .bm'), n: an.length,
-               run: an.length > 0 && an.every(a => a.playState === 'running' && a.effect.getTiming().iterations === Infinity) }; });
-    return raw ? b : !!b && b.beam === 'card' && b.bm && b.n === 16 && b.run;
+      return { beam: e.getAttribute('data-beam'), hq: Array.from(e.querySelectorAll(':scope > .hq')).map(x => x.className).join('|'), n: an.length,
+               one: new Set(an.map(a => a.startTime)).size === 1,
+               run: an.length > 0 && an.every(a => { const t = a.effect.getTiming(); return a.playState === 'running' && t.duration * t.iterations === 24000; }) }; });
+    return raw ? b : !!b && b.beam === 'card' && b.hq === 'hq bm|hq bmx|hq bma' && b.n === 27 && b.one && b.run;
   };
   const openPairs = async () => { await page.locator('#prLine .prl').click(); await page.waitForSelector(mobile ? '#sheet.on' : '#drawer.on'); await sleep(300); };
   const host = mobile ? '#sheet' : '#drawer';
@@ -83,7 +84,7 @@ async function run(browser, server, mobile) {
   /* 2 */
   await signOut(); await login('thuc quyen', '1212'); await waitView(page, 'ticket'); await sleep(800);
   ok('Thục Quyên: dòng Tập đôi báo "Uyển Nhi mời bạn tập đôi · T4 09:00"', /Uyển Nhi mời bạn tập đôi · T4 09:00/.test(await page.textContent('#prLine')), await page.textContent('#prLine'));
-  ok('… dòng lời mời có tia viền (border beam) đang chạy', await beamOn(), await beamOn(true));
+  ok('… dòng lời mời có hào quang Acid đang chạy', await beamOn(), await beamOn(true));
   await openPairs();
   await page.locator(host + ' [data-a="invok"]').click();
   await waitView(page, 'change'); await sleep(600);
@@ -147,7 +148,7 @@ async function run(browser, server, mobile) {
   const ln = await page.evaluate(() => { const b = document.querySelector('#prLine .prl'); return b ? [b.querySelector('.prl-t').textContent, (b.querySelector('.prl-c') || {}).textContent || '', b.dataset.d || '', b.dataset.h || ''] : null; });
   ok('Thục Quyên: dòng Tập đôi "Uyển Nhi đã từ chối tham gia · T6 19:00" + "Mời bạn khác"',
      !!ln && ln[0] === 'Uyển Nhi đã từ chối tham gia · T6 19:00' && ln[1] === 'Mời bạn khác' && ln[2] === '2026-10-23' && ln[3] === '19', ln);
-  ok('… dòng "Mời bạn khác" có tia viền (border beam) đang chạy', await beamOn(), await beamOn(true));
+  ok('… dòng "Mời bạn khác" có hào quang Acid đang chạy', await beamOn(), await beamOn(true));
   await openPairs();
   const pk = await page.evaluate(h => ({ pick: window.__lt.S.invPick, open: !!document.querySelector(h + ' .pr-pick .pr-opt'), q: (document.querySelector(h + ' #prQ') || {}).textContent || '' }), host);
   ok('Bấm dòng đó → bảng Tập đôi mở sẵn phần chọn bạn cho T6 19:00', pk.pick && pk.pick.date === '2026-10-23' && pk.pick.h === 19 && pk.open && /23\.10/.test(pk.q), pk);

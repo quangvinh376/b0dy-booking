@@ -190,85 +190,77 @@ button.stepn .ic{width:16px;height:16px}
 .nt-b{font-size:14px;line-height:17px;color:var(--than)}
 .nt-act{display:flex;gap:16px;flex:none;margin-left:auto}
 .nt-act .btn{min-width:74px}
-/* ---------- tia viền "border beam" — thẻ kích cầu ghép cặp 1:2 (chủ studio 20/10) ----------
-   Như ví dụ libraries.dev/beam: một tia sáng chạy quanh viền, màu lấy từ 9 đốm màu của ví dụ ĐÚNG VỊ TRÍ (tia đi tới đâu mang màu chỗ
-   đó). 1.4.0 dựng lại theo chuẩn chuyển động của phần mềm Apple (1.3.x dùng CSS của gói: góc @property quay trên luồng chính, vẽ lại
-   conic + mặt nạ + blur mỗi khung → ~22 khung/s khi có tia, khựng khi chuyển màn; tia conic quay quanh tâm trên thẻ dẹt 7:1 chạy nhanh
-   chậm thất thường ×68; theme tối trên nền sáng gần như vô hình):
-   · chỉ compositor: mọi lớp vẽ MỘT lần; chuyển động là Web Animations chỉ đổi transform → 0 vẽ lại, không chiếm luồng chính, giữ nhịp
-     kể cả lúc chuyển màn / B0B / phiếu 3D bận · không mix-blend-mode, không filter, không @property → như nhau trên Safari iOS / Chrome
-   · thẻ ("băng chu vi + nắp che", beamFit): 4 vùng cạnh, mỗi vùng = trường màu tĩnh + nắp màu mặt thẻ chỉ thủng một cửa sổ mềm, nắp trượt
-     theo chu vi → tia đi ĐỀU (cùng px/s với mọi tia), đuôi là một dải liền sáng dần, vành dày đều qua góc bo; vành 1,5 px (2 px ở màn 1×)
-     + quầng trong 12 px nhạt
-   · dải sàn desktop có lời mời (.flb): chỉ viền trên — ray phổ 1 px cố định + tia 2 px + quầng dưới đầu tia; 2 cửa sổ cách nhau 1 bề
-     ngang → luôn đúng một đầu tia trên màn, không quãng chết; trường màu trượt ngược → màu đứng yên theo hoành độ
-   · thẻ được vẽ lại đúng chỗ (tin live, đổi trạng thái) → tia nối pha, không mờ vào lại · cửa sổ che → dừng tại chỗ, đóng → chạy tiếp
-   · giảm chuyển động: không chạy — viền màu tĩnh thở chậm (chỉ opacity)
+/* ---------- hào quang Acid — thẻ kích cầu ghép cặp 1:2 (Figma 00e "Hào quang Acid", chủ studio 21/10) ----------
+   Thay tia viền 9 màu của 1.4.0. Chu kỳ 8 s × 3 rồi đứng ở trạng thái tĩnh (viền nền + hào quang 45 %) — nhịp, hình học và lý do dựng
+   như dưới đây: xem phần HÀO QUANG ACID trong app.js. Mọi lớp vẽ một lần; Web Animations chỉ đổi transform / opacity (compositor) ·
+   không filter, không mix-blend-mode, không @property → như nhau trên Safari iOS / Chrome.
+   · thẻ: .bm (mặt thẻ Giấy 2, góc bo cắt một lần bằng clip-path) = viền nền 1 px Lá 40 % · lõi hai nguồn sáng (trong vành --bm-bw) ·
+     mặt thẻ · lớp rê chuột │ .bmx = bóng phát sáng (trên mặt thẻ, dưới chữ, tràn ra ngoài thẻ) │ .bma = hào quang môi trường dưới thẻ
+     (lề 14, nhoè 22 = mặt nạ Gauss σ 11 hai trục lồng nhau, phổ Acid · Chanh · Bạc hà · Lá đối xứng hai nửa, xoay)
+   · dải sàn desktop có lời mời (.flb): viền nền 1 px Lá 45 % đè đường kẻ trên sàn, kẻ từ giữa thông báo ra · tia Acid trái, Bạc hà
+     phải · hồ sáng .flp nằm trong #app trước <main> (dưới nội dung trang, nửa dưới khuất sau sàn — như Figma)
+   · giảm chuyển động / hết 3 chu kỳ (.still): không nguồn sáng; viền nền + hào quang / hồ sáng 45 %, đứng yên
    Dựng lớp: beamMount (app.js) cho mọi phần tử có data-beam ("card" | "strip"). */
 .nt-ic{display:flex;flex:none}
 :root{--bm-bw:1.5px}
 @media (max-resolution:1.49dppx),(-webkit-max-device-pixel-ratio:1.49){ :root{--bm-bw:2px} }   /* màn 1×: vành 2 px nguyên điểm ảnh (dòng sau: Safari ≤ 15) */
 [data-beam="card"]{position:relative;isolation:isolate}
-[data-beam="card"]>:not(.bm){position:relative}
-.bm{position:absolute;inset:0;border-radius:inherit;pointer-events:none}
-/* thẻ: nền = mặt thẻ; góc bo cắt bằng clip-path trên KẾT QUẢ của cả lớp (một lần khử răng cưa), không bằng overflow + bo — cắt riêng
-   từng lớp con thì ở điểm ảnh rìa góc, trường màu lẫn nắp cùng chỉ phủ một phần → lộ cung màu mảnh ở 4 góc. Lớp riêng (translateZ) →
-   Safari cắt đúng cho lớp con đang chạy */
-[data-beam="card"]>.bm{z-index:-1;overflow:hidden;background:var(--giay2);-webkit-clip-path:inset(0 round var(--r));clip-path:inset(0 round var(--r));
-  -webkit-transform:translateZ(0);transform:translateZ(0)}
-.bm-ring,.bm-gx,.bm-e,.bm-e>i,.bm-k>.bm-f,.bm-sf,.bm-gl,.bm-gf,.bm-hv{position:absolute;display:block}
-.bm-ring,.bm-gx{inset:0}
-.bm-e{overflow:hidden}
-.bm-e.e2,.bm-e.e3{-webkit-transform:rotate(180deg);transform:rotate(180deg)}     /* tĩnh: dưới / trái xoay 180° → bên trong luôn đi +u */
-.bm-e>i,.bm-k>.bm-f{left:0;top:0}
-.bm-k{overflow:hidden;will-change:transform}                                       /* cửa sổ (mặt nạ dáng tia đặt qua CSSOM) */
-.bm-k>.bm-f{will-change:transform}
+[data-beam="card"]>:not(.hq){position:relative}
+.hq{position:absolute;pointer-events:none}
+.hq.wait{visibility:hidden}                                                        /* chưa đo xong lần đầu: không lộ lớp sai cỡ */
+.hq i{position:absolute;display:block}
+[data-beam="card"]>.bm{inset:0;z-index:-1;overflow:hidden;background:var(--giay2);-webkit-clip-path:inset(0 round var(--r));clip-path:inset(0 round var(--r));
+  -webkit-transform:translateZ(0);transform:translateZ(0)}                         /* lớp riêng → Safari cắt đúng cho lớp con đang chạy */
+[data-beam="card"]>.bmx{inset:0;z-index:-1}
+[data-beam="card"]>.bma{z-index:-2;opacity:.45}
+.bm-b{background:rgba(125,184,0,.4)}                                               /* viền nền: Lá 40 % */
+/* nắp viền nền: inset 1 px, bo 3 → viền nền 1 px đều quanh cả góc (tâm nét cách mép 0,5, bo 3,5 như Figma) */
+.bm-bc{inset:1px;border-radius:calc(var(--r) - 1px);background:var(--giay2)}
+.bm-cr,.bm-gw{inset:0;opacity:0}
+.bm-e,.bm-g{overflow:hidden}
+.bm-e.e2,.bm-e.e3,.bm-g.e2,.bm-g.e3{-webkit-transform:rotate(180deg);transform:rotate(180deg)}   /* tĩnh: dưới / trái xoay 180° → bên trong luôn đi +u */
+.bm-k{left:0;top:0;will-change:transform}                                          /* cửa sổ nguồn sáng (dải màu đặt qua CSSOM) */
 /* mặt thẻ inset đúng bề dày vành, bo (4 − vành) → hai cung cùng tâm: vành dày đều ở mọi điểm, kể cả góc */
-.bm-sf,.bm-gl{inset:var(--bm-bw);border-radius:calc(var(--r) - var(--bm-bw))}
-.bm-sf{background:var(--giay2)}
-.bm-gl{overflow:hidden;-webkit-clip-path:inset(0 round calc(var(--r) - var(--bm-bw)));clip-path:inset(0 round calc(var(--r) - var(--bm-bw)))}
-.bm-gf{left:calc(-1 * var(--bm-bw));top:calc(-1 * var(--bm-bw));width:calc(100% + 2 * var(--bm-bw));height:calc(100% + 2 * var(--bm-bw))}
-/* quầng: trường màu nhạt tắt dần vào trong 12 px theo đường cong (không dải Mach) — mặt nạ tĩnh, vẽ một lần. Vùng trên / dưới ôm cả hai ô
-   góc 12 × 12: ở đó cộng thêm vệt tắt dần theo chiều ngang (hợp hai mặt nạ) → giáp vùng trái / phải liền, không nếp gãy ở góc */
-.bm-gx .e0 .bm-f,.bm-gx .e2 .bm-f{
-  -webkit-mask-image:linear-gradient(#000,rgba(0,0,0,.62) 28%,rgba(0,0,0,.3) 55%,rgba(0,0,0,.1) 80%,transparent),
-    linear-gradient(to right,#000,rgba(0,0,0,.62) 28%,rgba(0,0,0,.3) 55%,rgba(0,0,0,.1) 80%,transparent),linear-gradient(to left,#000,rgba(0,0,0,.62) 28%,rgba(0,0,0,.3) 55%,rgba(0,0,0,.1) 80%,transparent);
-  mask-image:linear-gradient(#000,rgba(0,0,0,.62) 28%,rgba(0,0,0,.3) 55%,rgba(0,0,0,.1) 80%,transparent),
-    linear-gradient(to right,#000,rgba(0,0,0,.62) 28%,rgba(0,0,0,.3) 55%,rgba(0,0,0,.1) 80%,transparent),linear-gradient(to left,#000,rgba(0,0,0,.62) 28%,rgba(0,0,0,.3) 55%,rgba(0,0,0,.1) 80%,transparent);
-  -webkit-mask-size:100% 100%,12px 100%,12px 100%;mask-size:100% 100%,12px 100%,12px 100%;-webkit-mask-position:0 0,0 0,100% 0;mask-position:0 0,0 0,100% 0;
-  -webkit-mask-repeat:no-repeat;mask-repeat:no-repeat}
-.bm-gx .e1 .bm-f,.bm-gx .e3 .bm-f{-webkit-mask-image:linear-gradient(to left,#000,rgba(0,0,0,.62) 28%,rgba(0,0,0,.3) 55%,rgba(0,0,0,.1) 80%,transparent);
-  mask-image:linear-gradient(to left,#000,rgba(0,0,0,.62) 28%,rgba(0,0,0,.3) 55%,rgba(0,0,0,.1) 80%,transparent)}
-/* rê chuột trên thẻ có tia: phủ Mực 5,6 % trên cả lớp tia (= nền Xương của thẻ thường khi rê) — nắp che vẽ một lần, không vẽ lại */
+.bm-sf{inset:var(--bm-bw);border-radius:calc(var(--r) - var(--bm-bw));background:var(--giay2)}
+/* rê chuột trên thẻ có hào quang: phủ Mực 5,6 % lên mặt thẻ (= nền Xương của thẻ thường khi rê) — không vẽ lại */
 .bm-hv{inset:0;background:rgba(10,10,10,.056);opacity:0;transition:opacity var(--hov)}
 @media (hover:hover) and (pointer:fine){ [data-beam="card"]:hover>.bm>.bm-hv{opacity:1} }
-/* dải sàn: ray màu mảnh cố định ở mép trên (viền trên của sàn) + tia 2 px chạy trên ray + quầng toả xuống dưới đầu tia */
-#floor>.flb{position:absolute;left:0;right:0;top:-1px;height:44px;z-index:-1;overflow:hidden;pointer-events:none}
-.flb>.bm{border-radius:0}
-.bm-z{position:absolute;left:0;right:0;top:0;overflow:hidden}
-.bm-r{height:1px;opacity:.28}
-.bm-r>.bm-f{animation:bmin .6s var(--eo) both}
-.bm-l{height:2px}
-.bm-h{bottom:0;opacity:.65}
-.bm-w{position:absolute;left:0;top:0;bottom:0;overflow:hidden;will-change:transform;animation:bmin .6s var(--eo) both}
-/* trường màu của dải sàn: hộp khối định vị (thẻ <i> mặc định inline → bỏ qua width / transform / nền — không hiện gì) */
-.bm-z>.bm-f,.bm-w>.bm-f,.bm-v>.bm-f{position:absolute;display:block;left:0;top:0;bottom:0}
-.bm-w>.bm-f,.bm-v>.bm-f{will-change:transform}
-.bm-l .bm-w{-webkit-mask:linear-gradient(90deg,transparent,rgba(0,0,0,.06) 18%,rgba(0,0,0,.22) 42%,rgba(0,0,0,.55) 66%,rgba(0,0,0,.88) 84%,#000 93%,#000 98.2%,transparent);
-            mask:linear-gradient(90deg,transparent,rgba(0,0,0,.06) 18%,rgba(0,0,0,.22) 42%,rgba(0,0,0,.55) 66%,rgba(0,0,0,.88) 84%,#000 93%,#000 98.2%,transparent)}
-/* quầng: hai mặt nạ lồng nhau = giao nhau — cửa sổ (ngang: đuôi nhạt → đầu, tắt mềm 96 px trước đầu) × .bm-v (dọc: bừng dưới đầu tia
-   + vệt mỏng dọc đuôi); trường màu trượt ngược bên trong cả hai */
-.bm-h .bm-w{-webkit-mask:linear-gradient(90deg,transparent,rgba(0,0,0,.16) 35%,rgba(0,0,0,.58) 70%,#000 calc(100% - 96px),transparent);
-            mask:linear-gradient(90deg,transparent,rgba(0,0,0,.16) 35%,rgba(0,0,0,.58) 70%,#000 calc(100% - 96px),transparent)}
-.bm-v{position:absolute;inset:0;-webkit-mask:radial-gradient(120px 100% at calc(100% - 96px) 0,#000,rgba(0,0,0,.32) 50%,transparent),linear-gradient(rgba(0,0,0,.5),transparent 14px);
-      mask:radial-gradient(120px 100% at calc(100% - 96px) 0,#000,rgba(0,0,0,.32) 50%,transparent),linear-gradient(rgba(0,0,0,.5),transparent 14px)}
-/* giảm chuyển động: viền màu tĩnh (thẻ: trường màu lộ cả vành · sàn: ray 2 px), beamMount cho thở chậm opacity — không chạy */
-.bm.still .bm-gl,.bm.still .bm-l,.bm.still .bm-h{display:none}
-.bm.still .bm-r{height:2px}
-/* thẻ đổi trạng thái tại chỗ (updatePairLine · vẽ lại phiếu khi tin live đổi tập đôi): chữ mờ vào nhẹ, tia chạy tiếp không mờ vào lại */
+/* hào quang: hai mặt nạ lồng nhau (ngang × dọc) = hình chữ nhật thẻ + 14 px nhoè Gauss σ 11 (mốc mỗi σ/2: Φ(−3) … Φ(3)); hộp = thẻ + 47 px */
+.bm-as,.bm-av{inset:0}
+.bm-as{will-change:transform;
+  -webkit-mask-image:linear-gradient(to right,transparent,rgba(0,0,0,.006) 5.5px,rgba(0,0,0,.023) 11px,rgba(0,0,0,.067) 16.5px,rgba(0,0,0,.159) 22px,rgba(0,0,0,.309) 27.5px,rgba(0,0,0,.5) 33px,rgba(0,0,0,.691) 38.5px,rgba(0,0,0,.841) 44px,rgba(0,0,0,.933) 49.5px,rgba(0,0,0,.977) 55px,rgba(0,0,0,.994) 60.5px,#000 66px,
+    #000 calc(100% - 66px),rgba(0,0,0,.994) calc(100% - 60.5px),rgba(0,0,0,.977) calc(100% - 55px),rgba(0,0,0,.933) calc(100% - 49.5px),rgba(0,0,0,.841) calc(100% - 44px),rgba(0,0,0,.691) calc(100% - 38.5px),rgba(0,0,0,.5) calc(100% - 33px),rgba(0,0,0,.309) calc(100% - 27.5px),rgba(0,0,0,.159) calc(100% - 22px),rgba(0,0,0,.067) calc(100% - 16.5px),rgba(0,0,0,.023) calc(100% - 11px),rgba(0,0,0,.006) calc(100% - 5.5px),transparent);
+  mask-image:linear-gradient(to right,transparent,rgba(0,0,0,.006) 5.5px,rgba(0,0,0,.023) 11px,rgba(0,0,0,.067) 16.5px,rgba(0,0,0,.159) 22px,rgba(0,0,0,.309) 27.5px,rgba(0,0,0,.5) 33px,rgba(0,0,0,.691) 38.5px,rgba(0,0,0,.841) 44px,rgba(0,0,0,.933) 49.5px,rgba(0,0,0,.977) 55px,rgba(0,0,0,.994) 60.5px,#000 66px,
+    #000 calc(100% - 66px),rgba(0,0,0,.994) calc(100% - 60.5px),rgba(0,0,0,.977) calc(100% - 55px),rgba(0,0,0,.933) calc(100% - 49.5px),rgba(0,0,0,.841) calc(100% - 44px),rgba(0,0,0,.691) calc(100% - 38.5px),rgba(0,0,0,.5) calc(100% - 33px),rgba(0,0,0,.309) calc(100% - 27.5px),rgba(0,0,0,.159) calc(100% - 22px),rgba(0,0,0,.067) calc(100% - 16.5px),rgba(0,0,0,.023) calc(100% - 11px),rgba(0,0,0,.006) calc(100% - 5.5px),transparent)}
+.bm-av{
+  -webkit-mask-image:linear-gradient(transparent,rgba(0,0,0,.006) 5.5px,rgba(0,0,0,.023) 11px,rgba(0,0,0,.067) 16.5px,rgba(0,0,0,.159) 22px,rgba(0,0,0,.309) 27.5px,rgba(0,0,0,.5) 33px,rgba(0,0,0,.691) 38.5px,rgba(0,0,0,.841) 44px,rgba(0,0,0,.933) 49.5px,rgba(0,0,0,.977) 55px,rgba(0,0,0,.994) 60.5px,#000 66px,
+    #000 calc(100% - 66px),rgba(0,0,0,.994) calc(100% - 60.5px),rgba(0,0,0,.977) calc(100% - 55px),rgba(0,0,0,.933) calc(100% - 49.5px),rgba(0,0,0,.841) calc(100% - 44px),rgba(0,0,0,.691) calc(100% - 38.5px),rgba(0,0,0,.5) calc(100% - 33px),rgba(0,0,0,.309) calc(100% - 27.5px),rgba(0,0,0,.159) calc(100% - 22px),rgba(0,0,0,.067) calc(100% - 16.5px),rgba(0,0,0,.023) calc(100% - 11px),rgba(0,0,0,.006) calc(100% - 5.5px),transparent);
+  mask-image:linear-gradient(transparent,rgba(0,0,0,.006) 5.5px,rgba(0,0,0,.023) 11px,rgba(0,0,0,.067) 16.5px,rgba(0,0,0,.159) 22px,rgba(0,0,0,.309) 27.5px,rgba(0,0,0,.5) 33px,rgba(0,0,0,.691) 38.5px,rgba(0,0,0,.841) 44px,rgba(0,0,0,.933) 49.5px,rgba(0,0,0,.977) 55px,rgba(0,0,0,.994) 60.5px,#000 66px,
+    #000 calc(100% - 66px),rgba(0,0,0,.994) calc(100% - 60.5px),rgba(0,0,0,.977) calc(100% - 55px),rgba(0,0,0,.933) calc(100% - 49.5px),rgba(0,0,0,.841) calc(100% - 44px),rgba(0,0,0,.691) calc(100% - 38.5px),rgba(0,0,0,.5) calc(100% - 33px),rgba(0,0,0,.309) calc(100% - 27.5px),rgba(0,0,0,.159) calc(100% - 22px),rgba(0,0,0,.067) calc(100% - 16.5px),rgba(0,0,0,.023) calc(100% - 11px),rgba(0,0,0,.006) calc(100% - 5.5px),transparent)}
+/* phổ hào quang (Figma: góc 0 Acid 90 · 12 % Chanh 80 · 25 % Bạc hà 75 · 37 % Lá 60 · lặp nửa sau) — Bạc hà ở giữa mép trên / dưới lúc bắt đầu;
+   góc tĩnh 157,5° = góc dừng của chuỗi 3 chu kỳ (hqSpin) */
+.bm-ac{will-change:transform;-webkit-transform:rotate(157.5deg);transform:rotate(157.5deg);background:conic-gradient(from -90deg,rgba(212,255,0,.9),rgba(237,255,102,.8) 12%,rgba(79,242,176,.75) 25%,rgba(125,184,0,.6) 37%,
+  rgba(212,255,0,.9) 50%,rgba(237,255,102,.8) 62%,rgba(79,242,176,.75) 75%,rgba(125,184,0,.6) 87%,rgba(212,255,0,.9))}
+/* dải sàn: hộp trùm đường kẻ trên sàn + 18 px bóng mỗi phía (HQ.G); viền nền đè đúng đường kẻ (top 18 px = mép trên viền sàn) */
+#floor>.flb{position:absolute;left:0;right:0;top:-19px;height:37px;z-index:-1;overflow:hidden;pointer-events:none}
+.flb>.bm{inset:0}
+.flb .bm-b{top:18px;height:1px;background:rgba(125,184,0,.45)}                    /* Figma sàn: Lá 45 % */
+.flb .bm-cr{opacity:1}
+.bm-sd{top:0;bottom:0;overflow:hidden}
+.bm-sd.s0{-webkit-transform:scaleX(-1);transform:scaleX(-1)}                      /* phía trái lật gương: tia đi ra từ giữa thông báo */
+.flb .bm-k.c{top:17.75px;height:1.5px}                                             /* lõi 1,5 px, tâm trùng tâm đường kẻ */
+.flb .bm-k.g{height:100%}
+/* hồ sáng: hai lớp radial-gradient khớp bình phương tối thiểu (sai số trung bình 0,2 %) với "quầng 640 × 128 (Acid 85 · Acid giấy 45 ·
+   Bạc hà 20 · 0) + lõi 300 × 56 Chanh 90, nhoè 36" của Figma — không filter; app.js đặt chỗ (tâm ở mép trên sàn, giữa thông báo) */
+.flp{width:680px;height:190px;opacity:.45;will-change:transform,opacity;
+  background:radial-gradient(320px 93px at 50% 50%,rgba(255,255,108,.073),rgba(255,255,108,.015) 12%,rgba(255,255,108,.249) 25%,rgba(255,255,100,.335) 38%,rgba(247,251,57,.204) 50%,rgba(199,240,32,.101) 62%,rgba(124,241,114,.059) 75%,rgba(89,240,155,.027) 88%,rgba(79,242,176,0)),
+    radial-gradient(339px 71px at 50% 50%,rgba(251,255,100,.888),rgba(235,255,94,.88) 12%,rgba(217,253,84,.764) 25%,rgba(176,240,69,.502) 38%,rgba(97,229,70,.24) 50%,rgba(74,237,138,.154) 62%,rgba(66,242,187,.083) 75%,rgba(69,243,197,.028) 88%,rgba(69,243,197,0))}
+/* trạng thái tĩnh (giảm chuyển động · hết 3 chu kỳ): không nguồn sáng; lớp không còn chạy thì thôi giữ lớp GPU riêng */
+.hq.still .bm-cr,.hq.still .bm-gw{display:none}
+.hq.still .bm-as,.hq.still .bm-ac,.hq.still.flp{will-change:auto}
+/* thẻ đổi trạng thái tại chỗ (updatePairLine · vẽ lại phiếu khi tin live đổi tập đôi): chữ mờ vào nhẹ, hào quang chạy tiếp từ đúng mốc */
 /* (mờ trên .pt / .pw chứ không trên .prl-t: ở mobile .prl-t là display:contents — không có hộp, opacity không có tác dụng) */
 .swap>svg,.swap>.prl-c,.swap .pt,.swap .pw{animation:bmin .2s var(--eo) both}
-.bm-now .bm-w,.bm-now .bm-r>.bm-f{animation:none}
 @keyframes bmin{from{opacity:0}to{opacity:1}}
 
 /* thẻ thông báo mobile + dòng Tập đôi trên phiếu = MỘT mặt thẻ (chủ studio 20/10: "2 thiết kế khác nhau?"): nền Giấy 2, không viền,

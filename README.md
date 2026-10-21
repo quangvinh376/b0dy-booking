@@ -17,7 +17,7 @@ và dời buổi đang chờ vào cặp có sẵn không tính lượt đổi.
 
 | Thư mục / tệp | Vai trò |
 |---|---|
-| `index.html` · `app.css` · `app.js` | Trang (JavaScript thuần, không build). Luật khung giờ chạy cả ở trang (hiện bảng) lẫn máy chủ (quyết định). Tia viền (border beam) của thẻ kích cầu ghép cặp: `beamMount` trong `app.js` — chỉ Web Animations transform trên compositor, ý tưởng + 9 đốm màu từ libraries.dev/beam (gói `border-beam`, MIT — `licenses/border-beam.txt`) |
+| `index.html` · `app.css` · `app.js` | Trang (JavaScript thuần, không build). Luật khung giờ chạy cả ở trang (hiện bảng) lẫn máy chủ (quyết định). Hào quang Acid của thẻ kích cầu ghép cặp (Figma 00e): `beamMount` trong `app.js` — Web Animations chỉ transform / opacity trên compositor, 3 chu kỳ 8 s rồi đứng tĩnh |
 | `b0b.js` | Linh vật B0B 1.1 (WebGL): hệ thần kinh 7 lớp — biểu cảm (lò xo tới hạn), chú ý (ngăn ưu tiên), đầu – mắt (giật mắt, bám, vi giật), cử chỉ, chớp mắt, hơi thở, bộ não (rảnh, ngủ gật, ngủ). Trang chỉ kể việc qua `B0B.emit(loại, dữ liệu)` (cầu nối `bobBridge` / `bobWatch` trong `app.js`), B0B tự phản ứng. Giảm chuyển động → tư thế tĩnh |
 | `tk3d.js` | Phiếu giấy 3D (WebGL2) vẽ lại đúng phiếu DOM, xoay theo chuột / vuốt (`TK3D.rot`; không có GPU → vé DOM nghiêng bằng CSS 3D). `TK3D.snapshot(vé)` vẽ lại đúng vé đang hiện bằng canvas 2D cho "Lưu về máy" (desktop vé ngang, mobile vé dọc) |
 | `sw.js` | Service worker: mở lại trang tức thì, không bao giờ chạm vào lệnh gọi máy chủ |

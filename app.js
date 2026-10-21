@@ -9,7 +9,7 @@
 'use strict';
 
 /* ============================== CẤU HÌNH ============================== */
-var VER = '1.4.0';
+var VER = '1.5.0';
 var API_URL = 'https://b0dy-booking-api.little-bonus-1d87.workers.dev/';
 var API_SLOW = false;                 /* true khi chạy Apps Script (chậm hơn nhiều) → nới thời gian chờ */
 /* kênh live: Worker chỉ nhận từ trang thật (ALLOW_ORIGINS) → trang chạy chỗ khác (test trên máy) không nối, khỏi gõ cửa máy chủ thật.
@@ -750,13 +750,13 @@ function pcIn(icon, cls, t, w, label) {
   return ico(icon) + '<span class="' + cls + '"><span class="pt">' + esc(t) + '</span>' + (w ? '<span class="pw"><span class="pw-s"> · </span>' + esc(w) + '</span>' : '') + '</span>' +
     (label ? '<span class="prl-c">' + esc(label) + '</span>' : '') + ico('chev', 'chev');
 }
-/* tia viền (border beam — app.css + beamMount bên dưới) cho thẻ kích cầu ghép cặp 1:2: lời mời cho mình · "Mời bạn" / "Mời bạn khác"
-   (chủ studio 20/10). Markup chỉ đánh dấu data-beam; lớp tia do beamMount dựng. Dải sàn desktop có lời mời: lớp .flb data-beam="strip". */
+/* hào quang Acid (app.css + beamMount bên dưới) cho thẻ kích cầu ghép cặp 1:2: lời mời cho mình · "Mời bạn" / "Mời bạn khác"
+   (chủ studio 20/10 · 21/10). Markup chỉ đánh dấu data-beam; lớp hào quang do beamMount dựng. Dải sàn desktop có lời mời: lớp .flb data-beam="strip". */
 var BEAM = ' data-beam="card"', FLB = '<div class="flb" data-beam="strip" aria-hidden="true"></div>';
 /* thẻ thông báo / thẻ tia chỉ bắt đầu khi THẬT SỰ được thấy (1.2.0 chạy ngay lúc thẻ vào DOM — giữa cảnh trang trượt vào — nên chủ studio
    không thấy): trang vào xong · sàn / thẻ hiện xong · không có cửa sổ, ngăn kéo che · tab đang mở → lặng SIG_BEAT ms → gắn .sig-in, B0B
    quay nhìn thẻ thông báo đúng lúc đó. Thẻ đang ẩn (thẻ mobile trên desktop…) gắn luôn. Giảm chuyển động: gắn ngay.
-   (Tia viền không đợi mốc này: chạy trên compositor nên vào cùng thẻ, mượt cả lúc trang đang trượt vào.) */
+   (Hào quang không đợi mốc này: chạy trên compositor, bắt đầu ngay khi thẻ vào khung nhìn — viền nền kẻ cùng lúc trang trượt vào.) */
 var SIG = { calm: 0 }, SIG_BEAT = 160;
 function sigWatch() {
   var els = $$('#floor .nt:not(.sig-in), #mNote .mnt:not(.sig-in)'), seen = [];
@@ -774,216 +774,418 @@ function sigWatch() {
   try { bobWatch(); } catch (e) { /* bỏ qua */ }
 }
 
-/* ============================== TIA VIỀN ============================== */
-/* 9 đốm màu của ví dụ border-beam (libraries.dev/beam · gói border-beam, MIT ©2026 Jakub Antalik — licenses/border-beam.txt; bảng
-   "colorful": màu · vị trí x % y % trên viền), màu sẫm lại ≥ 4,5:1 trên #F2F2F2 (giữ sắc độ OKLCH —
-   chủ studio 20/10: "y hệt 9 đốm màu, chỉ tinh chỉnh cho tương phản tốt hơn, cấm Than và Mực") */
-var BM_SPOT = [['rgb(220,0,77)', 33, -7.4], ['rgb(2,109,214)', 12, -5], ['rgb(0,128,39)', 2.1, 68.3], ['rgb(5,124,114)', 2.1, 68.3], ['rgb(100,70,255)', 74.4, 100],
-  ['rgb(2,109,214)', 55, 100], ['rgb(184,79,5)', 93.9, 0], ['rgb(208,1,153)', 100, 27.1], ['rgb(174,29,234)', 100, 27.1]];
-/* dải sàn: cùng 9 màu, xếp theo sắc độ trái → phải (lục · ngọc · lam · lam · chàm · tím · tím hồng · đỏ hồng · cam), rải đều — hai màu kề
-   nhau luôn rực ở điểm giữa (xếp theo hoành độ đốm thì cặp chàm → cam ra vệt bùn) */
-var BM_LINE = [2, 3, 1, 5, 4, 8, 7, 0, 6];
-/* V: tốc độ MỌI tia (px/s — thẻ lẫn dải sàn, như nhau trên mọi cỡ màn) · R: bo góc thẻ · G: bề dày dải quầng thẻ · HS: chỗ đầu tia xuất phát
-   trên chu vi lần đầu (px — mép trên, ngay trên biểu tượng) · FADE / DLY: mờ vào của tia · SG: quầng dải sàn vượt trước đầu tia (px, khớp 96px
-   trong app.css) · T0: gốc đồng hồ chung của dải sàn · hold: đang có cửa sổ / ngăn kéo che (beamHold) */
-var BM = { V: 360, R: 4, G: 12, HS: 26, FADE: 480, DLY: 200, SG: 96, T0: -600000, ro: null, hold: false };
-/* đủ Web Animations để chạy tia (animate · startTime · setKeyframes · updateTiming); thiếu → viền màu tĩnh, không lỗi */
+/* ============================== HÀO QUANG ACID ============================== */
+/* Figma 00e "Hào quang Acid" (chủ studio 21/10) cho thẻ kích cầu ghép cặp 1:2. Một chu kỳ 8 s:
+   · BẬT 0–1,5 s: viền nền (1 px Lá 40 %) kẻ từ giữa mép trên tách hai ngả, gặp nhau ở giữa mép dưới (0,15–1,15 s) · hào quang môi
+     trường bừng lên (nhoè 40 → 22) · hai nguồn sáng Acid + Bạc hà hiện dần (0,7–1,3 s)
+   · DUY TRÌ 1,5–7 s: hai nguồn sáng chạy vòng theo chiều kim đồng hồ, lệch nửa vòng, 1 vòng / 8 s, đều px/s qua cả góc · hào quang thở
+     2 s / nhịp, phổ màu xoay 180° / chu kỳ
+   · TẮT 7–8 s: nguồn sáng ẩn, viền nền xoá cùng chiều kẻ, hào quang tắt
+   Chạy 3 chu kỳ rồi đứng ở trạng thái tĩnh: viền nền + hào quang 45 % (= giảm chuyển động). Dải sàn desktop: viền nền kẻ từ giữa thông
+   báo ra hai phía · tia Acid sang trái, Bạc hà sang phải, 380 px/s, hai lượt mỗi chu kỳ · hồ sáng 640 × 128 tâm ở giữa thông báo, nằm
+   DƯỚI nội dung trang (thở + co giãn ngang 8 %).
+   Giữ chuẩn 1.4.0: chỉ compositor — mọi lớp vẽ MỘT lần (gradient, mặt nạ tĩnh), chuyển động là Web Animations chỉ đổi transform /
+   opacity; không filter, không mix-blend-mode, không @property, không stroke-dashoffset (Figma ghi dashoffset + drop-shadow: cùng hình
+   nhưng vẽ lại mỗi khung). Nhoè dựng bằng mặt nạ Gauss tính sẵn (σ = bán kính Figma / 2); bóng phát sáng 3 · 10 · 26 px = mặt nạ tổng
+   3 Gauss quanh nét 1,5 px; nét viền nền kẻ / xoá = đoạn thẳng co giãn theo đúng đường cong cubic-bezier(.65, 0, .35, 1).
+   Một đồng hồ cho mọi lớp của một hào quang: mọi animation cùng startTime = b.o, mốc trong chuỗi 3 chu kỳ nằm sẵn trong keyframe →
+   dừng / chạy / đổi cỡ không bao giờ lệch nhau. Chỉ chạy khi thật sự được thấy: trong khung nhìn (IntersectionObserver) · tab đang mở ·
+   không cửa sổ / ngăn kéo che (#app inert). */
+var HQ = { T: 8000, N: 3, R: 4, LC: 130, LEAD: 5, LAG: 4, G: 18, AE: 14, AS: 11, AS0: 20, V: .38, LS: 150, PASS: [900, 4500], STEP: 16,
+           ro: null, io: null, hold: false };
+/* T: chu kỳ · N: số chu kỳ · R: bo góc thẻ · LC: dài nguồn sáng thẻ · LEAD / LAG: bóng phát sáng tràn trước mũi / sau đuôi · G: dải bóng
+   mỗi phía nét · AE / AS / AS0: hào quang lề 14, σ 11 (nhoè 22), lúc bật σ 20 (nhoè 40) · V / LS / PASS: dải sàn 380 px/s, đuôi 150 px,
+   hai lượt bắt đầu ở 0,9 s và 4,5 s · STEP: lấy mẫu đường cong kẻ / xoá mỗi khung 60 Hz (nội suy thẳng giữa hai mẫu lệch < 1 px kể cả nửa sàn 1100 px) · hold: đang có cửa sổ / ngăn kéo che (beamHold) */
+/* hai nguồn sáng: 8 nấc đầu → đuôi (Figma: 8 nét chồng cùng đầu, nấc k dài k/8, độ đục riêng) · g: màu bóng phát sáng */
+var HQ_SRC = [{ c: ['#EDFF66', '#E2FF33', '#D4FF00', '#C6F500', '#B1EA00', '#98D400', '#7DB800', '#7DB800'], g: [212, 255, 0] },
+              { c: ['#C9FFE6', '#9BFFD2', '#6CF8BE', '#4FF2B0', '#38E0A0', '#26C98C', '#1FB57D', '#1FB57D'], g: [79, 242, 176] }];
+var HQ_OP = [1, 1, .95, .85, .7, .5, .32, .16];
+/* đủ Web Animations (animate · startTime · setKeyframes · updateTiming); thiếu → trạng thái tĩnh, không lỗi */
 var BM_CAN = typeof Element !== 'undefined' && typeof Element.prototype.animate === 'function' && typeof KeyframeEffect !== 'undefined' &&
   typeof KeyframeEffect.prototype.setKeyframes === 'function' && typeof AnimationEffect !== 'undefined' && typeof AnimationEffect.prototype.updateTiming === 'function';
 function bmEl(tag, cls, host) { var e = document.createElement(tag); e.className = cls; if (host) host.appendChild(e); return e; }
-function bmTx(x) { return { transform: 'translateX(' + x + 'px)' }; }
 function bmPx(v) { return Math.round(v * 100) / 100 + 'px'; }
 function bmMod(a, m) { return (a % m + m) % m; }
-function bmRgb(c) { var m = /(\d+),\s*(\d+),\s*(\d+)/.exec(c); return m ? [+m[1], +m[2], +m[3]] : [242, 242, 242]; }
 function bmNow() { return document.timeline && document.timeline.currentTime != null ? document.timeline.currentTime : performance.now(); }
-function bmLine() { return 'linear-gradient(90deg, ' + BM_LINE.map(function (i, k) { return BM_SPOT[i][0] + ' ' + (k * 100 / (BM_LINE.length - 1)) + '%'; }).join(', ') + ')'; }
+function hqHex(h) { return [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)]; }
+function hqRgba(c, a) { return 'rgba(' + Math.round(c[0]) + ',' + Math.round(c[1]) + ',' + Math.round(c[2]) + ',' + Math.round(a * 1000) / 1000 + ')'; }
+function hqR(v) { return Math.round(v * 1e4) / 1e4; }
 
-/* ---- thẻ: "cửa sổ trượt theo chu vi" — không hoà trộn, không @property, không blur; mọi lớp vẽ MỘT lần, chỉ transform chạy ----
-   Chu vi trải phẳng s ∈ [0, P), P = 2W + 2H − 4R, theo chiều kim đồng hồ từ góc trên trái. Mỗi lớp (vành · quầng) có 4 vùng cắt chữ nhật
-   tĩnh (một vùng một cạnh; dưới / trái xoay 180° để bên trong luôn "đi +u"); trong mỗi vùng: một CỬA SỔ (mặt nạ = dáng tia: đuôi dài L sáng
-   dần, mũi tắt mềm) trượt dọc cạnh, bên trong là trường màu của cạnh (9 đốm chiếu đúng chỗ lên cạnh gần nhất, nội suy liền theo s) trượt
-   ngược cùng nhịp → màu đứng yên theo vị trí như ví dụ. Cửa sổ của 4 cạnh lệch pha đúng theo chỗ bắt đầu của cạnh → đầu tia đi liền qua góc,
-   đều V px/s. Không có tia ở đâu thì ở đó không có lớp màu nào (góc bo sạch, không cung màu ở điểm ảnh rìa). */
-function bmGeom(W, H, r, t) {
-  return [{ x: 0, y: 0, w: W, h: t, len: W, sa: 0, hz: 1 }, { x: W - t, y: t, w: t, h: H - 2 * t, len: H - 2 * t, sa: W + t - r, hz: 0 },
-    { x: 0, y: H - t, w: W, h: t, len: W, sa: W + H - 2 * r, hz: 1 }, { x: 0, y: t, w: t, h: H - 2 * t, len: H - 2 * t, sa: 2 * W + H - 3 * r + t, hz: 0 }];
-}
-/* điểm màu theo s: chiếu từng đốm lên cạnh gần nhất, xếp theo s; hai đốm trùng chỗ tách 6 px cho màu chuyển mềm */
-function bmSpots(W, H, r) {
-  var P = 2 * W + 2 * H - 4 * r, st = BM_SPOT.map(function (q, i) {
-    var x = Math.max(0, Math.min(100, q[1])) / 100 * W, y = Math.max(0, Math.min(100, q[2])) / 100 * H, m = Math.min(y, H - y, x, W - x), s;
-    if (m === y) s = x; else if (m === W - x) s = W + Math.max(0, y - r); else if (m === H - y) s = W + H - 2 * r + (W - x); else s = 2 * W + H - 2 * r + Math.max(0, H - r - y);
-    return { s: bmMod(s, P), c: bmRgb(q[0]), i: i };
-  }).sort(function (a, b) { return a.s - b.s || a.i - b.i; });
-  for (var i = 1; i < st.length; i++) if (st[i].s < st[i - 1].s + 6) st[i].s = st[i - 1].s + 6;
-  return { P: P, st: st };
-}
-function bmColAt(sp, s) {                        /* nội suy sRGB giữa hai đốm kề nhau theo s (vòng) — mọi cặp kề đều rực, ≥ 4,5:1 */
-  var st = sp.st, n = st.length; s = bmMod(s, sp.P);
-  for (var i = 0; i < n; i++) {
-    var a = st[i], b = st[(i + 1) % n], sa = a.s, sb = i + 1 < n ? b.s : b.s + sp.P, ss = s < sa ? s + sp.P : s;
-    if (ss >= sa && ss <= sb) { var k = sb > sa ? (ss - sa) / (sb - sa) : 0; return [0, 1, 2].map(function (j) { return Math.round(a.c[j] + (b.c[j] - a.c[j]) * k); }); }
-  }
-  return st[0].c;
-}
-function bmField(sp, e, al) {                    /* trường màu tĩnh của một vùng: gradient dọc u, điểm dừng ở mọi đốm trong vùng + hai đầu */
-  var pts = [0, e.len];
-  sp.st.forEach(function (q) { for (var j = -1; j <= 1; j++) { var u = q.s + j * sp.P - e.sa; if (u > 0 && u < e.len) pts.push(u); } });
-  pts.sort(function (a, b) { return a - b; });
-  return 'linear-gradient(' + (e.hz ? '90deg' : '180deg') + ', ' + pts.map(function (u) { var c = bmColAt(sp, e.sa + u); return 'rgba(' + c.join(',') + ',' + al + ') ' + bmPx(u); }).join(', ') + ')';
-}
-/* dáng tia trên cửa sổ dài L + n (đầu ở L): đuôi sáng dần đỉnh·(1 − δ/L)^2,2 theo khoảng cách δ sau đầu, mũi tắt mềm n px */
-function bmShape(L, n, peak, hz) {
-  var st = [1, .8, .65, .5, .35, .2, .1, 0].map(function (f) { return 'rgba(0,0,0,' + Math.round(peak * Math.pow(1 - f, 2.2) * 1000) / 1000 + ') ' + bmPx(L - L * f); });
-  return 'linear-gradient(' + (hz ? '90deg' : '180deg') + ', ' + st.join(', ') + ', transparent ' + bmPx(L + n) + ')';
-}
-/* dựng lớp tia cho một phần tử data-beam ("card" | "strip"); o: pha của tia vừa bị thay đúng chỗ (beamScan) → chạy tiếp, không mờ vào lại.
-   Giảm chuyển động → viền màu tĩnh thở chậm (.still), không chạy */
-function beamMount(host, o) {   /* o = {o: gốc pha, T: chu kỳ} */
-  if (host._bm) return;
-  var strip = host.getAttribute('data-beam') === 'strip', still = rm() || !BM_CAN;
-  var bm = bmEl('div', 'bm' + (still ? ' still' : '')), b = host._bm = { el: bm, strip: strip, w: 0, h: 0, groups: [], anims: [], br: null, o: o && o.o, oT: o && o.T, warm: !!o };
-  if (strip && b.o == null) b.o = BM.T0;                                 /* dải sàn: đồng hồ chung */
-  bm.setAttribute('aria-hidden', 'true');
-  if (strip) ['bm-r', 'bm-l', 'bm-h'].forEach(function (cls, gi) {     /* dải sàn: ray tĩnh · vạch + quầng = 2 cửa sổ trượt + trường màu trượt ngược */
-    var g = { f: [], parts: [], anims: [], gi: gi, el: bmEl('div', 'bm-z ' + cls, bm) };
-    if (still || !gi) g.f.push(bmEl('i', 'bm-f', g.el));
-    else for (var j = 0; j < 2; j++) { var wd = bmEl('i', 'bm-w', g.el), f = bmEl('i', 'bm-f', gi === 2 ? bmEl('i', 'bm-v', wd) : wd); g.f.push(f); g.parts.push(wd, f); }
-    b.groups.push(g);
+/* ---- màu nguồn sáng ---- */
+/* màu thật của từng nấc (đầu → đuôi): chỗ của nấc k chỉ còn các nét k..8 chồng lên nhau → hợp "over" từ nét dưới cùng lên */
+function hqSteps(src) {
+  return src.c.map(function (x, k) {
+    var p = [0, 0, 0], a = 0;
+    for (var j = src.c.length - 1; j >= k; j--) { var c = hqHex(src.c[j]), o = HQ_OP[j]; for (var i = 0; i < 3; i++) p[i] = c[i] * o + p[i] * (1 - o); a = o + a * (1 - o); }
+    return { c: p.map(function (v) { return v / a; }), a: a };
   });
-  else {                                                                  /* thẻ: vành · mặt thẻ · quầng · lớp rê chuột */
-    var lay = function (cls, host2) { var l = bmEl('i', cls, host2); return { el: l, e: [0, 1, 2, 3].map(function (k) {
-      var x = bmEl('i', 'bm-e e' + k, l), wd = still ? null : bmEl('i', 'bm-k', x); return { x: x, w: wd, f: bmEl('i', 'bm-f', wd || x) }; }) }; };
-    b.ring = lay('bm-ring', bm); bmEl('i', 'bm-sf', bm); b.gl = bmEl('i', 'bm-gl', bm); b.glow = lay('bm-gx', bmEl('i', 'bm-gf', b.gl)); bmEl('i', 'bm-hv', bm);
-  }
-  host.insertBefore(bm, host.firstChild);
-  beamFit(host);
-  if (still && typeof bm.animate === 'function') b.br = (strip ? b.groups[0].el : b.ring.el).animate([{ opacity: .4 }, { opacity: .8 }], { duration: 3200, direction: 'alternate', iterations: Infinity, easing: 'ease-in-out' });
-  else if (!still && !strip && !b.warm) [b.ring.el, b.gl].forEach(function (el) { el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: BM.FADE, delay: BM.DLY, easing: 'cubic-bezier(.22,.85,.22,1)', fill: 'backwards' }); });
-  if (BM.ro) BM.ro.observe(host);
-  if (BM.hold) bmHold(b, true);
 }
-/* đo lại theo cỡ phần tử (lần đầu · khi đổi cỡ) */
-function beamFit(host) {
+var HQ_ST = HQ_SRC.map(hqSteps);
+/* điểm dừng dọc nguồn sáng: đuôi ở x0, mũi ở x0 + L, mốc ở giữa từng nấc (nội suy liền thay cho 8 bậc của Figma) · g: chỉ lấy độ đục */
+function hqTail(st, x0, L, g) {
+  var n = st.length, col = function (s) { return g ? hqRgba(g, s.a) : hqRgba(s.c, s.a); }, out = [col(st[n - 1]) + ' ' + bmPx(x0)];
+  for (var k = n - 1; k >= 0; k--) out.push(col(st[k]) + ' ' + bmPx(x0 + L - (k + .5) * L / n));
+  out.push(col(st[0]) + ' ' + bmPx(x0 + L));
+  return out;
+}
+/* lõi: đuôi → mũi, mũi cắt gọn (1 px khử răng cưa) */
+function hqCore(st, L, hz) { return 'linear-gradient(' + (hz ? '90deg' : '180deg') + ', ' + hqTail(st, 0, L).concat('transparent ' + bmPx(L + 1)).join(', ') + ')'; }
+/* bóng phát sáng dọc nét: cùng độ đục với lõi, một màu bóng; tắt dần LAG px sau đuôi, LEAD px trước mũi */
+function hqHalo(st, g, L, hz) {
+  var h = HQ.LAG + L;
+  return 'linear-gradient(' + (hz ? '90deg' : '180deg') + ', ' + ['transparent 0px'].concat(hqTail(st, HQ.LAG, L, g),
+    [hqRgba(g, .55) + ' ' + bmPx(h + 1), hqRgba(g, .2) + ' ' + bmPx(h + 2.5), 'transparent ' + bmPx(h + HQ.LEAD)]).join(', ') + ')';
+}
+
+/* ---- đường cong · nhoè ---- */
+function hqBez(x1, y1, x2, y2) {                 /* cubic-bezier(x1, y1, x2, y2): f(x) → y (chia đôi theo tham số, sai số < 1e-9) */
+  var B = function (t, a, b) { var u = 1 - t; return 3 * u * u * t * a + 3 * u * t * t * b + t * t * t; };
+  return function (x) {
+    if (x <= 0) return 0; if (x >= 1) return 1;
+    var lo = 0, hi = 1; for (var i = 0; i < 32; i++) { var m = (lo + hi) / 2; if (B(m, x1, x2) < x) lo = m; else hi = m; }
+    return B((lo + hi) / 2, y1, y2);
+  };
+}
+var HQ_IO = hqBez(.65, 0, .35, 1);
+function hqInv(f, y) { if (y <= 0) return 0; if (y >= 1) return 1; var lo = 0, hi = 1; for (var i = 0; i < 32; i++) { var m = (lo + hi) / 2; if (f(m) < y) lo = m; else hi = m; } return (lo + hi) / 2; }
+function hqPhi(x) {                              /* phân phối chuẩn tích luỹ (Abramowitz–Stegun 7.1.26, sai số < 1,5e-7) */
+  var z = Math.abs(x) / Math.SQRT2, t = 1 / (1 + .3275911 * z);
+  var y = 1 - ((((1.061405429 * t - 1.453152027) * t + 1.421413741) * t - .284496736) * t + .254829592) * t * Math.exp(-z * z);
+  return .5 * (1 + (x < 0 ? -y : y));
+}
+/* bóng phát sáng Figma (3 px 90 % · 10 px 50 % · 26 px 28 %, không lệch) của nét 1,5 px, ở khoảng cách d tới tâm nét: tổng 3 Gauss */
+function hqGlow(d) {
+  var A = [.9, .5, .28], S = [1.5, 5, 13], v = 0;
+  for (var i = 0; i < 3; i++) v += A[i] * (hqPhi((d + .75) / S[i]) - hqPhi((d - .75) / S[i]));
+  return v;
+}
+var HQ_X = [18, 15, 12, 10, 8, 6, 5, 4, 3, 2, 1.5, 1, .5, 0];   /* khoảng cách tới mép nét để lấy mẫu mặt nạ bóng */
+function hqA(v) { return 'rgba(0,0,0,' + Math.round(v * 1000) / 1000 + ')'; }
+/* mặt nạ cắt ngang dải bóng (dọc trục vuông góc nét): nét chiếm [top, top + bw], thủng đúng chỗ nét (lõi ở lớp dưới), hai bên tắt dần G px */
+function hqProf(top, bw) {
+  var out = [];
+  HQ_X.forEach(function (x) { if (x <= HQ.G) out.push(hqA(hqGlow(bw / 2 + x)) + ' ' + bmPx(top - x)); });
+  out.push('transparent ' + bmPx(top), 'transparent ' + bmPx(top + bw));
+  HQ_X.slice().reverse().forEach(function (x) { if (x <= HQ.G) out.push(hqA(hqGlow(bw / 2 + x)) + ' ' + bmPx(top + bw + x)); });
+  return out.join(', ');
+}
+/* mặt nạ bóng ở góc bo (theo bán kính ρ từ tâm cung): trong cung · thủng đúng vành · ngoài cung */
+function hqRad(r, bw) {
+  var c = r - bw / 2, out = [0, (r - bw) / 2, r - bw].map(function (p) { return hqA(hqGlow(c - p)) + ' ' + bmPx(p); });
+  out.push('transparent ' + bmPx(r - bw), 'transparent ' + bmPx(r));
+  HQ_X.slice().reverse().forEach(function (x) { if (x <= HQ.G) out.push(hqA(hqGlow(bw / 2 + x)) + ' ' + bmPx(r + x)); });
+  return out.join(', ');
+}
+function hqMask(s, im, sz, ps) {
+  s.webkitMaskImage = s.maskImage = im.join(', '); s.webkitMaskSize = s.maskSize = sz.join(', ');
+  s.webkitMaskPosition = s.maskPosition = ps.join(', '); s.webkitMaskRepeat = s.maskRepeat = 'no-repeat';
+}
+function hqBox(el, x, y, w, h) { var s = el.style; s.left = bmPx(x); s.top = bmPx(y); s.width = bmPx(w); s.height = bmPx(h); }
+
+/* ---- keyframe cho cả chuỗi N chu kỳ ---- */
+/* fn(last) trả các mốc của MỘT chu kỳ: [t (ms trong chu kỳ, tăng dần), thuộc tính, easing của đoạn sau mốc] — chu kỳ cuối (last) kết ở trạng thái tĩnh */
+function hqSeq(fn) {
+  var D = HQ.T * HQ.N, out = [];
+  for (var c = 0; c < HQ.N; c++) fn(c === HQ.N - 1).forEach(function (p) {
+    var k = { offset: Math.max(0, Math.min(1, (c * HQ.T + p[0]) / D)), easing: p[2] || 'linear' };
+    for (var x in p[1]) k[x] = p[1][x];
+    out.push(k);
+  });
+  return out;
+}
+function hqAll() { return { duration: HQ.T * HQ.N, fill: 'both', easing: 'linear' }; }
+function hqO(v) { return { opacity: v }; }
+/* đoạn viền nền dài len, nằm ở [sa, sa + len] trên đường kẻ dài Ph: kẻ trong dr = [bắt đầu, dài] theo cubic-bezier(.65, 0, .35, 1),
+   xoá cùng chiều trong er (null = chu kỳ cuối, giữ nguyên). Hiện [d, a] của đoạn = translate(σ·d) scale((a − d) / len) quanh đầu đoạn.
+   Mốc đúng lúc mặt trước đi qua đầu / cuối đoạn + lấy mẫu mỗi STEP ms ở giữa → nét đi liền qua chỗ nối hai đoạn */
+function hqLine(sa, len, Ph, ax, sg, dr, er) {
+  len = Math.max(len, .01); Ph = Math.max(Ph, .01);
+  var f = HQ_IO, tf = function (a, d) { return { transform: 'translate' + ax + '(' + bmPx(sg * d) + ') scale' + ax + '(' + hqR((a - d) / len) + ')' }; };
+  var at = function (w, t) { return Math.max(0, Math.min(len, Ph * f((t - w[0]) / w[1]) - sa)); };
+  var span = function (w) {
+    var ta = w[0] + w[1] * hqInv(f, sa / Ph), tb = w[0] + w[1] * hqInv(f, (sa + len) / Ph), out = [ta];
+    for (var t = (Math.floor(ta / HQ.STEP) + 1) * HQ.STEP; t < tb; t += HQ.STEP) out.push(t);
+    out.push(tb); return out;
+  };
+  var p = [[0, tf(0, 0)]];
+  span(dr).forEach(function (t) { p.push([t, tf(at(dr, t), 0)]); });
+  if (er) { span(er).forEach(function (t) { p.push([t, tf(len, at(er, t))]); }); p.push([HQ.T, tf(len, len)]); }
+  else p.push([HQ.T, tf(len, 0)]);
+  return p;
+}
+/* nhịp chung · hào quang · hồ sáng (Figma 00e, mốc ms trong chu kỳ) */
+function hqFade() { return [[0, hqO(0)], [700, hqO(0), 'ease-out'], [1300, hqO(1)], [7100, hqO(1), 'ease-in'], [7800, hqO(0)], [HQ.T, hqO(0)]]; }
+function hqAura(last) {
+  var io = 'ease-in-out';
+  return [[0, hqO(0)], [350, hqO(0), 'ease-out'], [1250, hqO(.62), io], [1900, hqO(.5), io], [2900, hqO(.3), io], [3900, hqO(.5), io], [4900, hqO(.3), io],
+          [5900, hqO(.5), io], [6600, hqO(.34), io]].concat(last ? [[7100, hqO(.45)], [HQ.T, hqO(.45)]] : [[7100, hqO(.45), 'ease-in'], [7850, hqO(0)], [HQ.T, hqO(0)]]);
+}
+function hqPoolO(last) {
+  var io = 'ease-in-out';
+  return [[0, hqO(0)], [350, hqO(0), 'ease-out'], [1500, hqO(.6), io], [2500, hqO(.4), io], [3500, hqO(.6), io], [4500, hqO(.4), io], [5500, hqO(.6), io],
+          [6500, hqO(.42), io]].concat(last ? [[7100, hqO(.45)], [HQ.T, hqO(.45)]] : [[7100, hqO(.55), 'ease-in'], [7850, hqO(0)], [HQ.T, hqO(0)]]);
+}
+function hqSc(x, y) { return { transform: 'scale(' + hqR(x) + ',' + hqR(y) + ')' }; }
+function hqPoolS(last) {
+  var io = 'ease-in-out';
+  return [[0, hqSc(.6, .6)], [350, hqSc(.6, .6), 'ease-out'], [1500, hqSc(1, 1), io], [4000, hqSc(1.08, 1), io]]
+    .concat(last ? [[7100, hqSc(1, 1)], [HQ.T, hqSc(1, 1)]] : [[7100, hqSc(1, 1), 'ease-in'], [7850, hqSc(.8, .8)], [HQ.T, hqSc(.6, .6)]]);
+}
+/* phổ hào quang xoay đúng 180° / chu kỳ (22,5°/s), 2 s cuối chuỗi giảm tốc về 0 (ease-out bậc 2, vận tốc liền) → dừng ở 517,5° ≡ 157,5°
+   = góc tĩnh trong app.css (.bm-ac) → hết chuỗi / giảm chuyển động trùng nhau, không giật */
+function hqSpin() {
+  var D = HQ.T * HQ.N, dc = 2000, w = 180 / HQ.T, t1 = D - dc;
+  return [{ offset: 0, easing: 'linear', transform: 'rotate(0deg)' }, { offset: t1 / D, easing: 'cubic-bezier(.5,1,.89,1)', transform: 'rotate(' + hqR(w * t1) + 'deg)' },
+          { offset: 1, easing: 'linear', transform: 'rotate(' + hqR(w * t1 + w * dc / 2) + 'deg)' }];
+}
+/* cửa sổ nguồn sáng trượt dọc một vùng cạnh e (chu vi P, đầu nguồn sáng xuất phát ở s0): mỗi vòng vào từ trước đầu vùng, ra hết rồi mới
+   nhảy về (P > dài vùng + cửa sổ) · Lw: dài cửa sổ · Lh: phần trước mũi */
+function hqLap(key, el, e, Lw, Lh, s0, P) {
+  var ax = e.hz ? 'translateX(' : 'translateY(';
+  return { k: key, el: el, kf: [{ transform: ax + bmPx(-Lw) + ')' }, { transform: ax + bmPx(P - Lw) + ')' }],
+           t: { duration: HQ.T, iterations: HQ.N, iterationStart: hqR(bmMod(s0 - e.sa + Lh, P) / P) % 1, fill: 'both', easing: 'linear' } };
+}
+
+/* ---- dựng lớp ---- */
+/* thẻ: .bm (mặt thẻ Giấy 2, cắt góc bo một lần) = 6 đoạn viền nền · nắp viền nền · lõi nguồn sáng (4 vùng cạnh × 2 cửa sổ) · mặt thẻ ·
+   lớp rê chuột │ .bmx (trên mặt thẻ, dưới chữ, tràn ra ngoài) = bóng phát sáng (4 vùng × 2 cửa sổ) │ .bma (dưới thẻ) = hào quang */
+function hqCardDom(b) {
+  var bm = bmEl('div', 'hq bm'), bx = bmEl('div', 'hq bmx'), ba = bmEl('div', 'hq bma'), two = function (x) { return [bmEl('i', 'bm-k', x), bmEl('i', 'bm-k', x)]; };
+  b.base = [0, 1, 2, 3, 4, 5].map(function (i) { return bmEl('i', 'bm-b', bm); });
+  bmEl('i', 'bm-bc', bm);
+  b.cr = bmEl('i', 'bm-cr', bm);
+  b.ce = [0, 1, 2, 3].map(function (i) { var x = bmEl('i', 'bm-e e' + i, b.cr); return { x: x, w: two(x) }; });
+  b.sf = bmEl('i', 'bm-sf', bm); bmEl('i', 'bm-hv', bm);
+  b.gw = bmEl('i', 'bm-gw', bx);
+  b.ge = [0, 1, 2, 3].map(function (i) { var x = bmEl('i', 'bm-g e' + i, b.gw); return { x: x, w: two(x) }; });
+  b.ba = ba; b.as = bmEl('i', 'bm-as', ba); b.ac = bmEl('i', 'bm-ac', bmEl('i', 'bm-av', b.as));
+  b.lay = [bm, bx, ba];
+  b.host.insertBefore(ba, b.host.firstChild); b.host.insertBefore(bx, ba); b.host.insertBefore(bm, bx);
+}
+/* dải sàn: .bm = 2 nửa viền nền · 2 phía (trái lật gương) × 2 lượt × (bóng + lõi) │ hồ sáng .flp: trong #app, trước <main> → dưới nội dung */
+function hqStripDom(b) {
+  var bm = bmEl('div', 'hq bm');
+  b.base = [bmEl('i', 'bm-b', bm), bmEl('i', 'bm-b', bm)];
+  b.cr = bmEl('i', 'bm-cr', bm);
+  b.sd = [0, 1].map(function (k) { var x = bmEl('i', 'bm-sd s' + k, b.cr); return { x: x, w: [0, 1].map(function () { return [bmEl('i', 'bm-k g', x), bmEl('i', 'bm-k c', x)]; }) }; });
+  b.host.appendChild(bm); b.lay = [bm];
+  var app = b.host.closest('.app');
+  if (app) { b.pool = bmEl('div', 'hq flp d'); app.insertBefore(b.pool, app.firstChild); b.lay.push(b.pool); }
+}
+/* dựng lớp cho một phần tử data-beam ("card" | "strip"). o: hào quang vừa bị thay đúng chỗ (beamScan) → {e: đã chạy (ms), done, v: đang thấy} */
+function beamMount(host, o) {
+  if (host._bm) return;
+  $$(':scope > .hq', host).forEach(function (x) { x.remove(); });
+  var strip = host.getAttribute('data-beam') === 'strip', still = rm() || !BM_CAN;
+  var b = host._bm = { host: host, strip: strip, still: still, done: !!(o && o.done), e: o && !o.done ? Math.max(0, o.e || 0) : 0, o: 0, run: false,
+                       vis: o ? !!o.v : !HQ.io, w: 0, h: 0, an: {}, anims: [], lay: [] };
+  if (strip) hqStripDom(b); else hqCardDom(b);
+  b.lay.forEach(function (l) { l.setAttribute('aria-hidden', 'true'); l.classList.add('wait'); if (still || b.done) l.classList.add('still'); });
+  beamFit(host, true);
+  if (HQ.ro) HQ.ro.observe(host);
+  if (HQ.io) HQ.io.observe(host);
+}
+/* đo theo cỡ phần tử (lần đầu · khi đổi cỡ · chữ thông báo sàn đổi cỡ): hình học + keyframe; đồng hồ (startTime / currentTime) giữ nguyên */
+function beamFit(host, force) {
   var b = host._bm; if (!b) return;
-  /* cỡ thật (có phần lẻ — offsetWidth làm tròn làm vành cạnh phải hụt tới 0,5 px), không dính transform (:active lún .985, cảnh vào trang) */
+  /* cỡ thật (có phần lẻ), không dính transform (:active lún .985, cảnh vào trang) */
   var cs = getComputedStyle(host), w = host.getClientRects().length ? parseFloat(cs.width) || 0 : 0, h = w ? parseFloat(cs.height) || 0 : 0;
-  if (!w || !h || (Math.abs(w - b.w) < .01 && Math.abs(h - b.h) < .01)) return;
+  if (!w || !h) return;
+  if (!force && Math.abs(w - b.w) < .01 && Math.abs(h - b.h) < .01) return;
   b.w = w; b.h = h;
-  if (b.strip) return bmFitStrip(b, w);
-  var r = BM.R, P = 2 * w + 2 * h - 4 * r, T = P / BM.V * 1000, L = Math.max(180, Math.min(320, .3 * P)), sp = bmSpots(w, h, r);
-  var still = b.el.classList.contains('still'), t0 = bmNow(), fresh = !b.anims.length;
-  /* pha: đang chạy (đổi cỡ) → giữ chỗ đầu tia theo phần vòng · thay đúng chỗ tia cũ → nối tiếp pha cũ · lần đầu → đầu tia xuất phát ở mép
-     trên, ngay trên biểu tượng (mờ vào trong lúc đó) */
-  if (!still) {
-    var frac = BM.hold && b.hf != null ? b.hf : b.T ? bmMod((t0 - b.o) / b.T, 1) : b.o != null ? bmMod((t0 - b.o) / (b.oT || T), 1) : BM.HS / P;
-    b.o = t0 - frac * T; b.T = T; b.P = P;
+  var specs = b.strip ? hqFitStrip(b, w) : hqFitCard(b, w, h);
+  b.lay.forEach(function (l) { l.classList.remove('wait'); });
+  if (specs && !b.still && !b.done) hqAnimate(b, specs);
+}
+function hqFitCard(b, W, H) {
+  var r = HQ.R, G = HQ.G, bw = parseFloat(getComputedStyle(b.sf).top) || 1.5, P = 2 * W + 2 * H - 4 * r, Ph = P / 2, Lc = HQ.LC, Lg = HQ.LAG + Lc + HQ.LEAD, specs = [];
+  /* hào quang: hộp = thẻ + lề 14 + 3σ (mặt nạ Gauss tĩnh trong CSS), phổ màu vuông ≥ đường chéo để xoay không hở góc */
+  var E = HQ.AE + 3 * HQ.AS, aw = W + 2 * E, ah = H + 2 * E, D = Math.ceil(Math.sqrt(aw * aw + ah * ah)) + 2;
+  hqBox(b.ba, -E, -E, aw, ah); hqBox(b.ac, (aw - D) / 2, (ah - D) / 2, D, D);
+  /* viền nền: 6 đoạn (trên phải · phải · dưới phải | trên trái · trái · dưới trái), cao / rộng R để vành ôm cung góc — nắp 1 px che phần trong */
+  [[W / 2, 0, W / 2, r, 0, 'X', 1], [W - r, r, r, H - 2 * r, W / 2, 'Y', 1], [W / 2, H - r, W / 2, r, W / 2 + H - 2 * r, 'X', -1],
+   [0, 0, W / 2, r, 0, 'X', -1], [0, r, r, H - 2 * r, W / 2, 'Y', 1], [0, H - r, W / 2, r, W / 2 + H - 2 * r, 'X', 1]].forEach(function (q, i) {
+    var el = b.base[i], len = q[5] === 'X' ? q[2] : q[3];
+    hqBox(el, q[0], q[1], q[2], q[3]); el.style.transformOrigin = q[6] > 0 ? 'left top' : 'right top';
+    specs.push({ k: 'b' + i, el: el, kf: hqSeq(function (last) { return hqLine(q[4], len, Ph, q[5], q[6], [150, 1000], last ? null : [7000, 850]); }), t: hqAll() });
+  });
+  /* vùng cạnh (như 1.4.0): trên / dưới trọn bề ngang, trái / phải giữa hai góc; dưới / trái xoay 180° → bên trong luôn đi +u.
+     Chu vi trải phẳng s ∈ [0, P), P = 2W + 2H − 4R, theo chiều kim đồng hồ từ góc trên trái; sa = s ở u = 0 của vùng */
+  var core = [{ x: 0, y: 0, w: W, h: r, len: W, sa: 0, hz: 1 }, { x: W - r, y: r, w: r, h: H - 2 * r, len: H - 2 * r, sa: W, hz: 0 },
+              { x: 0, y: H - r, w: W, h: r, len: W, sa: W + H - 2 * r, hz: 1 }, { x: 0, y: r, w: r, h: H - 2 * r, len: H - 2 * r, sa: 2 * W + H - 2 * r, hz: 0 }];
+  var th = 2 * G + bw, glow = [{ x: -G, y: -G, w: W + 2 * G, h: th, len: W + 2 * G, sa: -G, hz: 1 }, { x: W - bw - G, y: r, w: th, h: H - 2 * r, len: H - 2 * r, sa: W, hz: 0 },
+              { x: -G, y: H - bw - G, w: W + 2 * G, h: th, len: W + 2 * G, sa: W + H - 2 * r - G, hz: 1 }, { x: -G, y: r, w: th, h: H - 2 * r, len: H - 2 * r, sa: 2 * W + H - 2 * r, hz: 0 }];
+  if (H - 2 * r < 1 || P < W + 2 * G + Lg + 2) { hqSettle(b); return null; }     /* thẻ quá nhỏ để nguồn sáng đi vòng liền → tĩnh */
+  var s0 = [W / 2, W / 2 + P / 2], lin = hqProf(G, bw), rad = hqRad(r, bw), t = bmPx(G + r);
+  core.forEach(function (e, i) {
+    hqBox(b.ce[i].x, e.x, e.y, e.w, e.h);
+    b.ce[i].w.forEach(function (w, k) {
+      var s = w.style; if (e.hz) { s.width = bmPx(Lc + 1); s.height = '100%'; } else { s.height = bmPx(Lc + 1); s.width = '100%'; }
+      s.backgroundImage = hqCore(HQ_ST[k], Lc, e.hz);
+      specs.push(hqLap('c' + i + k, w, e, Lc + 1, 1, s0[k], P));
+    });
+  });
+  glow.forEach(function (e, i) {
+    var x = b.ge[i].x; hqBox(x, e.x, e.y, e.w, e.h);
+    if (e.hz) hqMask(x.style, ['radial-gradient(circle ' + t + ' at 100% 100%, ' + rad + ')', 'linear-gradient(' + lin + ')', 'radial-gradient(circle ' + t + ' at 0% 100%, ' + rad + ')'],
+                     [t + ' ' + t, bmPx(W - 2 * r) + ' 100%', t + ' ' + t], ['0 0', t + ' 0', '100% 0']);
+    else hqMask(x.style, ['linear-gradient(to right, ' + lin + ')'], ['100% 100%'], ['0 0']);
+    b.ge[i].w.forEach(function (w, k) {
+      var s = w.style; if (e.hz) { s.width = bmPx(Lg); s.height = '100%'; } else { s.height = bmPx(Lg); s.width = '100%'; }
+      s.backgroundImage = hqHalo(HQ_ST[k], HQ_SRC[k].g, Lc, e.hz);
+      specs.push(hqLap('g' + i + k, w, e, Lg, HQ.LEAD, s0[k], P));
+    });
+  });
+  /* hào quang: bật = nhoè 40 → 22 dựng bằng co lại từ cỡ có cùng đường viền 5 % của nhoè 40 · thở · xoay */
+  var k5 = 1.645, sx = (W / 2 + HQ.AE + k5 * HQ.AS0) / (W / 2 + HQ.AE + k5 * HQ.AS), sy = (H / 2 + HQ.AE + k5 * HQ.AS0) / (H / 2 + HQ.AE + k5 * HQ.AS);
+  var a0 = hqSc(sx, sy), a1 = hqSc(1, 1);
+  specs.unshift({ k: 'ao', el: b.ba, kf: hqSeq(hqAura), t: hqAll() });                 /* đứng đầu: animation mốc kết chuỗi (onfinish) */
+  specs.push({ k: 'as', el: b.as, kf: hqSeq(function (last) { return [[0, a0], [350, a0, 'ease-out'], [1500, a1]].concat(last ? [[HQ.T, a1]] : [[7100, a1, 'ease-in'], [7850, a0], [HQ.T, a0]]); }), t: hqAll() },
+             { k: 'ar', el: b.ac, kf: hqSpin(), t: hqAll() },
+             { k: 'co', el: b.cr, kf: hqSeq(hqFade), t: hqAll() }, { k: 'go', el: b.gw, kf: hqSeq(hqFade), t: hqAll() });
+  return specs;
+}
+/* dải sàn: m = giữa thông báo (từ mép trái biểu tượng tới hết chữ) */
+function hqFitStrip(b, W) {
+  var host = b.host, fl = host.parentElement, nt = fl && fl.querySelector('.nt'), ic = nt && nt.querySelector('.nt-ic'), tx = nt && nt.querySelector('.nt-tx');
+  var m = ic && tx ? (ic.getBoundingClientRect().left + tx.getBoundingClientRect().right) / 2 - host.getBoundingClientRect().left : W / 2;
+  m = Math.max(0, Math.min(W, m));
+  if (tx && b.tx !== tx) { if (b.tx && HQ.ro) HQ.ro.unobserve(b.tx); b.tx = tx; tx._hqHost = host; if (HQ.ro) HQ.ro.observe(tx); }   /* chữ đổi cỡ (phông về muộn) → đo lại m */
+  var G = HQ.G, L = [m, W - m], specs = [];
+  hqBox(b.base[0], 0, G, m, 1); b.base[0].style.transformOrigin = 'right top';
+  hqBox(b.base[1], m, G, W - m, 1); b.base[1].style.transformOrigin = 'left top';
+  [0, 1].forEach(function (k) {
+    specs.push({ k: 'b' + k, el: b.base[k], kf: hqSeq(function (last) { return hqLine(0, L[k], L[k], 'X', k ? 1 : -1, [150, 1250], last ? null : [7000, 850]); }), t: hqAll() });
+  });
+  /* hồ sáng 680 × 190 (hai lớp radial-gradient khớp bình phương tối thiểu với "quầng 640 × 128 + lõi 300 × 56, nhoè 36" của Figma), tâm ở
+     mép trên sàn ngay giữa thông báo; neo đáy → đổi cao cửa sổ không lệch */
+  if (b.pool) {
+    var app = b.pool.parentElement, ps = b.pool.style;
+    ps.left = bmPx(fl.offsetLeft + host.offsetLeft + m - 340); ps.bottom = bmPx(app.clientHeight - fl.offsetTop - 95);
+    specs.push({ k: 'po', el: b.pool, kf: hqSeq(hqPoolO), t: hqAll() }, { k: 'ps', el: b.pool, kf: hqSeq(hqPoolS), t: hqAll() });
   }
-  [[b.ring, r, 1, L, 8, 1], [b.glow, BM.G, .2, L * 1.25, 24, .9]].forEach(function (g) {
-    var shape = { 1: bmShape(g[3], g[4], g[5], 1), 0: bmShape(g[3], g[4], g[5], 0) }, n = g[4], W2 = g[3] + n;
-    bmGeom(w, h, r, g[1]).forEach(function (e, i) {
-      var o = g[0].e[i], xs = o.x.style, fs = o.f.style;
-      xs.left = bmPx(e.x); xs.top = bmPx(e.y); xs.width = bmPx(e.w); xs.height = bmPx(e.h);
-      fs.backgroundImage = bmField(sp, e, g[2]); fs.width = bmPx(e.w); fs.height = bmPx(e.h);
-      if (!o.w) return;
-      var ws = o.w.style, ax = e.hz ? 'translateX(' : 'translateY(';
-      if (e.hz) { ws.width = bmPx(W2); ws.height = '100%'; } else { ws.height = bmPx(W2); ws.width = '100%'; }
-      ws.webkitMaskImage = ws.maskImage = shape[e.hz];
-      /* chu kỳ của cạnh bắt đầu khi đầu tia còn n px trước cạnh: cửa sổ nằm trọn ngoài vùng lúc nhảy về đầu vòng (P > cạnh + L + n) */
-      o.off = bmMod(e.sa - n, P) / P * T;
-      var kw = [{ transform: ax + bmPx(-n - g[3]) + ')' }, { transform: ax + bmPx(P - n - g[3]) + ')' }],
-          kf = [{ transform: ax + bmPx(n + g[3]) + ')' }, { transform: ax + bmPx(-(P - n - g[3])) + ')' }];   /* trường màu trượt ngược → màu đứng yên */
-      [[o.w, kw, 'aw'], [o.f, kf, 'af']].forEach(function (q) {
-        var a = o[q[2]];
-        if (fresh) { a = o[q[2]] = q[0].animate(q[1], { duration: T, iterations: Infinity, easing: 'linear' }); a.off = o.off; b.anims.push(a); }
-        else { a.effect.setKeyframes(q[1]); a.effect.updateTiming({ duration: T }); a.off = o.off; }
-        a.startTime = b.o + a.off - T;   /* lùi một vòng: startTime luôn ≤ bây giờ — chưa tới startTime thì cửa sổ đứng yên ở đầu cạnh */
+  var Lw = [HQ.LAG + HQ.LS + HQ.LEAD, HQ.LS + 1], Lt = [HQ.LAG + HQ.LS, HQ.LS], prof = 'linear-gradient(' + hqProf(G - .25, 1.5) + ')';
+  b.sd.forEach(function (sd, k) {
+    var s = sd.x.style; s.left = bmPx(k ? m : 0); s.width = bmPx(L[k]);
+    sd.w.forEach(function (pair, p) {
+      pair.forEach(function (w, j) {                /* j = 0 bóng · 1 lõi */
+        var ws = w.style; ws.width = bmPx(Lw[j]);
+        ws.backgroundImage = j ? hqCore(HQ_ST[k], HQ.LS, 1) : hqHalo(HQ_ST[k], HQ_SRC[k].g, HQ.LS, 1);
+        if (!j) hqMask(ws, [prof], ['100% 100%'], ['0 0']);
+        specs.push({ k: 'p' + k + p + j, el: w, kf: hqPass(L[k], p, Lt[j], Lw[j]), t: hqAll() });
       });
     });
+    /* lượt nào còn trên sàn sau 7,85 s (sàn rất rộng) → cả phía tắt dần cùng nhịp tắt; vừa sàn thì giữ nguyên như Figma */
+    var late = HQ.PASS[1] + (L[k] + HQ.LAG + HQ.LS) / HQ.V > 7850;
+    specs.push({ k: 'f' + k, el: sd.x, kf: hqSeq(function () { return late ? [[0, hqO(1)], [7100, hqO(1), 'ease-in'], [7850, hqO(0)], [HQ.T, hqO(0)]] : [[0, hqO(1)], [HQ.T, hqO(1)]]; }), t: hqAll() });
   });
-  if (BM.hold && !still) bmHold(b, true);   /* đo lần đầu / đổi cỡ trong lúc có cửa sổ che (thẻ từ ẩn sang hiện): đứng yên đúng chỗ, lệch pha đúng */
+  return specs;
 }
-/* dải sàn: luôn đúng MỘT đầu tia trên màn, không quãng chết — 2 cửa sổ cách nhau đúng 1 bề ngang, cùng nhịp: cửa sổ đầu đưa tia vào từ mép
-   trái, cửa sổ sau là đuôi của lượt trước đang ra mép phải; hết vòng hai cửa sổ đổi chỗ cho nhau đúng vị trí → liền mạch. Trường màu bên trong
-   trượt ngược cùng nhịp → màu đứng yên theo hoành độ. Đồng hồ chung (T0) → thay nội dung sàn không làm tia chạy lại */
-function bmFitStrip(b, w) {
-  var bg = bmLine(), t0 = bmNow(), T = w / BM.V * 1000;
-  var pT = b.T || b.oT;                                                 /* đổi cỡ / thay đúng chỗ tia cũ khác cỡ: giữ chỗ đầu tia (phần vòng) */
-  if (BM.hold && b.hf != null && b.T) b.o = t0 - b.hf * T;
-  else if (pT && pT !== T) b.o = t0 - bmMod((t0 - b.o) / pT, 1) * T;
-  b.anims.forEach(function (a) { a.startTime = b.o; });
-  b.T = T;
-  b.groups.forEach(function (g) {
-    g.f.forEach(function (f) { f.style.backgroundImage = bg; f.style.width = w + 'px'; });
-    if (!g.parts.length) return;
-    var L = Math.round(Math.max(320, Math.min(640, w * .3))), dur = T, ww = L + (g.gi === 2 ? BM.SG : 0) + 'px';
-    [0, w].forEach(function (o, j) {
-      g.parts[2 * j].style.width = ww;
-      bmRun(b, g, 2 * j, g.parts[2 * j], [bmTx(o - L), bmTx(o + w - L)], dur);
-      bmRun(b, g, 2 * j + 1, g.parts[2 * j + 1], [bmTx(L - o), bmTx(L - o - w)], dur);
-    });
+/* cửa sổ của lượt p trên một phía dài len: đậu ngoài vùng · từ PASS[p] đi V px/ms (mũi xuất phát ở giữa thông báo) tới khi ra hết khỏi
+   phía (hoặc hết chu kỳ) rồi về đậu. Lt: vị trí mũi trong cửa sổ · Lw: dài cửa sổ */
+function hqPass(len, p, Lt, Lw) {
+  var park = { transform: 'translateX(' + bmPx(-Lw - 2) + ')' }, x = function (v) { return { transform: 'translateX(' + bmPx(v) + ')' }; };
+  return hqSeq(function () {
+    var ts = HQ.PASS[p], te = Math.min(HQ.T, ts + (len + Lt) / HQ.V);
+    return [[0, park], [ts, park], [ts, x(-Lt)], [te, x(-Lt + (te - ts) * HQ.V)], [te, park], [HQ.T, park]];
   });
-  if (BM.hold && b.anims.length) bmHold(b, true);
 }
-function bmRun(b, g, i, el, kf, dur) {
-  var a = g.anims[i];
-  if (!a) { a = g.anims[i] = el.animate(kf, { duration: dur, iterations: Infinity, easing: 'linear' }); a.startTime = b.o; b.anims.push(a); return; }
-  a.effect.setKeyframes(kf); a.effect.updateTiming({ duration: dur });
+
+/* ---- đồng hồ ---- */
+/* tạo / cập nhật animation theo spec; animation mới vào đúng đồng hồ của hào quang (đang chạy → startTime = gốc; đang dừng → đứng ở b.e) */
+function hqAnimate(b, specs) {
+  var fresh = [];
+  specs.forEach(function (s) {
+    var a = b.an[s.k];
+    if (a) { a.effect.setKeyframes(s.kf); a.effect.updateTiming(s.t); return; }
+    a = b.an[s.k] = s.el.animate(s.kf, s.t); b.anims.push(a); fresh.push(a);
+    if (b.anims.length === 1) a.onfinish = function () { hqSettle(b); };    /* hết chuỗi N chu kỳ → trạng thái tĩnh */
+  });
+  if (b.run) fresh.forEach(function (a) { a.startTime = b.o; });
+  else fresh.forEach(function (a) { a.pause(); a.currentTime = b.e; });
+  hqSync(b);
 }
-/* cửa sổ / ngăn kéo đang che (#app inert — appInert): tia dừng tại chỗ (GPU không phải làm mờ lại màn che mỗi khung), đóng lại chạy tiếp
-   từ đúng chỗ đó; mọi lớp của một tia dừng / chạy cùng lúc nên vẫn khớp nhau */
-function bmHold(b, on) {
-  var t = bmNow();
-  if (on) { b.hf = b.T ? bmMod((t - b.o) / b.T, 1) : null; b.anims.forEach(function (a) { a.pause(); }); }
-  else if (b.hf == null) b.anims.forEach(function (a) { a.play(); });
-  else { b.o = t - b.hf * b.T; b.anims.forEach(function (a) { a.startTime = b.o + (a.off != null ? a.off - b.T : 0); }); }
-  if (b.br) { if (on) b.br.pause(); else b.br.play(); }
+/* chạy khi: không cửa sổ / ngăn kéo che · trong khung nhìn · tab đang mở. Dừng: mọi lớp đứng đúng mốc b.e; chạy tiếp: gốc mới = bây giờ − b.e */
+function hqSync(b) {
+  if (!b || b.done || !b.anims.length) return;
+  var go = !HQ.hold && b.vis && !document.hidden, t = bmNow();
+  if (go === b.run) return;
+  if (go) { b.o = t - b.e; b.anims.forEach(function (a) { a.startTime = b.o; }); }
+  else { b.e = t - b.o; if (b.e >= HQ.T * HQ.N) { hqSettle(b); return; } b.anims.forEach(function (a) { a.pause(); a.currentTime = b.e; }); }
+  b.run = go;
 }
-function beamHold(on) {
-  on = !!on; if (BM.hold === on) return;
-  BM.hold = on;
-  $$('[data-beam]').forEach(function (h) { if (h._bm) bmHold(h._bm, on); });
+function hqSyncAll() { $$('[data-beam]').forEach(function (h) { if (h._bm) hqSync(h._bm); }); }
+function hqElapsed(b) { return b.done ? HQ.T * HQ.N : b.run ? bmNow() - b.o : b.e; }
+/* hết chuỗi (hay thẻ quá nhỏ): huỷ mọi animation → lớp về CSS mặc định = trạng thái tĩnh (viền nền đủ, hào quang / hồ sáng 45 %, phổ 157,5°) */
+function hqSettle(b) {
+  b.done = true; b.run = false;
+  b.anims.forEach(function (a) { a.onfinish = null; a.cancel(); }); b.anims = []; b.an = {};
+  b.lay.forEach(function (l) { l.classList.add('still'); });
 }
-/* "chỗ" của một tia: phần tử có id gần nhất bên trên + kiểu tia (vd "prLine|card" · "mNote|card" · "floor|strip") */
+/* cửa sổ / ngăn kéo đang che (#app inert — appInert): mọi hào quang dừng tại chỗ (GPU không phải làm mờ lại màn che mỗi khung), đóng → chạy tiếp */
+function beamHold(on) { on = !!on; if (HQ.hold === on) return; HQ.hold = on; hqSyncAll(); }
+/* gỡ hẳn: huỷ animation, thôi theo dõi, bỏ hồ sáng (nằm ngoài phần tử). soft: sàn không còn dải nào thay chỗ → hồ sáng tắt dần 160 ms
+   cùng nhịp sàn mờ đi (swapRegion), không tắt phụt; có dải mới thay đúng chỗ thì bỏ ngay (dải mới chạy tiếp từ đúng mốc — không chồng hai hồ) */
+function hqKill(h, soft) {
+  var b = h._bm; if (!b) return;
+  var p = b.pool, op = p && soft && !rm() && BM_CAN ? +getComputedStyle(p).opacity : 0, tf = op ? getComputedStyle(p).transform : '';
+  b.anims.forEach(function (a) { a.onfinish = null; a.cancel(); }); b.anims = []; b.an = {};
+  if (HQ.ro) { HQ.ro.unobserve(h); if (b.tx) HQ.ro.unobserve(b.tx); }
+  if (HQ.io) HQ.io.unobserve(h);
+  if (p) {
+    if (op > .01) try {
+      var a = p.animate([{ opacity: op, transform: tf }, { opacity: 0, transform: tf }], { duration: 160, easing: 'ease-out', fill: 'forwards' });
+      a.onfinish = a.oncancel = function () { p.remove(); };
+    } catch (e) { p.remove(); }
+    else p.remove();
+  }
+  h._bm = null;
+}
+/* "chỗ" của một hào quang: phần tử có id gần nhất bên trên + kiểu (vd "prLine|card" · "mNote|card" · "floor|strip") */
 function bmSlot(h, up) { var c = h.parentElement ? h.parentElement.closest('[id]') : up && up.closest ? up.closest('[id]') : null; return (c ? c.id : '') + '|' + h.getAttribute('data-beam'); }
 function beamScan(root, warm) {
   if (root.nodeType !== 1 || !root.isConnected) return;
   (root.hasAttribute('data-beam') ? [root] : []).concat($$('[data-beam]', root)).forEach(function (h) {
     var o = warm ? warm[bmSlot(h)] : null;
-    /* vẽ lại đúng chỗ một tia đang chạy → tia chạy tiếp (nối pha, không mờ vào lại); chữ đổi thì mờ vào nhẹ */
-    if (o) { h.classList.add('bm-now'); if (o.t !== h.textContent) h.classList.add('swap'); }
-    try { beamMount(h, o ? o.o : null); } catch (e) { /* tia là trang trí: lỗi của nó không bao giờ được chặn trang */ }
+    /* vẽ lại đúng chỗ một hào quang (tin live, đổi trạng thái): chạy tiếp từ đúng mốc (.bm-now); chữ đổi → chữ mờ vào nhẹ (.swap), và nếu
+       hào quang cũ đã đứng yên (hết 3 chu kỳ) thì đây là thông báo mới → bật lại từ đầu */
+    if (o && o.t !== h.textContent) { h.classList.add('swap'); if (o.done) o = null; }
+    if (o) h.classList.add('bm-now');
+    try { beamMount(h, o); } catch (e) { /* hào quang là trang trí: lỗi của nó không bao giờ được chặn trang */ }
   });
 }
-/* tia đang chạy vừa bị gỡ (vẽ lại phiếu khi tin live đổi tập đôi · thay nội dung sàn · thay dòng Tập đôi): ghi lại chỗ + pha của nó */
+/* hào quang vừa bị gỡ (vẽ lại phiếu khi tin live đổi tập đôi · thay nội dung sàn · thay dòng Tập đôi): ghi lại chỗ + mốc của nó */
 function bmGone(n, from, warm, gone) {
   if (n.nodeType !== 1) return;
   (n.hasAttribute('data-beam') ? [n] : []).concat($$('[data-beam]', n)).forEach(function (h) {
     var b = h._bm; if (!b) return;
     gone.push(h);
-    if (!b.el.classList.contains('still') && b.T) warm[bmSlot(h, from)] = { t: h.textContent, o: { o: BM.hold && b.hf != null ? bmNow() - b.hf * b.T : b.o, T: b.T } };
+    if (!b.still) warm[bmSlot(h, from)] = { t: h.textContent, e: hqElapsed(b), done: b.done, v: b.vis };
   });
 }
-/* đổi chế độ giảm chuyển động khi đang mở trang → dựng lại mọi tia */
+/* đổi chế độ giảm chuyển động khi đang mở trang → dựng lại mọi hào quang */
 function beamRemountAll() {
   $$('[data-beam]').forEach(function (h) {
-    var b = h._bm; if (!b) return beamMount(h);
-    if (BM.ro) BM.ro.unobserve(h);
-    b.anims.forEach(function (a) { a.cancel(); }); if (b.br) b.br.cancel();
-    b.el.remove(); h._bm = null; beamMount(h);
+    var b = h._bm; if (b) { hqKill(h); b.lay.forEach(function (l) { l.remove(); }); }
+    try { beamMount(h); } catch (e) { /* bỏ qua */ }
   });
 }
 function beamInit() {
-  if (window.ResizeObserver) BM.ro = new ResizeObserver(function (es) { es.forEach(function (e) { if (!e.target.isConnected) BM.ro.unobserve(e.target); else beamFit(e.target); }); });
-  else window.addEventListener('resize', function () { $$('[data-beam]').forEach(beamFit); });
-  /* gỡ và thêm trong cùng một lượt (innerHTML / vẽ lại trang) đến cùng một mẻ ghi nhận → biết tia mới thay đúng chỗ tia cũ */
+  if (window.ResizeObserver) HQ.ro = new ResizeObserver(function (es) {
+    es.forEach(function (e) { var h = e.target._hqHost || e.target; if (!h.isConnected || !h._bm) { HQ.ro.unobserve(e.target); return; } try { beamFit(h, h !== e.target); } catch (x) { /* bỏ qua */ } });
+  });
+  else window.addEventListener('resize', function () { $$('[data-beam]').forEach(function (h) { try { beamFit(h, true); } catch (x) { /* bỏ qua */ } }); });
+  if (window.IntersectionObserver) HQ.io = new IntersectionObserver(function (es) {
+    es.forEach(function (e) { var b = e.target._bm; if (!b) return; b.vis = e.isIntersecting; hqSync(b); });
+  });
+  document.addEventListener('visibilitychange', hqSyncAll);
+  /* gỡ và thêm trong cùng một lượt (innerHTML / vẽ lại trang) đến cùng một mẻ ghi nhận → biết hào quang mới thay đúng chỗ hào quang cũ */
   new MutationObserver(function (ms) {
     var warm = {}, gone = [], i;
     ms.forEach(function (m) { for (i = 0; i < m.removedNodes.length; i++) bmGone(m.removedNodes[i], m.target, warm, gone); });
     ms.forEach(function (m) { for (i = 0; i < m.addedNodes.length; i++) beamScan(m.addedNodes[i], warm); });
-    /* tia của phần tử đã THẬT SỰ rời trang (không phải dời chỗ trong cùng mẻ): huỷ — animation vô hạn trên cây đã tách vẫn "chạy" theo
-       đặc tả, giữ bộ nhớ và bắt luồng chính lấy mẫu mỗi khung */
-    gone.forEach(function (h) { var b = h._bm; if (!b || h.isConnected) return; b.anims.forEach(function (a) { a.cancel(); }); if (b.br) b.br.cancel(); if (BM.ro) BM.ro.unobserve(h); h._bm = null; });
+    /* phần tử đã THẬT SỰ rời trang (không phải dời chỗ trong cùng mẻ): huỷ — animation trên cây đã tách vẫn giữ bộ nhớ */
+    gone.forEach(function (h) { if (h._bm && !h.isConnected) hqKill(h, !document.querySelector('[data-beam="strip"]')); });
   }).observe(document.body, { childList: true, subtree: true });
   if (MQ_RM.addEventListener) MQ_RM.addEventListener('change', beamRemountAll);
   beamScan(document.body);
@@ -2893,12 +3095,12 @@ function pairLineHTML() {
 function updatePairLine() {
   var el = S.view === 'ticket' && S.page ? S.page.querySelector('#prLine') : null; if (!el) return;
   var t = document.createElement('div'), c = el.cloneNode(true); t.innerHTML = pairLineHTML();
-  $$('.bm', c).forEach(function (x) { x.remove(); });      /* lớp tia + lớp chạy (swap · bm-now) do trang thêm lúc chạy — không tính khi so */
+  $$('.hq', c).forEach(function (x) { x.remove(); });      /* lớp hào quang + lớp chạy (swap · bm-now) do trang thêm lúc chạy — không tính khi so */
   $$('.swap, .bm-now', c).forEach(function (x) { x.classList.remove('swap', 'bm-now'); });
   if (t.innerHTML === c.innerHTML) return;                  /* so qua cùng bộ tuần tự hoá của trình duyệt — cùng nội dung: giữ nguyên thẻ, tia chạy tiếp */
   var had = !!el.firstElementChild, h0 = el.offsetHeight;
   el.innerHTML = t.innerHTML;
-  /* đổi trạng thái tại chỗ: chữ mờ vào nhẹ · tia đang chạy thì chạy tiếp (beamScan: cùng chỗ → .bm-now; đồng hồ chung giữ pha) */
+  /* đổi trạng thái tại chỗ: chữ mờ vào nhẹ · hào quang đang chạy thì chạy tiếp từ đúng mốc (beamScan: cùng chỗ → .bm-now) */
   if (had && el.firstElementChild) el.firstElementChild.classList.add('swap');
   if (!had !== !el.firstElementChild || el.offsetHeight !== h0) { tkFit(true); tkPaper(); }   /* dòng hiện / ẩn / xuống dòng → cao khung phiếu đổi: đo lại */
 }
