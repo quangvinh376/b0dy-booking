@@ -39,6 +39,13 @@ ID hai file Google Sheets: `BA_ID` (file BA: MEMBERS · SESSION LOG · TRIAL · 
   (`tools/worker_deploy_snippet.mjs`; chủ studio đồng ý 19/10 và cho tự deploy từ nay — luật 3): `OK etag=c1dc6462b7`, 5 binding (DO `BOOK` ·
   `ALLOW_ORIGINS` · `BA_ID` · `OUT_ID` · secret `SA_JSON`), cron `* * * * *`, `lt_ping` `pending 0`. Claude Code kiểm 17:01–17:05
   bằng `curl`: `lt_ping` `pending 0`, `lastError` rỗng · tuần 43 trả 7 ngày · `/live` trả 101 + `{"t":"hi","r":0,"n":1}` · origin lạ 403.
+- **1.5.2 (chủ studio 21/10 16:54 + 17:05)** — "N người đang xem" (kênh live) bỏ khỏi chân B0B (mobile: đè thẻ thông báo; desktop: sát
+  đáy màn; và biến B0B thành ô chữ của giao diện). Số người đang xem = trạng thái của CẢ PHÒNG → nằm trong tín hiệu header sau
+  "Đang mở đặt · Tuần N": **icon mắt (lưới 24, nét 1,5, 14 px) + số** Mono (`#sigN`, `sigCount` trong `app.js`); câu đủ "N người đang
+  xem" cho trình đọc màn hình (`#sigNs`) + chú thích rê chuột; số trượt khi đổi, n < 2 → mờ đi rồi gỡ. **B0B = linh vật đứng ngoài
+  giao diện, người dẫn đường**: có thêm người → nhìn quanh (`scan`) rồi nhìn đúng con số trên header (`viewers` mang `el`), không còn số
+  trên đầu, không còn chữ dưới chân. Test `ui_live` 28. `rv_tilt` (vé 3D WebGL trên CPU, không có hào quang) thỉnh thoảng trượt mốc
+  thời gian lắc gợi ý / về dáng nghỉ — chạy lại PASS (nhiễu máy test như `b0b_check`).
 - **1.5.1 (chủ studio 21/10 16:31)**: nguồn sáng (thẻ + tia sàn) 1,5 → **1 px** (`--bm-bw` 1px, bỏ bậc 2 px ở màn 1×; bóng phát sáng tính
   theo nét 1 px) · dải bóng mỗi phía nét 12 → **10 px** (`HQ.G`; `.flb` top −11 / cao 21) · **hồ sáng desktop dời lên trên cụm nút
   "Tập cùng · Không, cảm ơn"** (`.nt-act`; không có nút thì giữa thông báo) — tia sàn + viền nền vẫn xuất phát từ giữa thông báo.
