@@ -30,9 +30,11 @@ ID hai file Google Sheets: `BA_ID` (file BA: MEMBERS · SESSION LOG · TRIAL · 
 6. Sau mỗi lần đẩy: xác minh commit bằng hash và SHA-256 từng tệp trên `raw.githubusercontent.com/quangvinh376/b0dy-booking/<commit>/…`.
 7. Chỉ MỘT tiến trình Playwright / Chromium một lúc (máy test nhỏ từng hết RAM).
 
-## Đang ở đâu (20/10/2026, 16:09)
+## Đang ở đâu (21/10/2026, 16:10)
 
-- Trang **v1.4.0** (`9353b2a`) trên GitHub Pages `main` — live 16:09 20/10, 20 tệp tĩnh SHA-256 khớp (CSP có `wss://` của Worker); `lt_ping` 16:10 `pending 0`. Worker
+- Trang **v1.5.0** (mã `4b6b76b` + `f6b0195`, đẩy kèm ghi chú `a0856e7`) trên GitHub Pages `main` — "pages build and deployment" `a0856e7`
+  success 16:07:22 21/10; 20 tệp tĩnh SHA-256 khớp trên raw.githubusercontent tại commit; trang thật trả `app.js` / `sw.js` VER 1.5.0 +
+  CSS mới (máy cloud Claude Code KHÔNG curl được booking.b0dy.studio — proxy chặn 403 — kiểm trang thật bằng WebFetch). Worker
   không đổi từ 1.2.0 — `b0dy-booking-api` chạy `worker/src` của `3f91f21` (7 module, có `live.js`) — deploy ~17:01 19/10 qua Claude chat
   (`tools/worker_deploy_snippet.mjs`; chủ studio đồng ý 19/10 và cho tự deploy từ nay — luật 3): `OK etag=c1dc6462b7`, 5 binding (DO `BOOK` ·
   `ALLOW_ORIGINS` · `BA_ID` · `OUT_ID` · secret `SA_JSON`), cron `* * * * *`, `lt_ping` `pending 0`. Claude Code kiểm 17:01–17:05
