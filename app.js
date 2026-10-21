@@ -239,7 +239,7 @@ var IC = {
   lock: '<path d="M8 10V7C8 4.2 9.8 2.5 12 2.5C14.2 2.5 16 4.2 16 7V10M4 10H20V21H4V10Z"/>',
   chev: '<path d="M9 4L17 12L9 20"/>',
   pair: '<circle cx="8.5" cy="12" r="5.5"/><circle cx="15.5" cy="12" r="5.5"/>'
-};
+};   /* (icon mắt của "người đang xem" nằm sẵn trong header ở index.html — cùng lưới 24, nét 1,5) */
 function ico(n, cls) { return '<svg class="ic' + (cls ? ' ' + cls : '') + '" viewBox="0 0 24 24" aria-hidden="true">' + IC[n] + '</svg>'; }
 /* ô Đầy (phòng hết suất hoặc coach bận — chủ studio 18/10: không cần nói lý do): gạch chéo X góc tới góc, giãn theo ô */
 var XCELL = '<svg class="gx" viewBox="0 0 10 10" preserveAspectRatio="none" aria-hidden="true"><path d="M0 0L10 10M10 0L0 10"/></svg>';
@@ -528,8 +528,9 @@ function setSig(on, d, m) {
   line($('#sigD'), d, 1); line($('#sigM'), m, 1);
 }
 /* số người đang xem (kênh live) = trạng thái của CẢ PHÒNG → nằm trong tín hiệu header, cạnh "Đang mở đặt · Tuần N" (chủ studio 21/10:
-   câu cũ dưới chân B0B đè thẻ thông báo ở mobile, sát đáy màn ở desktop, và biến B0B thành một ô chữ của giao diện).
-   n < 2 (chỉ mình) → mờ đi rồi gỡ khỏi dòng; đổi số → chữ trượt theo chiều tăng / giảm */
+   câu cũ dưới chân B0B đè thẻ thông báo ở mobile, sát đáy màn ở desktop, và biến B0B thành một ô chữ của giao diện). Hiển thị gọn:
+   icon mắt + số (chủ studio 21/10 17:05); câu đủ "N người đang xem" cho trình đọc màn hình + chú thích khi rê chuột.
+   n < 2 (chỉ mình) → mờ đi rồi gỡ khỏi dòng; đổi số → số trượt theo chiều tăng / giảm */
 var SIGN = { n: 0, t: 0 };
 function sigCount(n) {
   var w = $('#sigN'); if (!w) return;
@@ -537,7 +538,7 @@ function sigCount(n) {
   SIGN.n = n; clearTimeout(SIGN.t);
   if (show) {
     var first = !was || w.hidden;
-    line($('#sigND'), n + ' người đang xem', dir, first); line($('#sigNM'), n + ' đang xem', dir, first);
+    line($('#sigNv'), String(n), dir, first); $('#sigNs').textContent = n + ' người đang xem'; w.title = n + ' người đang xem';
     if (first) { w.hidden = false; w.classList.remove('out'); w.classList.remove('in'); void w.offsetWidth; w.classList.add('in'); }
     return;
   }

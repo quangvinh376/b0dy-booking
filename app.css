@@ -87,10 +87,11 @@ svg{display:block;flex:none}
 .sig-dot{width:8px;height:8px;border-radius:50%;border:1px solid var(--muc);background:var(--acid);flex:none;transition:background-color .3s var(--eio),border-color .3s var(--eio)}
 .sig.off .sig-dot{background:transparent;border-color:var(--da)}
 .sig-t{font-family:var(--mono);font-size:10px;line-height:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--than);overflow:hidden;text-overflow:ellipsis}
-/* số người đang xem (kênh live): phần đuôi của tín hiệu, cùng nhãn Mono · không bao giờ bị cắt (trạng thái phía trước cắt trước) ·
-   hiện: mờ vào + trồi 4 px · ẩn: mờ đi rồi gỡ khỏi dòng (app.js · sigCount) */
+/* số người đang xem (kênh live): phần đuôi của tín hiệu — icon mắt (bộ icon lưới 24, nét 1,5) + số Mono · không bao giờ bị cắt (trạng
+   thái phía trước cắt trước) · hiện: mờ vào + trồi 4 px · ẩn: mờ đi rồi gỡ khỏi dòng (app.js · sigCount) */
 .sig-n{display:flex;align-items:center;gap:8px;flex:none}
 .sig-n[hidden]{display:none}
+.sig-n .ic{width:14px;height:14px;stroke:var(--than);margin-right:-3px}
 .sig-n .sig-t{overflow:visible}
 .sig-x{font-family:var(--mono);font-size:10px;line-height:12px;color:var(--than)}
 .sig-n.in{animation:sigIn .32s var(--eo) both}
