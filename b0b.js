@@ -1001,8 +1001,13 @@ void main(){
         case 'offline': B.force = { id: 'worry', until: now + 6000 }; if (el) this._setAtt(4, { k: 'el', el }, 1500); this._gesture('sigh', now); break;
         case 'online': B.force = null; this._gesture('sigh', now, { amp: .6 }); setTimeout(() => { if (!this.dead) this._blink(performance.now(), 'slow'); }, 900); break;
         case 'sheet': case 'toast': if (el) this._setAtt(4, { k: 'el', el }, 1200); break;
-        /* kênh live: có thêm người đang mở trang → nhìn quanh + số người trên đầu (câu "N người đang xem" do trang ghi dưới chân B0B) */
-        case 'viewers': if (M_ASLEEP(this)) break; this._gesture('scan', now); if (d.n) this._tmark('txt', String(d.n), 1800); B.force = { id: 'curious', until: now + 2400 }; break;
+        /* kênh live: có thêm người đang mở trang → nhìn quanh (như thấy có thêm người trong phòng), rồi quay sang nhìn con số trên header
+           ("N người đang xem" — chữ của giao diện, B0B không tự đọc số): B0B dẫn mắt người dùng tới đúng chỗ, không làm thay giao diện */
+        case 'viewers':
+          if (M_ASLEEP(this)) break;
+          this._gesture('scan', now); B.force = { id: 'curious', until: now + 3000 };
+          if (el) setTimeout(() => { if (!this.dead) this._setAtt(4, { k: 'el', el }, 1500); }, 1300);
+          break;
         default: break;
       }
       this._heat(300);
