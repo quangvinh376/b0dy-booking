@@ -9,7 +9,7 @@
 'use strict';
 
 /* ============================== CẤU HÌNH ============================== */
-var VER = '1.5.1';
+var VER = '1.5.2';
 var API_URL = 'https://b0dy-booking-api.little-bonus-1d87.workers.dev/';
 var API_SLOW = false;                 /* true khi chạy Apps Script (chậm hơn nhiều) → nới thời gian chờ */
 /* kênh live: Worker chỉ nhận từ trang thật (ALLOW_ORIGINS) → trang chạy chỗ khác (test trên máy) không nối, khỏi gõ cửa máy chủ thật.
@@ -382,16 +382,6 @@ function bobGlance(el) {
   try { if (b.react) b.react('glance', r.left + r.width / 2, r.top + r.height / 2); } catch (e) { /* bỏ qua */ }
 }
 function bobReact(kind) { [BOB.d, BOB.m].forEach(function (b) { if (b && b.react) try { b.react(kind); } catch (e) { /* bỏ qua */ } }); }
-/* câu dưới chân B0B (kênh live: "N người đang xem") — chữ của trang, không phải của B0B; '' = ẩn */
-function bobCap(txt) {
-  [BOB.hostD, BOB.hostM].forEach(function (h) {
-    if (!h) return;
-    var c = h.querySelector('.bob-cap');
-    if (!c) { if (!txt) return; c = document.createElement('span'); c.className = 'bob-cap'; h.appendChild(c); }
-    if (txt) c.textContent = txt;
-    c.classList.toggle('on', !!txt);
-  });
-}
 function bobSlot(page) { var slot = page && page.querySelector('.bob-slot'); if (slot && BOB.hostM.parentNode !== slot) slot.appendChild(BOB.hostM); }
 
 /* ---------- B0B · cầu nối cảm giác (v1.1): trang KỂ điều đang xảy ra, B0B tự quyết định cảm và phản ứng ----------
@@ -536,6 +526,25 @@ var FLOW_BOOK = ['01 Tên', '02 Xác minh', '03 Lịch', '04 Phiếu'], FLOW_CHG
 function setSig(on, d, m) {
   var sig = $('#sig'); sig.classList.toggle('off', !on);
   line($('#sigD'), d, 1); line($('#sigM'), m, 1);
+}
+/* số người đang xem (kênh live) = trạng thái của CẢ PHÒNG → nằm trong tín hiệu header, cạnh "Đang mở đặt · Tuần N" (chủ studio 21/10:
+   câu cũ dưới chân B0B đè thẻ thông báo ở mobile, sát đáy màn ở desktop, và biến B0B thành một ô chữ của giao diện).
+   n < 2 (chỉ mình) → mờ đi rồi gỡ khỏi dòng; đổi số → chữ trượt theo chiều tăng / giảm */
+var SIGN = { n: 0, t: 0 };
+function sigCount(n) {
+  var w = $('#sigN'); if (!w) return;
+  var show = n >= 2, dir = n >= SIGN.n ? 1 : -1, was = SIGN.n >= 2;
+  SIGN.n = n; clearTimeout(SIGN.t);
+  if (show) {
+    var first = !was || w.hidden;
+    line($('#sigND'), n + ' người đang xem', dir, first); line($('#sigNM'), n + ' đang xem', dir, first);
+    if (first) { w.hidden = false; w.classList.remove('out'); w.classList.remove('in'); void w.offsetWidth; w.classList.add('in'); }
+    return;
+  }
+  if (w.hidden) return;
+  if (rm()) { w.hidden = true; return; }
+  w.classList.remove('in'); w.classList.add('out');
+  SIGN.t = setTimeout(function () { if (SIGN.n < 2) { w.hidden = true; w.classList.remove('out'); } }, 220);
 }
 function setSteps(flow, cur, back) {
   /* flow 'none': màn đứng ngoài luồng (E01 Chưa mở đặt) — header không có dãy bước */
@@ -3558,7 +3567,7 @@ function refresh(quiet) {
 /* ============================== KÊNH LIVE (1.2.0 · chủ studio duyệt 19/10, "mức 1") ==============================
    Máy chủ báo qua MỘT WebSocket (worker/src/live.js): {t:'bump'} = phòng vừa đổi (ai đó vừa đặt / đổi / mời…, hay sheet vừa sửa) →
    hỏi lại state của mình như một lượt làm mới thường (ai thấy gì vẫn do lt_boot quyết — tin live không mang dữ liệu hội viên) ·
-   {t:'n', n} = số máy đang mở trang (ẩn danh) → B0B nhìn quanh + câu "N người đang xem" dưới chân B0B.
+   {t:'n', n} = số máy đang mở trang (ẩn danh) → "N người đang xem" trong tín hiệu header; thêm người → B0B nhìn quanh rồi nhìn về con số.
    Chỉ nối khi tab đang hiện (ẩn tab → đóng; hiện lại → nối lại, rồi hỏi lại vì có thể đã lỡ tin). Một lần nối chỉ tính là thông khi
    nhận được "hi" của máy chủ (nối được rồi bị đóng ngay vẫn là hỏng — không nối lại dồn dập). Máy chủ cũ / Apps Script không có kênh:
    hỏng LIVE_TRIES lần liền → thôi cho tới lần hiện tab sau; trang vẫn tự hỏi 2 phút một lần như trước.
@@ -3617,12 +3626,13 @@ function liveBump() {
     if (S.view === 'book' || S.view === 'change' || S.view === 'ticket') refresh(true);
   }, 250 + Math.random() * 450);
 }
-/* số người đang xem (cả mình): ≥ 2 → câu dưới chân B0B; tăng lên → B0B nhìn quanh + số trên đầu (cách nhau ≥ 20 s) */
+/* số người đang xem (cả mình): ≥ 2 → hiện trong tín hiệu header. Tăng lên (cách nhau ≥ 20 s) → B0B — linh vật đứng NGOÀI giao diện, người
+   dẫn đường — nhìn quanh như thấy có thêm người, rồi quay sang nhìn đúng con số trên header: dẫn mắt người dùng tới đó, KHÔNG tự đọc số */
 function liveCount(n) {
   n = Math.max(0, +n || 0);
   var prev = LIVE.n; LIVE.n = n;
-  bobCap(n >= 2 ? n + ' người đang xem' : '');
-  if (n >= 2 && n > prev && Date.now() - LIVE.bobAt > LIVE_BOB_GAP) { LIVE.bobAt = Date.now(); bobEmit('viewers', { n: n }); }
+  sigCount(n);
+  if (n >= 2 && n > prev && Date.now() - LIVE.bobAt > LIVE_BOB_GAP) { LIVE.bobAt = Date.now(); bobEmit('viewers', { n: n, el: $('#sigN') }); }
 }
 function boot() {
   S.dev = devId();

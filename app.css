@@ -87,6 +87,15 @@ svg{display:block;flex:none}
 .sig-dot{width:8px;height:8px;border-radius:50%;border:1px solid var(--muc);background:var(--acid);flex:none;transition:background-color .3s var(--eio),border-color .3s var(--eio)}
 .sig.off .sig-dot{background:transparent;border-color:var(--da)}
 .sig-t{font-family:var(--mono);font-size:10px;line-height:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--than);overflow:hidden;text-overflow:ellipsis}
+/* số người đang xem (kênh live): phần đuôi của tín hiệu, cùng nhãn Mono · không bao giờ bị cắt (trạng thái phía trước cắt trước) ·
+   hiện: mờ vào + trồi 4 px · ẩn: mờ đi rồi gỡ khỏi dòng (app.js · sigCount) */
+.sig-n{display:flex;align-items:center;gap:8px;flex:none}
+.sig-n[hidden]{display:none}
+.sig-n .sig-t{overflow:visible}
+.sig-x{font-family:var(--mono);font-size:10px;line-height:12px;color:var(--than)}
+.sig-n.in{animation:sigIn .32s var(--eo) both}
+.sig-n.out{opacity:0;transition:opacity .2s linear}
+@keyframes sigIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 .steps{display:flex;align-items:center;gap:16px;list-style:none;white-space:nowrap}
 .step{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11px;line-height:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--tro);transition:color .3s var(--eio)}
 .step .ck{width:13px;height:13px;stroke:var(--da);stroke-width:1.2;fill:none;display:none}
@@ -166,11 +175,6 @@ button.stepn .ic{width:16px;height:16px}
 .bob-m{position:relative;flex:none;width:56px;height:56px;align-self:flex-end;z-index:1}
 .bob>img.bob-fb{position:absolute;inset:0;width:100%;height:100%}
 .bob>.bob-sh{position:absolute;left:50%;bottom:-9px;width:127%;height:16%;transform:translateX(-50%);border-radius:50%;background:var(--bong-mem);filter:blur(4px)}
-/* câu dưới chân B0B (kênh live, 1.2.0): "3 người đang xem" — nhãn Mono như mọi nhãn dữ liệu, hiện / ẩn bằng mờ dần */
-.bob-cap{position:absolute;left:50%;top:calc(100% + 12px);transform:translateX(-50%);white-space:nowrap;font-family:var(--mono);font-size:10px;line-height:12px;
-         letter-spacing:.08em;text-transform:uppercase;color:var(--than);opacity:0;transition:opacity .32s var(--eo)}
-.bob-cap.on{opacity:1}
-.bob-m .bob-cap{left:auto;right:0;top:calc(100% + 8px);transform:none;font-size:9px;line-height:11px}
 
 /* ---------- sàn (desktop) và thanh đáy (mobile) ---------- */
 .floor{position:relative;z-index:4;display:flex;align-items:center;gap:32px;height:var(--flh);padding:0 190px 0 48px;background:var(--giay2);border-top:1px solid var(--ke-manh);flex:none}
@@ -658,7 +662,7 @@ button.stepn .ic{width:16px;height:16px}
   .hd::before{content:"";position:absolute;left:0;right:0;bottom:100%;height:240px;background:var(--giay);pointer-events:none}
   .hd-l{gap:10px}
   .wm{width:50px;height:16px}
-  .sig{gap:6px}
+  .sig,.sig-n{gap:6px}
   .sig-dot{width:7px;height:7px}
   .floor{display:none}
   .mbar{position:fixed;left:0;right:0;bottom:0;z-index:30;display:flex;flex-direction:column;gap:10px;padding:12px 16px max(8px, var(--sab));background:var(--giay);border-top:1px solid var(--ke-manh)}
