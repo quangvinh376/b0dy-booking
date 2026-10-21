@@ -9,7 +9,7 @@
 'use strict';
 
 /* ============================== CẤU HÌNH ============================== */
-var VER = '1.5.0';
+var VER = '1.5.1';
 var API_URL = 'https://b0dy-booking-api.little-bonus-1d87.workers.dev/';
 var API_SLOW = false;                 /* true khi chạy Apps Script (chậm hơn nhiều) → nới thời gian chờ */
 /* kênh live: Worker chỉ nhận từ trang thật (ALLOW_ORIGINS) → trang chạy chỗ khác (test trên máy) không nối, khỏi gõ cửa máy chủ thật.
@@ -782,19 +782,19 @@ function sigWatch() {
      2 s / nhịp, phổ màu xoay 180° / chu kỳ
    · TẮT 7–8 s: nguồn sáng ẩn, viền nền xoá cùng chiều kẻ, hào quang tắt
    Chạy 3 chu kỳ rồi đứng ở trạng thái tĩnh: viền nền + hào quang 45 % (= giảm chuyển động). Dải sàn desktop: viền nền kẻ từ giữa thông
-   báo ra hai phía · tia Acid sang trái, Bạc hà sang phải, 380 px/s, hai lượt mỗi chu kỳ · hồ sáng 640 × 128 tâm ở giữa thông báo, nằm
+   báo ra hai phía · tia Acid sang trái, Bạc hà sang phải, 380 px/s, hai lượt mỗi chu kỳ · hồ sáng 640 × 128 tâm ở trên cụm nút, nằm
    DƯỚI nội dung trang (thở + co giãn ngang 8 %).
    Giữ chuẩn 1.4.0: chỉ compositor — mọi lớp vẽ MỘT lần (gradient, mặt nạ tĩnh), chuyển động là Web Animations chỉ đổi transform /
    opacity; không filter, không mix-blend-mode, không @property, không stroke-dashoffset (Figma ghi dashoffset + drop-shadow: cùng hình
    nhưng vẽ lại mỗi khung). Nhoè dựng bằng mặt nạ Gauss tính sẵn (σ = bán kính Figma / 2); bóng phát sáng 3 · 10 · 26 px = mặt nạ tổng
-   3 Gauss quanh nét 1,5 px; nét viền nền kẻ / xoá = đoạn thẳng co giãn theo đúng đường cong cubic-bezier(.65, 0, .35, 1).
+   3 Gauss quanh nét 1 px; nét viền nền kẻ / xoá = đoạn thẳng co giãn theo đúng đường cong cubic-bezier(.65, 0, .35, 1).
    Một đồng hồ cho mọi lớp của một hào quang: mọi animation cùng startTime = b.o, mốc trong chuỗi 3 chu kỳ nằm sẵn trong keyframe →
    dừng / chạy / đổi cỡ không bao giờ lệch nhau. Chỉ chạy khi thật sự được thấy: trong khung nhìn (IntersectionObserver) · tab đang mở ·
    không cửa sổ / ngăn kéo che (#app inert). */
-var HQ = { T: 8000, N: 3, R: 4, LC: 130, LEAD: 5, LAG: 4, G: 12, AE: 14, AS: 11, AS0: 20, V: .38, LS: 150, PASS: [900, 4500], STEP: 16,
+var HQ = { T: 8000, N: 3, R: 4, LC: 130, LEAD: 5, LAG: 4, G: 10, AE: 14, AS: 11, AS0: 20, V: .38, LS: 150, PASS: [900, 4500], STEP: 16,
            ro: null, io: null, hold: false };
 /* T: chu kỳ · N: số chu kỳ · R: bo góc thẻ · LC: dài nguồn sáng thẻ · LEAD / LAG: bóng phát sáng tràn trước mũi / sau đuôi · G: dải bóng
-   mỗi phía nét (12 px: ngoài đó bóng < 2 % — mốc cuối kéo về 0 cho không có mép; khớp .flb trong app.css) · AE / AS / AS0: hào quang lề 14, σ 11 (nhoè 22), lúc bật σ 20 (nhoè 40) · V / LS / PASS: dải sàn 380 px/s, đuôi 150 px,
+   mỗi phía nét (10 px — chủ studio 21/10; mốc cuối kéo về 0 cho không có mép; khớp .flb trong app.css) · AE / AS / AS0: hào quang lề 14, σ 11 (nhoè 22), lúc bật σ 20 (nhoè 40) · V / LS / PASS: dải sàn 380 px/s, đuôi 150 px,
    hai lượt bắt đầu ở 0,9 s và 4,5 s · STEP: lấy mẫu đường cong kẻ / xoá mỗi khung 60 Hz (nội suy thẳng giữa hai mẫu lệch < 1 px kể cả nửa sàn 1100 px) · hold: đang có cửa sổ / ngăn kéo che (beamHold) */
 /* hai nguồn sáng: 8 nấc đầu → đuôi (Figma: 8 nét chồng cùng đầu, nấc k dài k/8, độ đục riêng) · g: màu bóng phát sáng */
 var HQ_SRC = [{ c: ['#EDFF66', '#E2FF33', '#D4FF00', '#C6F500', '#B1EA00', '#98D400', '#7DB800', '#7DB800'], g: [212, 255, 0] },
@@ -853,15 +853,16 @@ function hqPhi(x) {                              /* phân phối chuẩn tích l
   var y = 1 - ((((1.061405429 * t - 1.453152027) * t + 1.421413741) * t - .284496736) * t + .254829592) * t * Math.exp(-z * z);
   return .5 * (1 + (x < 0 ? -y : y));
 }
-/* bóng phát sáng Figma (3 px 90 % · 10 px 50 % · 26 px 28 %, không lệch) của nét 1,5 px, ở khoảng cách d tới tâm nét: tổng 3 Gauss */
-function hqGlow(d) {
-  var A = [.9, .5, .28], S = [1.5, 5, 13], v = 0;
-  for (var i = 0; i < 3; i++) v += A[i] * (hqPhi((d + .75) / S[i]) - hqPhi((d - .75) / S[i]));
+/* bóng phát sáng Figma (3 px 90 % · 10 px 50 % · 26 px 28 %, không lệch) của nét dày w (1 px — chủ studio 21/10), ở khoảng cách d tới
+   tâm nét: tổng 3 Gauss */
+function hqGlow(d, w) {
+  var A = [.9, .5, .28], S = [1.5, 5, 13], h = (w || 1) / 2, v = 0;
+  for (var i = 0; i < 3; i++) v += A[i] * (hqPhi((d + h) / S[i]) - hqPhi((d - h) / S[i]));
   return v;
 }
 var HQ_X = [12, 10, 8, 6, 5, 4, 3, 2, 1.5, 1, .5, 0];   /* khoảng cách tới mép nét để lấy mẫu mặt nạ bóng */
 function hqA(v) { return 'rgba(0,0,0,' + Math.round(v * 1000) / 1000 + ')'; }
-function hqGx(bw, x) { return x >= HQ.G ? 0 : hqGlow(bw / 2 + x); }   /* mốc ngoài cùng = 0: dải bóng tắt hẳn ở mép vùng, không thành vạch */
+function hqGx(bw, x) { return x >= HQ.G ? 0 : hqGlow(bw / 2 + x, bw); }   /* mốc ngoài cùng = 0: dải bóng tắt hẳn ở mép vùng, không thành vạch */
 /* mặt nạ cắt ngang dải bóng (dọc trục vuông góc nét): nét chiếm [top, top + bw], thủng đúng chỗ nét (lõi ở lớp dưới), hai bên tắt dần G px */
 function hqProf(top, bw) {
   var out = [];
@@ -872,7 +873,7 @@ function hqProf(top, bw) {
 }
 /* mặt nạ bóng ở góc bo (theo bán kính ρ từ tâm cung): trong cung · thủng đúng vành · ngoài cung */
 function hqRad(r, bw) {
-  var c = r - bw / 2, out = [0, (r - bw) / 2, r - bw].map(function (p) { return hqA(hqGlow(c - p)) + ' ' + bmPx(p); });
+  var c = r - bw / 2, out = [0, (r - bw) / 2, r - bw].map(function (p) { return hqA(hqGlow(c - p, bw)) + ' ' + bmPx(p); });
   out.push('transparent ' + bmPx(r - bw), 'transparent ' + bmPx(r));
   HQ_X.slice().reverse().forEach(function (x) { if (x <= HQ.G) out.push(hqA(hqGx(bw, x)) + ' ' + bmPx(r + x)); });
   return out.join(', ');
@@ -1053,9 +1054,16 @@ function hqFitCard(b, W, H) {
 /* dải sàn: m = giữa thông báo (từ mép trái biểu tượng tới hết chữ) */
 function hqFitStrip(b, W) {
   var host = b.host, fl = host.parentElement, nt = fl && fl.querySelector('.nt'), ic = nt && nt.querySelector('.nt-ic'), tx = nt && nt.querySelector('.nt-tx');
-  var m = ic && tx ? (ic.getBoundingClientRect().left + tx.getBoundingClientRect().right) / 2 - host.getBoundingClientRect().left : W / 2;
+  var act = nt && nt.querySelector('.nt-act'), hl = host.getBoundingClientRect().left;
+  var m = ic && tx ? (ic.getBoundingClientRect().left + tx.getBoundingClientRect().right) / 2 - hl : W / 2;
   m = Math.max(0, Math.min(W, m));
-  if (tx && b.tx !== tx) { if (b.tx && HQ.ro) HQ.ro.unobserve(b.tx); b.tx = tx; tx._hqHost = host; if (HQ.ro) HQ.ro.observe(tx); }   /* chữ đổi cỡ (phông về muộn) → đo lại m */
+  /* hồ sáng: trên cụm nút "Tập cùng · Không, cảm ơn" (chủ studio 21/10); không có nút → giữa thông báo như cũ */
+  var pm = act ? (function (r) { return (r.left + r.right) / 2 - hl; })(act.getBoundingClientRect()) : m;
+  /* chữ / nút đổi cỡ (phông về muộn) → đo lại m và chỗ hồ sáng */
+  [tx, act].forEach(function (x, i) {
+    var k = i ? 'ta' : 'tx';
+    if (x && b[k] !== x) { if (b[k] && HQ.ro) HQ.ro.unobserve(b[k]); b[k] = x; x._hqHost = host; if (HQ.ro) HQ.ro.observe(x); }
+  });
   var G = HQ.G, L = [m, W - m], specs = [];
   hqBox(b.base[0], 0, G, m, 1); b.base[0].style.transformOrigin = 'right top';
   hqBox(b.base[1], m, G, W - m, 1); b.base[1].style.transformOrigin = 'left top';
@@ -1063,13 +1071,13 @@ function hqFitStrip(b, W) {
     specs.push({ k: 'b' + k, el: b.base[k], kf: hqSeq(function (last) { return hqLine(0, L[k], L[k], 'X', k ? 1 : -1, [150, 1250], last ? null : [7000, 850]); }), t: hqAll() });
   });
   /* hồ sáng 680 × 190 (hai lớp radial-gradient khớp bình phương tối thiểu với "quầng 640 × 128 + lõi 300 × 56, nhoè 36" của Figma), tâm ở
-     mép trên sàn ngay giữa thông báo; neo đáy → đổi cao cửa sổ không lệch */
+     mép trên sàn ngay trên cụm nút; neo đáy → đổi cao cửa sổ không lệch */
   if (b.pool) {
     var app = b.pool.parentElement, ps = b.pool.style;
-    ps.left = bmPx(fl.offsetLeft + host.offsetLeft + m - 340); ps.bottom = bmPx(app.clientHeight - fl.offsetTop - 95);
+    ps.left = bmPx(fl.offsetLeft + host.offsetLeft + pm - 340); ps.bottom = bmPx(app.clientHeight - fl.offsetTop - 95);
     specs.push({ k: 'po', el: b.pool, kf: hqSeq(hqPoolO), t: hqAll() }, { k: 'ps', el: b.pool, kf: hqSeq(hqPoolS), t: hqAll() });
   }
-  var Lw = [HQ.LAG + HQ.LS + HQ.LEAD, HQ.LS + 1], Lt = [HQ.LAG + HQ.LS, HQ.LS], prof = 'linear-gradient(' + hqProf(G - .25, 1.5) + ')';
+  var Lw = [HQ.LAG + HQ.LS + HQ.LEAD, HQ.LS + 1], Lt = [HQ.LAG + HQ.LS, HQ.LS], prof = 'linear-gradient(' + hqProf(G, 1) + ')';
   b.sd.forEach(function (sd, k) {
     var s = sd.x.style; s.left = bmPx(k ? m : 0); s.width = bmPx(L[k]);
     sd.w.forEach(function (pair, p) {
@@ -1135,7 +1143,7 @@ function hqKill(h, soft) {
   var b = h._bm; if (!b) return;
   var p = b.pool, op = p && soft && !rm() && BM_CAN ? +getComputedStyle(p).opacity : 0, tf = op ? getComputedStyle(p).transform : '';
   b.anims.forEach(function (a) { a.onfinish = null; a.cancel(); }); b.anims = []; b.an = {};
-  if (HQ.ro) { HQ.ro.unobserve(h); if (b.tx) HQ.ro.unobserve(b.tx); }
+  if (HQ.ro) { HQ.ro.unobserve(h); if (b.tx) HQ.ro.unobserve(b.tx); if (b.ta) HQ.ro.unobserve(b.ta); }
   if (HQ.io) HQ.io.unobserve(h);
   if (p) {
     if (op > .01) try {

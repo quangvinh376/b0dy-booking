@@ -39,6 +39,9 @@ ID hai file Google Sheets: `BA_ID` (file BA: MEMBERS · SESSION LOG · TRIAL · 
   (`tools/worker_deploy_snippet.mjs`; chủ studio đồng ý 19/10 và cho tự deploy từ nay — luật 3): `OK etag=c1dc6462b7`, 5 binding (DO `BOOK` ·
   `ALLOW_ORIGINS` · `BA_ID` · `OUT_ID` · secret `SA_JSON`), cron `* * * * *`, `lt_ping` `pending 0`. Claude Code kiểm 17:01–17:05
   bằng `curl`: `lt_ping` `pending 0`, `lastError` rỗng · tuần 43 trả 7 ngày · `/live` trả 101 + `{"t":"hi","r":0,"n":1}` · origin lạ 403.
+- **1.5.1 (chủ studio 21/10 16:31)**: nguồn sáng (thẻ + tia sàn) 1,5 → **1 px** (`--bm-bw` 1px, bỏ bậc 2 px ở màn 1×; bóng phát sáng tính
+  theo nét 1 px) · dải bóng mỗi phía nét 12 → **10 px** (`HQ.G`; `.flb` top −11 / cao 21) · **hồ sáng desktop dời lên trên cụm nút
+  "Tập cùng · Không, cảm ơn"** (`.nt-act`; không có nút thì giữa thông báo) — tia sàn + viền nền vẫn xuất phát từ giữa thông báo.
 - **1.5.0 (chủ studio 21/10: thiết kế "Hào quang Acid" trên Figma section 00e, "code lên bản live, tự deploy, cover mọi scenario, audit kỹ")**
   — thay phần HÌNH của tia viền 1.4.0, giữ chuẩn compositor + vòng đời (`beamMount` trong `app.js` mục "HÀO QUANG ACID", CSS mục "hào quang
   Acid"). Chu kỳ 8 s × **3 rồi đứng tĩnh** (viền nền + hào quang 45 % = giảm chuyển động): bật 0–1,5 s (viền nền 1 px Lá 40 % kẻ từ giữa mép
@@ -47,12 +50,13 @@ ID hai file Google Sheets: `BA_ID` (file BA: MEMBERS · SESSION LOG · TRIAL · 
   · tắt 7–8 s (xoá cùng chiều kẻ). Chỉ chạy khi thật sự được thấy: IntersectionObserver · tab mở · không cửa sổ / ngăn kéo che.
   · Thẻ (`data-beam="card"`): `.bm` (mặt thẻ, clip-path một lần) = 6 đoạn viền nền + nắp 1 px · lõi 4 vùng cạnh × 2 cửa sổ (8 nấc màu Figma
   hợp "over", nội suy liền) · mặt thẻ · rê chuột │ `.bmx` bóng phát sáng 3·10·26 px = mặt nạ tổng 3 Gauss (σ = bán kính Figma / 2) quanh nét,
-  góc bo bằng mặt nạ tròn, trên mặt thẻ dưới chữ │ `.bma` hào quang: 2 mặt nạ Gauss σ 11 lồng nhau × phổ conic xoay. 27 Web Animations,
+  góc bo bằng mặt nạ tròn, trên mặt thẻ dưới chữ │ `.bma` hào quang: `.bm-as` một lớp mang 2 mặt nạ Gauss σ 11 giao nhau + opacity +
+  co giãn, phổ conic `.bm-ac` xoay bên trong. 27 Web Animations,
   một đồng hồ (cùng startTime, mốc nằm trong keyframe).
-  · Sàn desktop (`.flb data-beam="strip"`, hộp trùm đường kẻ ±18 px): viền nền Lá 45 % kẻ từ giữa thông báo ra · tia Acid trái / Bạc hà
+  · Sàn desktop (`.flb data-beam="strip"`, hộp trùm đường kẻ ±10 px từ 1.5.1): viền nền Lá 45 % kẻ từ giữa thông báo ra · tia Acid trái / Bạc hà
   phải 380 px/s, đuôi 150, lượt 0,9 s + 4,5 s (sàn rất rộng → phía đó tắt dần 7,1–7,85 s) · hồ sáng `.flp` (2 radial-gradient khớp bình
   phương tối thiểu với quầng 640 × 128 + lõi, nhoè 36 — sai số trung bình 0,2 %) nằm trong `#app` TRƯỚC `<main>` → dưới nội dung trang,
-  tâm ở mép trên sàn giữa thông báo, neo đáy. 14 Web Animations.
+  tâm ở mép trên sàn (1.5.0 giữa thông báo → 1.5.1 trên cụm nút), neo đáy. 14 Web Animations.
   · Vòng đời giữ của 1.4.0: vẽ lại đúng chỗ → chạy tiếp từ đúng mốc (`.bm-now`), chữ mờ vào (`.swap`); mới thêm: đã đứng tĩnh mà chữ đổi
   (thông báo mới) → bật lại từ đầu; đổi cỡ → setKeyframes, đồng hồ giữ nguyên; huỷ sạch khi gỡ (cả hồ sáng nằm ngoài sàn).
   · Không filter / mix-blend-mode / @property / stroke-dashoffset (Figma ghi dashoffset + drop-shadow: vẽ lại mỗi khung). Bỏ

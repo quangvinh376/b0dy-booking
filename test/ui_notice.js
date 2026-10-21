@@ -95,7 +95,7 @@ const seek = (page, host, ms) => page.evaluate(([s, ms]) => { const b = document
 async function cardProbe(page, sel, taus) {
   return page.evaluate(([s, taus]) => {
     const e = document.querySelector(s), B = e && e._bm; if (!B) return { err: 'không có hào quang' };
-    const cs = x => getComputedStyle(x), W = parseFloat(cs(e).width), H = parseFloat(cs(e).height), R = 4, G = 12, T = 8000, LC = 130, LAG = 4, P = 2 * W + 2 * H - 4 * R, Ph = P / 2;
+    const cs = x => getComputedStyle(x), W = parseFloat(cs(e).width), H = parseFloat(cs(e).height), R = 4, G = 10, T = 8000, LC = 130, LAG = 4, P = 2 * W + 2 * H - 4 * R, Ph = P / 2;
     const bm = e.querySelector(':scope > .bm'), bx = e.querySelector(':scope > .bmx'), ba = e.querySelector(':scope > .bma');
     const core = Array.from(bm.querySelectorAll(':scope > .bm-cr > .bm-e')), glow = Array.from(bx.querySelectorAll(':scope > .bm-gw > .bm-g')), base = Array.from(bm.querySelectorAll(':scope > .bm-b'));
     const csa = [0, W, W + H - 2 * R, 2 * W + H - 2 * R], gsa = [-G, W, W + H - 2 * R - G, 2 * W + H - 2 * R], clen = [W, H - 2 * R, W, H - 2 * R], glen = [W + 2 * G, H - 2 * R, W + 2 * G, H - 2 * R];
@@ -149,6 +149,7 @@ async function stripProbe(page, taus) {
     const h = document.querySelector('#floor > .flb[data-beam="strip"]'), B = h && h._bm; if (!B) return { err: 'không có .flb' };
     const cs = x => getComputedStyle(x), fl = document.querySelector('#floor'), nt = fl.querySelector('.nt'), hr = h.getBoundingClientRect(), W = hr.width, LS = 150, LAG = 4, V = .38;
     const m = (nt.querySelector('.nt-ic').getBoundingClientRect().left + nt.querySelector('.nt-tx').getBoundingClientRect().right) / 2 - hr.left;
+    const ar = nt.querySelector('.nt-act').getBoundingClientRect(), pa = (ar.left + ar.right) / 2 - hr.left;   /* hồ sáng: giữa cụm nút */
     const bez = (x1, y1, x2, y2) => x => { if (x <= 0) return 0; if (x >= 1) return 1; let t = x; for (let i = 0; i < 12; i++) { const u = 1 - t,
       fx = 3 * u * u * t * x1 + 3 * u * t * t * x2 + t * t * t - x, d = 3 * u * u * x1 + 6 * u * t * (x2 - x1) + 3 * t * t * (1 - x2); if (Math.abs(d) < 1e-9) break; t = Math.min(1, Math.max(0, t - fx / d)); }
       const u = 1 - t; return 3 * u * u * t * y1 + 3 * u * t * t * y2 + t * t * t; };
@@ -167,12 +168,12 @@ async function stripProbe(page, taus) {
       r.exp = [0, 1].map(k => [900, 4500].map(p => c >= p ? V * (c - p) : -1).filter(u => u >= 0 && u < L[k]).map(u => +(k ? m + u : m - u).toFixed(1)));
       r.glow = sd.map((s, k) => Array.from(s.querySelectorAll('.bm-k.g')).map(w => M(w).m41 + LAG + LS).filter(u => u >= 0 && u < L[k]).map(u => +(k ? m + u : m - u).toFixed(1)));
       r.side = sd.map(s => +(+cs(s).opacity).toFixed(3));
-      if (B.pool) { const pr = B.pool.getBoundingClientRect(), fr = fl.getBoundingClientRect(); r.pool = [+(pr.left + pr.width / 2 - hr.left - m).toFixed(1), +(pr.top + pr.height / 2 - fr.top).toFixed(1), +(+cs(B.pool).opacity).toFixed(3)]; }
+      if (B.pool) { const pr = B.pool.getBoundingClientRect(), fr = fl.getBoundingClientRect(); r.pool = [+(pr.left + pr.width / 2 - hr.left - pa).toFixed(1), +(pr.top + pr.height / 2 - fr.top).toFixed(1), +(+cs(B.pool).opacity).toFixed(3)]; }
       out.push(r);
     }
     an.forEach((a, i) => { if (was[i][0] === 'running') a.startTime = was[i][1]; else a.currentTime = was[i][2]; });
     const app = document.querySelector('#app'), pool = B.pool;
-    return { W, m: +m.toFixed(1), out, top: cs(h).top, height: cs(h).height, kids: Array.from(h.querySelector(':scope > .bm').children).map(c => c.className).join(','),
+    return { W, m: +m.toFixed(1), pa: +pa.toFixed(1), out, top: cs(h).top, height: cs(h).height, core: cs(h.querySelector('.bm-k.c')).height, kids: Array.from(h.querySelector(':scope > .bm').children).map(c => c.className).join(','),
              pool: pool ? { parent: pool.parentElement === app, beforeMain: !!(pool.compareDocumentPosition(document.querySelector('#main')) & Node.DOCUMENT_POSITION_FOLLOWING),
                             pos: cs(pool).position, z: cs(pool).zIndex, pe: cs(pool).pointerEvents, cls: pool.className } : null,
              fx: Array.from(h.querySelectorAll('*')).concat(pool ? [pool] : []).every(x => cs(x).mixBlendMode === 'normal' && cs(x).filter === 'none') };
@@ -333,8 +334,8 @@ async function invitee(browser, server, mobile) {
     ok('Sàn desktop có lời mời: lớp phủ .flb data-beam="strip" + hồ sáng; thẻ trên sàn không có hào quang quanh thẻ; 14 Web Animations', !!s1 && s1.pair && !s1.card && s1.beam === 'strip' &&
        !s1.still && s1.lay === 'hq bm|hq flp d' && s1.n === 14, s1);
     const sp = await stripProbe(page, [0, 400, 1000, 1400, 1800, 2500, 4600, 5200, 6100, 7300, 7700, 7900, 16000 + 1000, 16000 + 7900]);
-    ok('Lớp sàn: viền nền 2 nửa + 2 phía nguồn sáng · hộp trùm đường kẻ ±12 px (top −13 px, cao 25) · không filter / hoà trộn', !sp.err && sp.kids === 'bm-b,bm-b,bm-cr' && sp.top === '-13px' &&
-       sp.height === '25px' && sp.fx, sp);
+    ok('Lớp sàn: viền nền 2 nửa + 2 phía nguồn sáng 1 px · hộp trùm đường kẻ ±10 px (top −11 px, cao 21) · không filter / hoà trộn', !sp.err && sp.kids === 'bm-b,bm-b,bm-cr' && sp.top === '-11px' &&
+       sp.height === '21px' && sp.core === '1px' && sp.fx, sp);
     ok('Viền nền kẻ từ giữa thông báo ra hai phía đúng cubic-bezier 0,15–1,4 s, xoá cùng chiều 7–7,85 s, chu kỳ cuối giữ nguyên (≤ 1,5 px)', !sp.err && sp.out.every(r => r.ring <= 1.5),
        sp.out && sp.out.map(r => [r.tau, r.ring]));
     const hb = sp.out ? sp.out.filter(r => JSON.stringify(r.heads) !== JSON.stringify(r.exp) && !r.heads.every((h, k) => h.length === r.exp[k].length && h.every((x, i) => Math.abs(x - r.exp[k][i]) <= 1))) : ['err'];
@@ -343,11 +344,11 @@ async function invitee(browser, server, mobile) {
     ok('Hồ sáng: trong #app TRƯỚC <main> (vẽ dưới nội dung trang), absolute, z-index auto, không bắt chuột, ẩn ở mobile (.d)', !!sp.pool && sp.pool.parent && sp.pool.beforeMain &&
        sp.pool.pos === 'absolute' && sp.pool.z === 'auto' && sp.pool.pe === 'none' && /\bd\b/.test(sp.pool.cls), sp.pool);
     const pa = sp.out.find(r => r.tau === 1800), pz = sp.out.find(r => r.tau === 7900), pe = sp.out.find(r => r.tau === 23900);
-    ok('Hồ sáng tâm ở (giữa thông báo, mép trên sàn) ±1 px · thở / tắt đúng mốc · chu kỳ cuối đứng ở 0,45', !!pa && Math.abs(pa.pool[0]) <= 1 && Math.abs(pa.pool[1]) <= 1 &&
+    ok('Hồ sáng tâm ở (giữa cụm nút "Tập cùng · Không, cảm ơn", mép trên sàn) ±1 px — tia vẫn xuất phát giữa thông báo · thở / tắt đúng mốc · chu kỳ cuối đứng ở 0,45', !!pa && Math.abs(pa.pool[0]) <= 1 && Math.abs(pa.pool[1]) <= 1 && sp.pa - sp.m > 300 &&
        pz.pool[2] === 0 && pe.pool[2] === .45 && sp.out[0].pool[2] === 0, sp.out.map(r => [r.tau, r.pool]));
     await seek(page, HOST, 1800);
-    const vs = await vividRun(page, () => { const r = document.querySelector('#floor').getBoundingClientRect(); return { x: 0, y: Math.max(0, r.top - 60), width: 700, height: 58 }; }, null, 6, 450, 30);
-    ok('Trên màn thật: phía trên mép sàn quanh thông báo có điểm ảnh sắc (hồ sáng) ở MỌI lần chụp trong ~2,7 s', vs.every(n => n >= 400), vs);
+    const vs = await vividRun(page, () => { const r = document.querySelector('#floor').getBoundingClientRect(); return { x: (() => { const p = document.querySelector('.flp').getBoundingClientRect(), c = p.left + p.width / 2; return Math.max(0, Math.min(innerWidth - 600, Math.round(c - 300))); })(), y: Math.max(0, r.top - 60), width: 600, height: 58 }; }, null, 6, 450, 30);
+    ok('Trên màn thật: phía trên mép sàn, trên cụm nút, có điểm ảnh sắc (hồ sáng) ở MỌI lần chụp trong ~2,7 s', vs.every(n => n >= 400), vs);
   }
   const pt = await paints(page, 2000);
   if (pt.paint) console.log('        (lần vẽ ngoài hào quang: ' + pt.who.join(', ') + ')');
@@ -391,7 +392,7 @@ async function invitee(browser, server, mobile) {
   ok('Hết 3 chu kỳ → trạng thái tĩnh: 0 animation, mọi lớp .still, viền nền đủ (không transform), ' + (mobile ? 'hào quang' : 'hồ sáng') + ' 0,45, không nguồn sáng', !!z && z.n === 0 && z.done && z.still &&
      zs.base.split(',').every(x => x === 'none') && zs.full && zs.cr === 'none' && zs.halo === .45 && (!mobile || zs.gw === 'none') && Math.abs(zs.rot - 157.5) < .05, [z, zs]);
   const vz = await vividRun(page, (a) => { const r = document.querySelector(a[0]).getBoundingClientRect();
-    return a[1] ? { x: r.left, y: Math.max(0, r.top - 22), width: r.width, height: 20 } : { x: 0, y: Math.max(0, document.querySelector('#floor').getBoundingClientRect().top - 60), width: 700, height: 58 }; }, [SEL, mobile], 2, 300, 30);
+    return a[1] ? { x: r.left, y: Math.max(0, r.top - 22), width: r.width, height: 20 } : { x: (() => { const p = document.querySelector('.flp').getBoundingClientRect(), c = p.left + p.width / 2; return Math.max(0, Math.min(innerWidth - 600, Math.round(c - 300))); })(), y: Math.max(0, document.querySelector('#floor').getBoundingClientRect().top - 60), width: 600, height: 58 }; }, [SEL, mobile], 2, 300, 30);
   ok('… trên màn thật trạng thái tĩnh vẫn có ' + (mobile ? 'hào quang' : 'hồ sáng') + ' (điểm ảnh sắc)', vz.every(n => n >= 150), vz);
   const f3 = await page.evaluate(() => window.__lt.S.lastFetch);
   await qc('[data-qc="other"]');
@@ -611,7 +612,7 @@ async function reduced(browser, server, mobile) {
   ok('… trạng thái tĩnh ngay từ đầu: 0 animation, không nguồn sáng, viền nền đủ, ' + (mobile ? 'hào quang' : 'hồ sáng') + ' 0,45 — không viền Mực', !!r && r.still && r.n === 0 && r.cr === 'none' &&
      r.base && r.halo === .45 && r.shadow === 'none' && !!s && s.n === 0, r);
   const vr = await vividRun(page, m => { const r = (m ? document.querySelector('#mNote .mnt') : document.querySelector('#floor')).getBoundingClientRect();
-    return m ? { x: r.left, y: Math.max(0, r.top - 22), width: r.width, height: 20 } : { x: 0, y: Math.max(0, r.top - 60), width: 700, height: 58 }; }, mobile, 2, 300, 30);
+    return m ? { x: r.left, y: Math.max(0, r.top - 22), width: r.width, height: 20 } : { x: (() => { const p = document.querySelector('.flp').getBoundingClientRect(), c = p.left + p.width / 2; return Math.max(0, Math.min(innerWidth - 600, Math.round(c - 300))); })(), y: Math.max(0, r.top - 60), width: 600, height: 58 }; }, mobile, 2, 300, 30);
   ok('… trên màn thật có hiện (điểm ảnh sắc)', vr.every(n => n >= 150), vr);
   ok('0 lỗi console / pageerror', errs.length === 0, errs);
   await ctx.close();

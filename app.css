@@ -194,16 +194,15 @@ button.stepn .ic{width:16px;height:16px}
    Thay tia viền 9 màu của 1.4.0. Chu kỳ 8 s × 3 rồi đứng ở trạng thái tĩnh (viền nền + hào quang 45 %) — nhịp, hình học và lý do dựng
    như dưới đây: xem phần HÀO QUANG ACID trong app.js. Mọi lớp vẽ một lần; Web Animations chỉ đổi transform / opacity (compositor) ·
    không filter, không mix-blend-mode, không @property → như nhau trên Safari iOS / Chrome.
-   · thẻ: .bm (mặt thẻ Giấy 2, góc bo cắt một lần bằng clip-path) = viền nền 1 px Lá 40 % · lõi hai nguồn sáng (trong vành --bm-bw) ·
+   · thẻ: .bm (mặt thẻ Giấy 2, góc bo cắt một lần bằng clip-path) = viền nền 1 px Lá 40 % · lõi hai nguồn sáng 1 px (vành --bm-bw) ·
      mặt thẻ · lớp rê chuột │ .bmx = bóng phát sáng (trên mặt thẻ, dưới chữ, tràn ra ngoài thẻ) │ .bma = hào quang môi trường dưới thẻ
      (lề 14, nhoè 22 = mặt nạ Gauss σ 11 hai trục giao nhau, phổ Acid · Chanh · Bạc hà · Lá đối xứng hai nửa, xoay)
    · dải sàn desktop có lời mời (.flb): viền nền 1 px Lá 45 % đè đường kẻ trên sàn, kẻ từ giữa thông báo ra · tia Acid trái, Bạc hà
-     phải · hồ sáng .flp nằm trong #app trước <main> (dưới nội dung trang, nửa dưới khuất sau sàn — như Figma)
+     phải (1 px) · hồ sáng .flp trên cụm nút, nằm trong #app trước <main> (dưới nội dung trang, nửa dưới khuất sau sàn — như Figma)
    · giảm chuyển động / hết 3 chu kỳ (.still): không nguồn sáng; viền nền + hào quang / hồ sáng 45 %, đứng yên
    Dựng lớp: beamMount (app.js) cho mọi phần tử có data-beam ("card" | "strip"). */
 .nt-ic{display:flex;flex:none}
-:root{--bm-bw:1.5px}
-@media (max-resolution:1.49dppx),(-webkit-max-device-pixel-ratio:1.49){ :root{--bm-bw:2px} }   /* màn 1×: vành 2 px nguyên điểm ảnh (dòng sau: Safari ≤ 15) */
+:root{--bm-bw:1px}                                                               /* nguồn sáng 1 px (chủ studio 21/10) — nguyên điểm ảnh ở mọi màn */
 [data-beam="card"]{position:relative;isolation:isolate}
 [data-beam="card"]>:not(.hq){position:relative}
 .hq{position:absolute;pointer-events:none}
@@ -241,14 +240,14 @@ button.stepn .ic{width:16px;height:16px}
    góc tĩnh 157,5° = góc dừng của chuỗi 3 chu kỳ (hqSpin) */
 .bm-ac{will-change:transform;-webkit-transform:rotate(157.5deg);transform:rotate(157.5deg);background:conic-gradient(from -90deg,rgba(212,255,0,.9),rgba(237,255,102,.8) 12%,rgba(79,242,176,.75) 25%,rgba(125,184,0,.6) 37%,
   rgba(212,255,0,.9) 50%,rgba(237,255,102,.8) 62%,rgba(79,242,176,.75) 75%,rgba(125,184,0,.6) 87%,rgba(212,255,0,.9))}
-/* dải sàn: hộp trùm đường kẻ trên sàn + 12 px bóng mỗi phía (HQ.G); viền nền đè đúng đường kẻ (top 12 px = mép trên viền sàn) */
-#floor>.flb{position:absolute;left:0;right:0;top:-13px;height:25px;z-index:-1;overflow:hidden;pointer-events:none}
+/* dải sàn: hộp trùm đường kẻ trên sàn + 10 px bóng mỗi phía (HQ.G); viền nền đè đúng đường kẻ (top 10 px = mép trên viền sàn) */
+#floor>.flb{position:absolute;left:0;right:0;top:-11px;height:21px;z-index:-1;overflow:hidden;pointer-events:none}
 .flb>.bm{inset:0}
-.flb .bm-b{top:12px;height:1px;background:rgba(125,184,0,.45)}                    /* Figma sàn: Lá 45 % */
+.flb .bm-b{top:10px;height:1px;background:rgba(125,184,0,.45)}                    /* Figma sàn: Lá 45 % */
 .flb .bm-cr{opacity:1}
 .bm-sd{top:0;bottom:0;overflow:hidden}
 .bm-sd.s0{-webkit-transform:scaleX(-1);transform:scaleX(-1)}                      /* phía trái lật gương: tia đi ra từ giữa thông báo */
-.flb .bm-k.c{top:11.75px;height:1.5px}                                             /* lõi 1,5 px, tâm trùng tâm đường kẻ */
+.flb .bm-k.c{top:10px;height:1px}                                                 /* lõi 1 px, trùng đường kẻ */
 .flb .bm-k.g{height:100%}
 /* hồ sáng: hai lớp radial-gradient khớp bình phương tối thiểu (sai số trung bình 0,2 %) với "quầng 640 × 128 (Acid 85 · Acid giấy 45 ·
    Bạc hà 20 · 0) + lõi 300 × 56 Chanh 90, nhoè 36" của Figma — không filter; app.js đặt chỗ (tâm ở mép trên sàn, giữa thông báo) */
