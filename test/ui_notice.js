@@ -77,6 +77,8 @@ async function state(page, sel) {
              oneStart: st.length === 1, start: st.length === 1 ? st[0] : null, oneCur: cur.length === 1, cur: cur.length === 1 ? cur[0] : cur.slice(0, 4),
              e: B ? (B.done ? 'done' : B.run ? document.timeline.currentTime - B.o : B.e) : null, done: !!B && B.done, brun: !!B && B.run, vis: !!B && B.vis,
              dur: an.length ? Array.from(new Set(an.map(a => { const t = a.effect.getTiming(); return t.duration * t.iterations; }))).join(',') : '',
+             /* timing y hệt nhau, không iterationStart / iterations / delay — WebKit cũ bỏ qua iterationStart trên compositor (pha nằm trong keyframe) */
+             uni: an.length > 0 && an.every(a => { const t = a.effect.getTiming(); return t.duration === 24000 && t.iterations === 1 && t.iterationStart === 0 && t.delay === 0 && t.endDelay === 0; }),
              css: Array.from(new Set((h ? h.getAnimations({ subtree: true }) : []).filter(a => a.animationName && a.playState === 'running').map(a => a.animationName))).join(','),
              shadow: getComputedStyle(e).boxShadow, bg: getComputedStyle(e).backgroundColor };
   }, sel);
@@ -93,7 +95,7 @@ const seek = (page, host, ms) => page.evaluate(([s, ms]) => { const b = document
 async function cardProbe(page, sel, taus) {
   return page.evaluate(([s, taus]) => {
     const e = document.querySelector(s), B = e && e._bm; if (!B) return { err: 'không có hào quang' };
-    const cs = x => getComputedStyle(x), W = parseFloat(cs(e).width), H = parseFloat(cs(e).height), R = 4, G = 18, T = 8000, LC = 130, LAG = 4, P = 2 * W + 2 * H - 4 * R, Ph = P / 2;
+    const cs = x => getComputedStyle(x), W = parseFloat(cs(e).width), H = parseFloat(cs(e).height), R = 4, G = 12, T = 8000, LC = 130, LAG = 4, P = 2 * W + 2 * H - 4 * R, Ph = P / 2;
     const bm = e.querySelector(':scope > .bm'), bx = e.querySelector(':scope > .bmx'), ba = e.querySelector(':scope > .bma');
     const core = Array.from(bm.querySelectorAll(':scope > .bm-cr > .bm-e')), glow = Array.from(bx.querySelectorAll(':scope > .bm-gw > .bm-g')), base = Array.from(bm.querySelectorAll(':scope > .bm-b'));
     const csa = [0, W, W + H - 2 * R, 2 * W + H - 2 * R], gsa = [-G, W, W + H - 2 * R - G, 2 * W + H - 2 * R], clen = [W, H - 2 * R, W, H - 2 * R], glen = [W + 2 * G, H - 2 * R, W + 2 * G, H - 2 * R];
@@ -127,14 +129,16 @@ async function cardProbe(page, sel, taus) {
         const a = Math.max(0, Math.min(q[1], dr - q[0])), d = Math.max(0, Math.min(q[1], er - q[0]));
         return Math.max(Math.abs(sc * q[1] - (a - d)), Math.abs(tr - d));
       })).toFixed(2) * 1;
-      r.ao = +(+cs(ba).opacity).toFixed(3);
+      r.ao = +(+cs(ba.querySelector('.bm-as')).opacity).toFixed(3);
       const rm = M(ba.querySelector('.bm-ac')); r.rot = +(Math.atan2(rm.b, rm.a) * 180 / Math.PI).toFixed(1);
       r.co = +(+cs(bm.querySelector('.bm-cr')).opacity).toFixed(3); r.go = +(+cs(bx.querySelector('.bm-gw')).opacity).toFixed(3);
       out.push(r);
     }
     an.forEach((a, i) => { if (was[i][0] === 'running') a.startTime = was[i][1]; else a.currentTime = was[i][2]; });
     const fx = Array.from(e.querySelectorAll('.hq, .hq *')).every(x => cs(x).mixBlendMode === 'normal' && cs(x).filter === 'none');
+    const as = ba.querySelector('.bm-as'), mi = cs(as).maskImage || cs(as).webkitMaskImage || '';
     return { W, H, P, out, fx, kids: [bm, bx, ba].map(x => Array.from(x.children).map(c => c.className).join(',')).join(' | '), clip: cs(bm).clipPath,
+             aura: Array.from(as.children).map(c => c.className).join(','), masks: (mi.match(/linear-gradient/g) || []).length,
              cores: core.length + '×' + core[0].children.length, glows: glow.length + '×' + glow[0].children.length, bases: base.length };
   }, [sel, taus]);
 }
@@ -291,15 +295,15 @@ async function invitee(browser, server, mobile) {
   const s1 = await state(page, SEL);
   ok('Không còn tia 9 màu của 1.4.0 / CSS của gói (data-active / @property / beam-*) — chỉ Web Animations', !!s1 && !s1.css &&
      await page.evaluate(() => !document.querySelector('[data-active], [data-beam-bloom], .bm-ring, .bm-gl, .bm-z, .bm-w')), s1);
-  ok('Hào quang chạy MỘT đồng hồ: mọi animation cùng startTime, dài đúng 3 chu kỳ × 8 s, chỉ transform / opacity, đang chạy, vừa bắt đầu (< 3 s)', !!s1 && s1.oneStart && s1.dur === String(SEQ) &&
+  ok('Hào quang chạy MỘT đồng hồ: mọi animation cùng startTime, cùng timing 24 s (không iterationStart / iterations / delay), chỉ transform / opacity, đang chạy, vừa bắt đầu (< 3 s)', !!s1 && s1.oneStart && s1.dur === String(SEQ) && s1.uni &&
      s1.props === 'opacity,transform' && s1.run && s1.brun && typeof s1.e === 'number' && s1.e >= 0 && s1.e < 3000, s1);
   if (mobile) {
     ok('Thẻ mời mobile: data-beam="card", 3 lớp (.bm mặt thẻ · .bmx bóng · .bma hào quang), 27 Web Animations', !!s1 && s1.card && s1.beam === 'card' && !s1.still &&
        s1.lay === 'hq bm|hq bmx|hq bma' && s1.n === 27, s1);
     const cb = await cardProbe(page, SEL, TAUS);
-    ok('Cấu tạo: viền nền 6 đoạn · nắp · lõi 4 vùng × 2 · mặt thẻ · rê chuột │ bóng 4 vùng × 2 │ hào quang (mặt nạ ngang › dọc › phổ) · KHÔNG filter / hoà trộn · góc bo cắt một lần',
+    ok('Cấu tạo: viền nền 6 đoạn · nắp · lõi 4 vùng × 2 · mặt thẻ · rê chuột │ bóng 4 vùng × 2 │ hào quang (một lớp 2 mặt nạ giao nhau › phổ) · KHÔNG filter / hoà trộn · góc bo cắt một lần',
        !cb.err && cb.bases === 6 && cb.cores === '4×2' && cb.glows === '4×2' && cb.fx && /inset\(0/.test(cb.clip) &&
-       /^bm-b,bm-b,bm-b,bm-b,bm-b,bm-b,bm-bc,bm-cr,bm-sf,bm-hv \| bm-gw \| bm-as$/.test(cb.kids), cb);
+       /^bm-b,bm-b,bm-b,bm-b,bm-b,bm-b,bm-bc,bm-cr,bm-sf,bm-hv \| bm-gw \| bm-as$/.test(cb.kids) && cb.aura === 'bm-ac' && cb.masks === 2, cb);
     checkCard(cb, 'Hình học thẻ mời');
     ok('Hào quang đúng mốc Figma: 0 trước 0,35 s · 0,62 lúc 1,25 s · thở 0,3 ↔ 0,5 · tắt về 0 ở chu kỳ thường · chu kỳ cuối đứng ở 0,45', cb.out[0].ao === 0 &&
        cb.out.find(r => r.tau === 7900).ao === 0 && cb.out.find(r => r.tau === 23500).ao === .45 && cb.out.find(r => r.tau === 23990).ao === .45 &&
@@ -329,8 +333,8 @@ async function invitee(browser, server, mobile) {
     ok('Sàn desktop có lời mời: lớp phủ .flb data-beam="strip" + hồ sáng; thẻ trên sàn không có hào quang quanh thẻ; 14 Web Animations', !!s1 && s1.pair && !s1.card && s1.beam === 'strip' &&
        !s1.still && s1.lay === 'hq bm|hq flp d' && s1.n === 14, s1);
     const sp = await stripProbe(page, [0, 400, 1000, 1400, 1800, 2500, 4600, 5200, 6100, 7300, 7700, 7900, 16000 + 1000, 16000 + 7900]);
-    ok('Lớp sàn: viền nền 2 nửa + 2 phía nguồn sáng · hộp trùm đường kẻ ±18 px (top −19 px, cao 37) · không filter / hoà trộn', !sp.err && sp.kids === 'bm-b,bm-b,bm-cr' && sp.top === '-19px' &&
-       sp.height === '37px' && sp.fx, sp);
+    ok('Lớp sàn: viền nền 2 nửa + 2 phía nguồn sáng · hộp trùm đường kẻ ±12 px (top −13 px, cao 25) · không filter / hoà trộn', !sp.err && sp.kids === 'bm-b,bm-b,bm-cr' && sp.top === '-13px' &&
+       sp.height === '25px' && sp.fx, sp);
     ok('Viền nền kẻ từ giữa thông báo ra hai phía đúng cubic-bezier 0,15–1,4 s, xoá cùng chiều 7–7,85 s, chu kỳ cuối giữ nguyên (≤ 1,5 px)', !sp.err && sp.out.every(r => r.ring <= 1.5),
        sp.out && sp.out.map(r => [r.tau, r.ring]));
     const hb = sp.out ? sp.out.filter(r => JSON.stringify(r.heads) !== JSON.stringify(r.exp) && !r.heads.every((h, k) => h.length === r.exp[k].length && h.every((x, i) => Math.abs(x - r.exp[k][i]) <= 1))) : ['err'];
@@ -382,7 +386,7 @@ async function invitee(browser, server, mobile) {
   const z = await state(page, SEL), zs = await page.evaluate(([h, m]) => { const e = document.querySelector(h), b = e._bm, cs = x => getComputedStyle(x);
     const bm = e.querySelector(':scope > .bm'), base = Array.from(bm.querySelectorAll(':scope > .bm-b'));
     return { base: base.map(x => cs(x).transform).join(), full: base.every(x => x.getBoundingClientRect().width > 0 && x.getBoundingClientRect().height > 0), cr: cs(bm.querySelector('.bm-cr')).display,
-             halo: m ? +cs(e.querySelector(':scope > .bma')).opacity : +cs(b.pool).opacity, gw: m ? cs(e.querySelector(':scope > .bmx .bm-gw')).display : '',
+             halo: m ? +cs(e.querySelector(':scope > .bma > .bm-as')).opacity : +cs(b.pool).opacity, gw: m ? cs(e.querySelector(':scope > .bmx .bm-gw')).display : '',
              rot: m ? (() => { const x = new DOMMatrix(cs(e.querySelector('.bm-ac')).transform); return +(Math.atan2(x.b, x.a) * 180 / Math.PI).toFixed(2); })() : 157.5 }; }, [HOST, mobile]);
   ok('Hết 3 chu kỳ → trạng thái tĩnh: 0 animation, mọi lớp .still, viền nền đủ (không transform), ' + (mobile ? 'hào quang' : 'hồ sáng') + ' 0,45, không nguồn sáng', !!z && z.n === 0 && z.done && z.still &&
      zs.base.split(',').every(x => x === 'none') && zs.full && zs.cr === 'none' && zs.halo === .45 && (!mobile || zs.gw === 'none') && Math.abs(zs.rot - 157.5) < .05, [z, zs]);
@@ -396,6 +400,18 @@ async function invitee(browser, server, mobile) {
   const z2 = await state(page, SEL);
   ok('… kênh live hỏi lại sau đó → vẫn tĩnh, không bật lại', !!z2 && z2.n === 0 && z2.done, z2);
   if (!mobile) {
+    /* dải sàn đã đứng yên, rồi một lời mời KHÁC thành thông báo trên sàn (cùng khung giờ, người mời khác) → thông báo mới: dải mới bật lại
+       từ đầu. Dải sàn không có chữ → "đổi chưa" so theo chữ thông báo trên sàn, không theo chữ của .flb (luôn rỗng) */
+    await page.evaluate(() => { const f = window.QCB.__f0 || window.QCB.fetch; window.QCB.__f0 = f; window.QCB.fetch = (u, i) => f(u, i).then(async r => { const j = await r.clone().json();
+      if (!j || !j.duo || !(j.duo.invIn || []).length) return r; j.duo.invIn = j.duo.invIn.slice(0, 1).map(x => Object.assign({}, x, { from: 'Thảo Vy' }));
+      return new Response(JSON.stringify(j), { status: 200, headers: { 'content-type': 'application/json; charset=utf-8' } }); }); });
+    const f5 = await page.evaluate(() => window.__lt.S.lastFetch);
+    await qc('[data-qc="other"]');
+    await page.waitForFunction(f => window.__lt.S.lastFetch > f, f5, { timeout: 6000 }).catch(() => {});
+    await until(async () => /Thảo Vy/.test(await page.textContent('#floor')), 3000); await sleep(250);
+    const rp = await state(page, SEL);
+    ok('Dải sàn đã đứng yên, lời mời khác tới (Thảo Vy) → dải mới bật lại từ đầu (14 animation chạy, mốc < 1,2 s, một hồ sáng)', !!rp && rp.n === 14 && rp.run && !rp.done &&
+       typeof rp.e === 'number' && rp.e < 1200 && await page.evaluate(() => document.querySelectorAll('.flp').length) === 1, rp);
     /* nhận lời mời ngay trên sàn ("Tập cùng") → sàn thay nội dung, không còn dải: hồ sáng (nằm ngoài sàn) tắt dần cùng sàn rồi gỡ — không
        tắt phụt, không bao giờ hai hồ cùng lúc, không sót */
     await page.locator('#floor [data-a="invok"]').click();
@@ -460,7 +476,7 @@ async function ticketLine(browser, server, mobile) {
   await beamUp(page, SEL);
   const s = await state(page, SEL), fc = await face(page, SEL);
   ok('Dòng "2 buổi đang chờ bạn tập · Mời bạn" có hào quang: data-beam="card", 3 lớp, 27 Web Animations một đồng hồ, đang chạy', !!fc && /2 buổi đang chờ bạn tập/.test(fc.txt) && fc.label === 'Mời bạn' &&
-     !!s && s.card && s.beam === 'card' && s.lay === 'hq bm|hq bmx|hq bma' && s.n === 27 && s.props === 'opacity,transform' && s.oneStart && s.run, [fc, s]);
+     !!s && s.card && s.beam === 'card' && s.lay === 'hq bm|hq bmx|hq bma' && s.n === 27 && s.props === 'opacity,transform' && s.oneStart && s.uni && s.run, [fc, s]);
   ok('Cùng mặt thẻ với thẻ mời mobile: nền Giấy 2, không viền, bo 4, icon ghép 20 px, tiêu đề 16 px ở x = 46', !!fc && fc.bg === 'rgb(242, 242, 242)' && fc.shadow === 'none' &&
      fc.radius === '4px' && fc.pair && fc.ic === 20 && fc.fs === '16px' && fc.x === 46, fc);
   const cb = await cardProbe(page, SEL, TAUS);
@@ -590,7 +606,7 @@ async function reduced(browser, server, mobile) {
     const cs = x => getComputedStyle(x), bm = host.querySelector(':scope > .bm'), base = Array.from(bm.querySelectorAll(':scope > .bm-b'));
     return { still: b.lay.every(x => x.classList.contains('still')), n: host.getAnimations({ subtree: true }).length + (b.pool ? b.pool.getAnimations().length : 0),
              cr: cs(bm.querySelector('.bm-cr')).display, base: base.length && base.every(x => cs(x).transform === 'none' && x.getBoundingClientRect().width > 0),
-             halo: m ? +cs(host.querySelector(':scope > .bma')).opacity : +cs(b.pool).opacity, shadow: cs(m ? host : document.querySelector('#floor')).boxShadow };
+             halo: m ? +cs(host.querySelector(':scope > .bma > .bm-as')).opacity : +cs(b.pool).opacity, shadow: cs(m ? host : document.querySelector('#floor')).boxShadow };
   }, mobile);
   ok('… trạng thái tĩnh ngay từ đầu: 0 animation, không nguồn sáng, viền nền đủ, ' + (mobile ? 'hào quang' : 'hồ sáng') + ' 0,45 — không viền Mực', !!r && r.still && r.n === 0 && r.cr === 'none' &&
      r.base && r.halo === .45 && r.shadow === 'none' && !!s && s.n === 0, r);

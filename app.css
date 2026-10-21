@@ -196,7 +196,7 @@ button.stepn .ic{width:16px;height:16px}
    không filter, không mix-blend-mode, không @property → như nhau trên Safari iOS / Chrome.
    · thẻ: .bm (mặt thẻ Giấy 2, góc bo cắt một lần bằng clip-path) = viền nền 1 px Lá 40 % · lõi hai nguồn sáng (trong vành --bm-bw) ·
      mặt thẻ · lớp rê chuột │ .bmx = bóng phát sáng (trên mặt thẻ, dưới chữ, tràn ra ngoài thẻ) │ .bma = hào quang môi trường dưới thẻ
-     (lề 14, nhoè 22 = mặt nạ Gauss σ 11 hai trục lồng nhau, phổ Acid · Chanh · Bạc hà · Lá đối xứng hai nửa, xoay)
+     (lề 14, nhoè 22 = mặt nạ Gauss σ 11 hai trục giao nhau, phổ Acid · Chanh · Bạc hà · Lá đối xứng hai nửa, xoay)
    · dải sàn desktop có lời mời (.flb): viền nền 1 px Lá 45 % đè đường kẻ trên sàn, kẻ từ giữa thông báo ra · tia Acid trái, Bạc hà
      phải · hồ sáng .flp nằm trong #app trước <main> (dưới nội dung trang, nửa dưới khuất sau sàn — như Figma)
    · giảm chuyển động / hết 3 chu kỳ (.still): không nguồn sáng; viền nền + hào quang / hồ sáng 45 %, đứng yên
@@ -212,7 +212,7 @@ button.stepn .ic{width:16px;height:16px}
 [data-beam="card"]>.bm{inset:0;z-index:-1;overflow:hidden;background:var(--giay2);-webkit-clip-path:inset(0 round var(--r));clip-path:inset(0 round var(--r));
   -webkit-transform:translateZ(0);transform:translateZ(0)}                         /* lớp riêng → Safari cắt đúng cho lớp con đang chạy */
 [data-beam="card"]>.bmx{inset:0;z-index:-1}
-[data-beam="card"]>.bma{z-index:-2;opacity:.45}
+[data-beam="card"]>.bma{z-index:-2}
 .bm-b{background:rgba(125,184,0,.4)}                                               /* viền nền: Lá 40 % */
 /* nắp viền nền: inset 1 px, bo 3 → viền nền 1 px đều quanh cả góc (tâm nét cách mép 0,5, bo 3,5 như Figma) */
 .bm-bc{inset:1px;border-radius:calc(var(--r) - 1px);background:var(--giay2)}
@@ -225,34 +225,35 @@ button.stepn .ic{width:16px;height:16px}
 /* rê chuột trên thẻ có hào quang: phủ Mực 5,6 % lên mặt thẻ (= nền Xương của thẻ thường khi rê) — không vẽ lại */
 .bm-hv{inset:0;background:rgba(10,10,10,.056);opacity:0;transition:opacity var(--hov)}
 @media (hover:hover) and (pointer:fine){ [data-beam="card"]:hover>.bm>.bm-hv{opacity:1} }
-/* hào quang: hai mặt nạ lồng nhau (ngang × dọc) = hình chữ nhật thẻ + 14 px nhoè Gauss σ 11 (mốc mỗi σ/2: Φ(−3) … Φ(3)); hộp = thẻ + 47 px */
-.bm-as,.bm-av{inset:0}
-.bm-as{will-change:transform;
+/* hào quang: hai mặt nạ Gauss (ngang × dọc, giao nhau) trên CÙNG một lớp với opacity + co giãn = hình chữ nhật thẻ + 14 px nhoè σ 11
+   (mốc mỗi σ/2: Φ(−3) … Φ(3)); hộp = thẻ + 47 px. Một lớp vẽ ngoài màn hình cho cả vùng (lồng 3 lớp tốn gấp ba trên máy yếu) */
+.bm-as{inset:0;opacity:.45;will-change:transform,opacity;
   -webkit-mask-image:linear-gradient(to right,transparent,rgba(0,0,0,.006) 5.5px,rgba(0,0,0,.023) 11px,rgba(0,0,0,.067) 16.5px,rgba(0,0,0,.159) 22px,rgba(0,0,0,.309) 27.5px,rgba(0,0,0,.5) 33px,rgba(0,0,0,.691) 38.5px,rgba(0,0,0,.841) 44px,rgba(0,0,0,.933) 49.5px,rgba(0,0,0,.977) 55px,rgba(0,0,0,.994) 60.5px,#000 66px,
+    #000 calc(100% - 66px),rgba(0,0,0,.994) calc(100% - 60.5px),rgba(0,0,0,.977) calc(100% - 55px),rgba(0,0,0,.933) calc(100% - 49.5px),rgba(0,0,0,.841) calc(100% - 44px),rgba(0,0,0,.691) calc(100% - 38.5px),rgba(0,0,0,.5) calc(100% - 33px),rgba(0,0,0,.309) calc(100% - 27.5px),rgba(0,0,0,.159) calc(100% - 22px),rgba(0,0,0,.067) calc(100% - 16.5px),rgba(0,0,0,.023) calc(100% - 11px),rgba(0,0,0,.006) calc(100% - 5.5px),transparent),
+    linear-gradient(transparent,rgba(0,0,0,.006) 5.5px,rgba(0,0,0,.023) 11px,rgba(0,0,0,.067) 16.5px,rgba(0,0,0,.159) 22px,rgba(0,0,0,.309) 27.5px,rgba(0,0,0,.5) 33px,rgba(0,0,0,.691) 38.5px,rgba(0,0,0,.841) 44px,rgba(0,0,0,.933) 49.5px,rgba(0,0,0,.977) 55px,rgba(0,0,0,.994) 60.5px,#000 66px,
     #000 calc(100% - 66px),rgba(0,0,0,.994) calc(100% - 60.5px),rgba(0,0,0,.977) calc(100% - 55px),rgba(0,0,0,.933) calc(100% - 49.5px),rgba(0,0,0,.841) calc(100% - 44px),rgba(0,0,0,.691) calc(100% - 38.5px),rgba(0,0,0,.5) calc(100% - 33px),rgba(0,0,0,.309) calc(100% - 27.5px),rgba(0,0,0,.159) calc(100% - 22px),rgba(0,0,0,.067) calc(100% - 16.5px),rgba(0,0,0,.023) calc(100% - 11px),rgba(0,0,0,.006) calc(100% - 5.5px),transparent);
   mask-image:linear-gradient(to right,transparent,rgba(0,0,0,.006) 5.5px,rgba(0,0,0,.023) 11px,rgba(0,0,0,.067) 16.5px,rgba(0,0,0,.159) 22px,rgba(0,0,0,.309) 27.5px,rgba(0,0,0,.5) 33px,rgba(0,0,0,.691) 38.5px,rgba(0,0,0,.841) 44px,rgba(0,0,0,.933) 49.5px,rgba(0,0,0,.977) 55px,rgba(0,0,0,.994) 60.5px,#000 66px,
-    #000 calc(100% - 66px),rgba(0,0,0,.994) calc(100% - 60.5px),rgba(0,0,0,.977) calc(100% - 55px),rgba(0,0,0,.933) calc(100% - 49.5px),rgba(0,0,0,.841) calc(100% - 44px),rgba(0,0,0,.691) calc(100% - 38.5px),rgba(0,0,0,.5) calc(100% - 33px),rgba(0,0,0,.309) calc(100% - 27.5px),rgba(0,0,0,.159) calc(100% - 22px),rgba(0,0,0,.067) calc(100% - 16.5px),rgba(0,0,0,.023) calc(100% - 11px),rgba(0,0,0,.006) calc(100% - 5.5px),transparent)}
-.bm-av{
-  -webkit-mask-image:linear-gradient(transparent,rgba(0,0,0,.006) 5.5px,rgba(0,0,0,.023) 11px,rgba(0,0,0,.067) 16.5px,rgba(0,0,0,.159) 22px,rgba(0,0,0,.309) 27.5px,rgba(0,0,0,.5) 33px,rgba(0,0,0,.691) 38.5px,rgba(0,0,0,.841) 44px,rgba(0,0,0,.933) 49.5px,rgba(0,0,0,.977) 55px,rgba(0,0,0,.994) 60.5px,#000 66px,
+    #000 calc(100% - 66px),rgba(0,0,0,.994) calc(100% - 60.5px),rgba(0,0,0,.977) calc(100% - 55px),rgba(0,0,0,.933) calc(100% - 49.5px),rgba(0,0,0,.841) calc(100% - 44px),rgba(0,0,0,.691) calc(100% - 38.5px),rgba(0,0,0,.5) calc(100% - 33px),rgba(0,0,0,.309) calc(100% - 27.5px),rgba(0,0,0,.159) calc(100% - 22px),rgba(0,0,0,.067) calc(100% - 16.5px),rgba(0,0,0,.023) calc(100% - 11px),rgba(0,0,0,.006) calc(100% - 5.5px),transparent),
+    linear-gradient(transparent,rgba(0,0,0,.006) 5.5px,rgba(0,0,0,.023) 11px,rgba(0,0,0,.067) 16.5px,rgba(0,0,0,.159) 22px,rgba(0,0,0,.309) 27.5px,rgba(0,0,0,.5) 33px,rgba(0,0,0,.691) 38.5px,rgba(0,0,0,.841) 44px,rgba(0,0,0,.933) 49.5px,rgba(0,0,0,.977) 55px,rgba(0,0,0,.994) 60.5px,#000 66px,
     #000 calc(100% - 66px),rgba(0,0,0,.994) calc(100% - 60.5px),rgba(0,0,0,.977) calc(100% - 55px),rgba(0,0,0,.933) calc(100% - 49.5px),rgba(0,0,0,.841) calc(100% - 44px),rgba(0,0,0,.691) calc(100% - 38.5px),rgba(0,0,0,.5) calc(100% - 33px),rgba(0,0,0,.309) calc(100% - 27.5px),rgba(0,0,0,.159) calc(100% - 22px),rgba(0,0,0,.067) calc(100% - 16.5px),rgba(0,0,0,.023) calc(100% - 11px),rgba(0,0,0,.006) calc(100% - 5.5px),transparent);
-  mask-image:linear-gradient(transparent,rgba(0,0,0,.006) 5.5px,rgba(0,0,0,.023) 11px,rgba(0,0,0,.067) 16.5px,rgba(0,0,0,.159) 22px,rgba(0,0,0,.309) 27.5px,rgba(0,0,0,.5) 33px,rgba(0,0,0,.691) 38.5px,rgba(0,0,0,.841) 44px,rgba(0,0,0,.933) 49.5px,rgba(0,0,0,.977) 55px,rgba(0,0,0,.994) 60.5px,#000 66px,
-    #000 calc(100% - 66px),rgba(0,0,0,.994) calc(100% - 60.5px),rgba(0,0,0,.977) calc(100% - 55px),rgba(0,0,0,.933) calc(100% - 49.5px),rgba(0,0,0,.841) calc(100% - 44px),rgba(0,0,0,.691) calc(100% - 38.5px),rgba(0,0,0,.5) calc(100% - 33px),rgba(0,0,0,.309) calc(100% - 27.5px),rgba(0,0,0,.159) calc(100% - 22px),rgba(0,0,0,.067) calc(100% - 16.5px),rgba(0,0,0,.023) calc(100% - 11px),rgba(0,0,0,.006) calc(100% - 5.5px),transparent)}
+  -webkit-mask-composite:source-in;mask-composite:intersect}
 /* phổ hào quang (Figma: góc 0 Acid 90 · 12 % Chanh 80 · 25 % Bạc hà 75 · 37 % Lá 60 · lặp nửa sau) — Bạc hà ở giữa mép trên / dưới lúc bắt đầu;
    góc tĩnh 157,5° = góc dừng của chuỗi 3 chu kỳ (hqSpin) */
 .bm-ac{will-change:transform;-webkit-transform:rotate(157.5deg);transform:rotate(157.5deg);background:conic-gradient(from -90deg,rgba(212,255,0,.9),rgba(237,255,102,.8) 12%,rgba(79,242,176,.75) 25%,rgba(125,184,0,.6) 37%,
   rgba(212,255,0,.9) 50%,rgba(237,255,102,.8) 62%,rgba(79,242,176,.75) 75%,rgba(125,184,0,.6) 87%,rgba(212,255,0,.9))}
-/* dải sàn: hộp trùm đường kẻ trên sàn + 18 px bóng mỗi phía (HQ.G); viền nền đè đúng đường kẻ (top 18 px = mép trên viền sàn) */
-#floor>.flb{position:absolute;left:0;right:0;top:-19px;height:37px;z-index:-1;overflow:hidden;pointer-events:none}
+/* dải sàn: hộp trùm đường kẻ trên sàn + 12 px bóng mỗi phía (HQ.G); viền nền đè đúng đường kẻ (top 12 px = mép trên viền sàn) */
+#floor>.flb{position:absolute;left:0;right:0;top:-13px;height:25px;z-index:-1;overflow:hidden;pointer-events:none}
 .flb>.bm{inset:0}
-.flb .bm-b{top:18px;height:1px;background:rgba(125,184,0,.45)}                    /* Figma sàn: Lá 45 % */
+.flb .bm-b{top:12px;height:1px;background:rgba(125,184,0,.45)}                    /* Figma sàn: Lá 45 % */
 .flb .bm-cr{opacity:1}
 .bm-sd{top:0;bottom:0;overflow:hidden}
 .bm-sd.s0{-webkit-transform:scaleX(-1);transform:scaleX(-1)}                      /* phía trái lật gương: tia đi ra từ giữa thông báo */
-.flb .bm-k.c{top:17.75px;height:1.5px}                                             /* lõi 1,5 px, tâm trùng tâm đường kẻ */
+.flb .bm-k.c{top:11.75px;height:1.5px}                                             /* lõi 1,5 px, tâm trùng tâm đường kẻ */
 .flb .bm-k.g{height:100%}
 /* hồ sáng: hai lớp radial-gradient khớp bình phương tối thiểu (sai số trung bình 0,2 %) với "quầng 640 × 128 (Acid 85 · Acid giấy 45 ·
    Bạc hà 20 · 0) + lõi 300 × 56 Chanh 90, nhoè 36" của Figma — không filter; app.js đặt chỗ (tâm ở mép trên sàn, giữa thông báo) */
 .flp{width:680px;height:190px;opacity:.45;will-change:transform,opacity;
+  -webkit-clip-path:inset(0 0 50% 0);clip-path:inset(0 0 50% 0);   /* chỉ nửa trên (nửa dưới vốn khuất sau sàn) → sàn mờ đi lúc đổi nội dung không lộ hồ */
   background:radial-gradient(320px 93px at 50% 50%,rgba(255,255,108,.073),rgba(255,255,108,.015) 12%,rgba(255,255,108,.249) 25%,rgba(255,255,100,.335) 38%,rgba(247,251,57,.204) 50%,rgba(199,240,32,.101) 62%,rgba(124,241,114,.059) 75%,rgba(89,240,155,.027) 88%,rgba(79,242,176,0)),
     radial-gradient(339px 71px at 50% 50%,rgba(251,255,100,.888),rgba(235,255,94,.88) 12%,rgba(217,253,84,.764) 25%,rgba(176,240,69,.502) 38%,rgba(97,229,70,.24) 50%,rgba(74,237,138,.154) 62%,rgba(66,242,187,.083) 75%,rgba(69,243,197,.028) 88%,rgba(69,243,197,0))}
 /* trạng thái tĩnh (giảm chuyển động · hết 3 chu kỳ): không nguồn sáng; lớp không còn chạy thì thôi giữ lớp GPU riêng */

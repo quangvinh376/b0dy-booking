@@ -791,10 +791,10 @@ function sigWatch() {
    Một đồng hồ cho mọi lớp của một hào quang: mọi animation cùng startTime = b.o, mốc trong chuỗi 3 chu kỳ nằm sẵn trong keyframe →
    dừng / chạy / đổi cỡ không bao giờ lệch nhau. Chỉ chạy khi thật sự được thấy: trong khung nhìn (IntersectionObserver) · tab đang mở ·
    không cửa sổ / ngăn kéo che (#app inert). */
-var HQ = { T: 8000, N: 3, R: 4, LC: 130, LEAD: 5, LAG: 4, G: 18, AE: 14, AS: 11, AS0: 20, V: .38, LS: 150, PASS: [900, 4500], STEP: 16,
+var HQ = { T: 8000, N: 3, R: 4, LC: 130, LEAD: 5, LAG: 4, G: 12, AE: 14, AS: 11, AS0: 20, V: .38, LS: 150, PASS: [900, 4500], STEP: 16,
            ro: null, io: null, hold: false };
 /* T: chu kỳ · N: số chu kỳ · R: bo góc thẻ · LC: dài nguồn sáng thẻ · LEAD / LAG: bóng phát sáng tràn trước mũi / sau đuôi · G: dải bóng
-   mỗi phía nét · AE / AS / AS0: hào quang lề 14, σ 11 (nhoè 22), lúc bật σ 20 (nhoè 40) · V / LS / PASS: dải sàn 380 px/s, đuôi 150 px,
+   mỗi phía nét (12 px: ngoài đó bóng < 2 % — mốc cuối kéo về 0 cho không có mép; khớp .flb trong app.css) · AE / AS / AS0: hào quang lề 14, σ 11 (nhoè 22), lúc bật σ 20 (nhoè 40) · V / LS / PASS: dải sàn 380 px/s, đuôi 150 px,
    hai lượt bắt đầu ở 0,9 s và 4,5 s · STEP: lấy mẫu đường cong kẻ / xoá mỗi khung 60 Hz (nội suy thẳng giữa hai mẫu lệch < 1 px kể cả nửa sàn 1100 px) · hold: đang có cửa sổ / ngăn kéo che (beamHold) */
 /* hai nguồn sáng: 8 nấc đầu → đuôi (Figma: 8 nét chồng cùng đầu, nấc k dài k/8, độ đục riêng) · g: màu bóng phát sáng */
 var HQ_SRC = [{ c: ['#EDFF66', '#E2FF33', '#D4FF00', '#C6F500', '#B1EA00', '#98D400', '#7DB800', '#7DB800'], g: [212, 255, 0] },
@@ -859,21 +859,22 @@ function hqGlow(d) {
   for (var i = 0; i < 3; i++) v += A[i] * (hqPhi((d + .75) / S[i]) - hqPhi((d - .75) / S[i]));
   return v;
 }
-var HQ_X = [18, 15, 12, 10, 8, 6, 5, 4, 3, 2, 1.5, 1, .5, 0];   /* khoảng cách tới mép nét để lấy mẫu mặt nạ bóng */
+var HQ_X = [12, 10, 8, 6, 5, 4, 3, 2, 1.5, 1, .5, 0];   /* khoảng cách tới mép nét để lấy mẫu mặt nạ bóng */
 function hqA(v) { return 'rgba(0,0,0,' + Math.round(v * 1000) / 1000 + ')'; }
+function hqGx(bw, x) { return x >= HQ.G ? 0 : hqGlow(bw / 2 + x); }   /* mốc ngoài cùng = 0: dải bóng tắt hẳn ở mép vùng, không thành vạch */
 /* mặt nạ cắt ngang dải bóng (dọc trục vuông góc nét): nét chiếm [top, top + bw], thủng đúng chỗ nét (lõi ở lớp dưới), hai bên tắt dần G px */
 function hqProf(top, bw) {
   var out = [];
-  HQ_X.forEach(function (x) { if (x <= HQ.G) out.push(hqA(hqGlow(bw / 2 + x)) + ' ' + bmPx(top - x)); });
+  HQ_X.forEach(function (x) { if (x <= HQ.G) out.push(hqA(hqGx(bw, x)) + ' ' + bmPx(top - x)); });
   out.push('transparent ' + bmPx(top), 'transparent ' + bmPx(top + bw));
-  HQ_X.slice().reverse().forEach(function (x) { if (x <= HQ.G) out.push(hqA(hqGlow(bw / 2 + x)) + ' ' + bmPx(top + bw + x)); });
+  HQ_X.slice().reverse().forEach(function (x) { if (x <= HQ.G) out.push(hqA(hqGx(bw, x)) + ' ' + bmPx(top + bw + x)); });
   return out.join(', ');
 }
 /* mặt nạ bóng ở góc bo (theo bán kính ρ từ tâm cung): trong cung · thủng đúng vành · ngoài cung */
 function hqRad(r, bw) {
   var c = r - bw / 2, out = [0, (r - bw) / 2, r - bw].map(function (p) { return hqA(hqGlow(c - p)) + ' ' + bmPx(p); });
   out.push('transparent ' + bmPx(r - bw), 'transparent ' + bmPx(r));
-  HQ_X.slice().reverse().forEach(function (x) { if (x <= HQ.G) out.push(hqA(hqGlow(bw / 2 + x)) + ' ' + bmPx(r + x)); });
+  HQ_X.slice().reverse().forEach(function (x) { if (x <= HQ.G) out.push(hqA(hqGx(bw, x)) + ' ' + bmPx(r + x)); });
   return out.join(', ');
 }
 function hqMask(s, im, sz, ps) {
@@ -939,16 +940,20 @@ function hqSpin() {
           { offset: 1, easing: 'linear', transform: 'rotate(' + hqR(w * t1 + w * dc / 2) + 'deg)' }];
 }
 /* cửa sổ nguồn sáng trượt dọc một vùng cạnh e (chu vi P, đầu nguồn sáng xuất phát ở s0): mỗi vòng vào từ trước đầu vùng, ra hết rồi mới
-   nhảy về (P > dài vùng + cửa sổ) · Lw: dài cửa sổ · Lh: phần trước mũi */
+   nhảy về (P > dài vùng + cửa sổ) · Lw: dài cửa sổ · Lh: phần trước mũi. Pha f của vùng nằm sẵn TRONG keyframe (đứng ở x0 lúc 0, chạm
+   cuối lúc (1 − f)·T thì nhảy về đầu): mọi animation cùng một timing — KHÔNG dùng iterationStart / iterations (WebKit cũ bỏ qua
+   iterationStart khi chạy trên compositor → mọi cạnh cùng pha 0, hai nguồn sáng chồng nhau) */
 function hqLap(key, el, e, Lw, Lh, s0, P) {
-  var ax = e.hz ? 'translateX(' : 'translateY(';
-  return { k: key, el: el, kf: [{ transform: ax + bmPx(-Lw) + ')' }, { transform: ax + bmPx(P - Lw) + ')' }],
-           t: { duration: HQ.T, iterations: HQ.N, iterationStart: hqR(bmMod(s0 - e.sa + Lh, P) / P) % 1, fill: 'both', easing: 'linear' } };
+  var ax = e.hz ? 'translateX(' : 'translateY(', f = bmMod(s0 - e.sa + Lh, P) / P, x0 = -Lw + f * P, tj = (1 - f) * HQ.T;
+  var x = function (u) { return { transform: ax + bmPx(u) + ')' }; };
+  return { k: key, el: el, kf: hqSeq(function () { return [[0, x(x0)], [tj, x(P - Lw)], [tj, x(-Lw)], [HQ.T, x(x0)]]; }), t: hqAll() };
 }
 
 /* ---- dựng lớp ---- */
 /* thẻ: .bm (mặt thẻ Giấy 2, cắt góc bo một lần) = 6 đoạn viền nền · nắp viền nền · lõi nguồn sáng (4 vùng cạnh × 2 cửa sổ) · mặt thẻ ·
-   lớp rê chuột │ .bmx (trên mặt thẻ, dưới chữ, tràn ra ngoài) = bóng phát sáng (4 vùng × 2 cửa sổ) │ .bma (dưới thẻ) = hào quang */
+   lớp rê chuột │ .bmx (trên mặt thẻ, dưới chữ, tràn ra ngoài) = bóng phát sáng (4 vùng × 2 cửa sổ) │ .bma (dưới thẻ) = hào quang:
+   .bm-as mang CẢ hai mặt nạ Gauss (giao nhau) + opacity + co giãn → MỘT lớp vẽ ngoài màn hình cho cả vùng hào quang (lồng 3 lớp tốn gấp
+   ba), phổ .bm-ac xoay bên trong */
 function hqCardDom(b) {
   var bm = bmEl('div', 'hq bm'), bx = bmEl('div', 'hq bmx'), ba = bmEl('div', 'hq bma'), two = function (x) { return [bmEl('i', 'bm-k', x), bmEl('i', 'bm-k', x)]; };
   b.base = [0, 1, 2, 3, 4, 5].map(function (i) { return bmEl('i', 'bm-b', bm); });
@@ -958,7 +963,7 @@ function hqCardDom(b) {
   b.sf = bmEl('i', 'bm-sf', bm); bmEl('i', 'bm-hv', bm);
   b.gw = bmEl('i', 'bm-gw', bx);
   b.ge = [0, 1, 2, 3].map(function (i) { var x = bmEl('i', 'bm-g e' + i, b.gw); return { x: x, w: two(x) }; });
-  b.ba = ba; b.as = bmEl('i', 'bm-as', ba); b.ac = bmEl('i', 'bm-ac', bmEl('i', 'bm-av', b.as));
+  b.ba = ba; b.as = bmEl('i', 'bm-as', ba); b.ac = bmEl('i', 'bm-ac', b.as);
   b.lay = [bm, bx, ba];
   b.host.insertBefore(ba, b.host.firstChild); b.host.insertBefore(bx, ba); b.host.insertBefore(bm, bx);
 }
@@ -978,11 +983,11 @@ function beamMount(host, o) {
   $$(':scope > .hq', host).forEach(function (x) { x.remove(); });
   var strip = host.getAttribute('data-beam') === 'strip', still = rm() || !BM_CAN;
   var b = host._bm = { host: host, strip: strip, still: still, done: !!(o && o.done), e: o && !o.done ? Math.max(0, o.e || 0) : 0, o: 0, run: false,
-                       vis: o ? !!o.v : !HQ.io, w: 0, h: 0, an: {}, anims: [], lay: [] };
+                       vis: o ? !!o.v : !HQ.io, w: 0, h: 0, an: {}, anims: [], lay: [], t: hqSig(host) };
   if (strip) hqStripDom(b); else hqCardDom(b);
   b.lay.forEach(function (l) { l.setAttribute('aria-hidden', 'true'); l.classList.add('wait'); if (still || b.done) l.classList.add('still'); });
   beamFit(host, true);
-  if (HQ.ro) HQ.ro.observe(host);
+  if (HQ.ro) HQ.ro.observe(host, { box: 'border-box' });       /* hình học đo theo border-box (box-sizing) */
   if (HQ.io) HQ.io.observe(host);
 }
 /* đo theo cỡ phần tử (lần đầu · khi đổi cỡ · chữ thông báo sàn đổi cỡ): hình học + keyframe; đồng hồ (startTime / currentTime) giữ nguyên */
@@ -1039,7 +1044,7 @@ function hqFitCard(b, W, H) {
   /* hào quang: bật = nhoè 40 → 22 dựng bằng co lại từ cỡ có cùng đường viền 5 % của nhoè 40 · thở · xoay */
   var k5 = 1.645, sx = (W / 2 + HQ.AE + k5 * HQ.AS0) / (W / 2 + HQ.AE + k5 * HQ.AS), sy = (H / 2 + HQ.AE + k5 * HQ.AS0) / (H / 2 + HQ.AE + k5 * HQ.AS);
   var a0 = hqSc(sx, sy), a1 = hqSc(1, 1);
-  specs.unshift({ k: 'ao', el: b.ba, kf: hqSeq(hqAura), t: hqAll() });                 /* đứng đầu: animation mốc kết chuỗi (onfinish) */
+  specs.unshift({ k: 'ao', el: b.as, kf: hqSeq(hqAura), t: hqAll() });                 /* đứng đầu: animation mốc kết chuỗi (onfinish) */
   specs.push({ k: 'as', el: b.as, kf: hqSeq(function (last) { return [[0, a0], [350, a0, 'ease-out'], [1500, a1]].concat(last ? [[HQ.T, a1]] : [[7100, a1, 'ease-in'], [7850, a0], [HQ.T, a0]]); }), t: hqAll() },
              { k: 'ar', el: b.ac, kf: hqSpin(), t: hqAll() },
              { k: 'co', el: b.cr, kf: hqSeq(hqFade), t: hqAll() }, { k: 'go', el: b.gw, kf: hqSeq(hqFade), t: hqAll() });
@@ -1142,6 +1147,8 @@ function hqKill(h, soft) {
   h._bm = null;
 }
 /* "chỗ" của một hào quang: phần tử có id gần nhất bên trên + kiểu (vd "prLine|card" · "mNote|card" · "floor|strip") */
+/* "chữ" để biết thông báo có đổi không: thẻ = chữ của chính thẻ · dải sàn (không chữ) = chữ thông báo trên sàn */
+function hqSig(h) { if (h.getAttribute('data-beam') !== 'strip') return h.textContent; var n = h.parentElement && h.parentElement.querySelector('.nt'); return n ? n.textContent : ''; }
 function bmSlot(h, up) { var c = h.parentElement ? h.parentElement.closest('[id]') : up && up.closest ? up.closest('[id]') : null; return (c ? c.id : '') + '|' + h.getAttribute('data-beam'); }
 function beamScan(root, warm) {
   if (root.nodeType !== 1 || !root.isConnected) return;
@@ -1149,7 +1156,7 @@ function beamScan(root, warm) {
     var o = warm ? warm[bmSlot(h)] : null;
     /* vẽ lại đúng chỗ một hào quang (tin live, đổi trạng thái): chạy tiếp từ đúng mốc (.bm-now); chữ đổi → chữ mờ vào nhẹ (.swap), và nếu
        hào quang cũ đã đứng yên (hết 3 chu kỳ) thì đây là thông báo mới → bật lại từ đầu */
-    if (o && o.t !== h.textContent) { h.classList.add('swap'); if (o.done) o = null; }
+    if (o && o.t !== hqSig(h)) { h.classList.add('swap'); if (o.done) o = null; }
     if (o) h.classList.add('bm-now');
     try { beamMount(h, o); } catch (e) { /* hào quang là trang trí: lỗi của nó không bao giờ được chặn trang */ }
   });
@@ -1160,7 +1167,7 @@ function bmGone(n, from, warm, gone) {
   (n.hasAttribute('data-beam') ? [n] : []).concat($$('[data-beam]', n)).forEach(function (h) {
     var b = h._bm; if (!b) return;
     gone.push(h);
-    if (!b.still) warm[bmSlot(h, from)] = { t: h.textContent, e: hqElapsed(b), done: b.done, v: b.vis };
+    if (!b.still) warm[bmSlot(h, from)] = { t: b.strip ? b.t : h.textContent, e: hqElapsed(b), done: b.done, v: b.vis };   /* dải đã tách khỏi sàn: dùng chữ lưu lúc dựng */
   });
 }
 /* đổi chế độ giảm chuyển động khi đang mở trang → dựng lại mọi hào quang */
@@ -3293,7 +3300,7 @@ function scrimOn(on) {
 function appInert() {
   var sh = $('#sheet'), d = $('#drawer');
   $('#app').inert = !!((!sh.hidden && sh.classList.contains('on')) || (!d.hidden && d.classList.contains('on')));
-  beamHold($('#app').inert);
+  try { beamHold($('#app').inert); } catch (e) { /* hào quang là trang trí: không bao giờ chặn mở / đóng cửa sổ */ }
 }
 function openDrawer() {
   if (!desk()) { openSheet({ info: true }); return; }
@@ -3638,7 +3645,7 @@ function boot() {
     if (S.view === 'book') updateBook(); else if (S.view === 'change') updateChange();
   }, 30000);
   setInterval(sigWatch, 80);
-  beamInit();
+  try { beamInit(); } catch (e) { /* hào quang là trang trí: lỗi của nó không chặn khởi động trang */ }
   window.addEventListener('resize', function () { tkFit(); nowLine(); if (S.view === 'ticket') tkPaper(); mbarSize(); });
   if (window.ResizeObserver) new ResizeObserver(mbarSize).observe($('#mbar'));
   MQ_DESK.addEventListener && MQ_DESK.addEventListener('change', function () { if (S.view === 'ticket') { tkFit(); tkPaper(); } bobSlot(S.page); });
