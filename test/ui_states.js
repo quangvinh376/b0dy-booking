@@ -246,16 +246,18 @@ async function E11() {
   }
 }
 async function E08() {
-  console.log('\n== E08 · đặt muộn (T3 09:59) ==');
+  console.log('\n== E08 · đặt muộn (T3 08:01 · báo trước 12 giờ) ==');
   for (const [k, o] of [['d', DESK], ['m', MOB]]) {
-    const t = backend(vn('2026-10-20', '09:59'));
+    const t = backend(vn('2026-10-20', '08:01'));
     const page = await open(t, o, 'E08' + k);
     await login(page, 'duc nam', '0001', k === 'd');
     await page.waitForSelector('.pg-book');
     await sleep(500);
-    const lock = await page.getAttribute('#wkb .c[data-d="2026-10-21"][data-h="9"]', 'aria-disabled');
-    const can = await page.getAttribute('#wkb .c[data-d="2026-10-21"][data-h="10"]', 'aria-disabled');
-    ok('E08 ' + k + ': T4 09:00 (23 giờ 01) khoá · T4 10:00 (24 giờ 01) chọn được', lock === 'true' && can === null, [lock, can]);
+    const lock = await page.getAttribute('#wkb .c[data-d="2026-10-20"][data-h="20"]', 'aria-disabled');
+    const can = await page.getAttribute('#wkb .c[data-d="2026-10-21"][data-h="6"]', 'aria-disabled');
+    ok('E08 ' + k + ': T3 20:00 (11 giờ 59) khoá · T4 06:00 (21 giờ 59 — luật cũ 24 giờ khoá) chọn được', lock === 'true' && can === null, [lock, can]);
+    const lbl = await page.textContent('#wkb .c[data-d="2026-10-20"][data-h="9"]');
+    ok('E08 ' + k + ': ô khoá đầu tiên của T3 ghi "Dưới 12 giờ"', /Dưới 12 giờ/.test(lbl), lbl);
     const n = k === 'd' ? await page.textContent('#floor .nt-t') : await page.textContent('.mnt-t');
     ok('E08 ' + k + ': thông báo đặt muộn', /Đặt muộn/.test(n), n);
     const sig = await page.textContent(k === 'd' ? '#sigD' : '#sigM');

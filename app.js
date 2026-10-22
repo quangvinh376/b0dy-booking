@@ -9,7 +9,7 @@
 'use strict';
 
 /* ============================== CẤU HÌNH ============================== */
-var VER = '1.5.2';
+var VER = '1.6.0';
 var API_URL = 'https://b0dy-booking-api.little-bonus-1d87.workers.dev/';
 var API_SLOW = false;                 /* true khi chạy Apps Script (chậm hơn nhiều) → nới thời gian chờ */
 /* kênh live: Worker chỉ nhận từ trang thật (ALLOW_ORIGINS) → trang chạy chỗ khác (test trên máy) không nối, khỏi gõ cửa máy chủ thật.
@@ -23,10 +23,13 @@ var T_READ = API_SLOW ? 30000 : 9000, T_WRITE = API_SLOW ? 50000 : 25000;
 var SLOTS = [6, 7, 8, 9, 10, 11, 14, 15, 16, 17, 18, 19, 20];
 var DOW = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
 var DOWF = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
-var OFF = 7 * 3600e3, HR = 3600e3, DAY = 864e5, LEAD = 24 * HR;
+var OFF = 7 * 3600e3, HR = 3600e3, DAY = 864e5;
+/* báo trước (như máy chủ LT.LEAD / LT.CHG_LEAD, chủ studio chốt 22/10, khớp hợp đồng): đặt muộn · thêm buổi · khung mới khi đổi · mời ≥ 12 giờ;
+   buổi đang có muốn đổi ≥ 24 giờ */
+var LEAD = 12 * HR, CHG_LEAD = 24 * HR;
 var RULES = ['Mỗi tuần đặt 2–4 buổi, mỗi ngày tối đa 1 buổi.', 'Mỗi khung giờ, coach dạy một suất: 1 khách 1:1, hoặc 2 khách gói 1:2 của coach đó.', 'Lịch đã đặt không thể huỷ.',
   'Đổi lịch tối đa 2 lần mỗi tuần, trước buổi tập 24 giờ.', 'Chỉ đổi sang ngày khác trong cùng tuần.',
-  'Không đến vẫn tính 1 buổi.', 'Lịch tuần sau mở lúc 06:00 Chủ Nhật.'];
+  'Không đến vẫn tính 1 buổi.', 'Lịch tuần sau mở lúc 06:00 Chủ Nhật.', 'Đặt hoặc thêm buổi trong tuần: trước buổi tập ít nhất 12 giờ.'];
 
 /* ============================== TIỆN ÍCH ============================== */
 function $(s, r) { return (r || document).querySelector(s); }
@@ -94,10 +97,16 @@ function weekCtx(ms) {
   var w = isoWeek(mon), nw = isoWeek(isoOf(next + DAY));
   return { key: w.year + '-W' + pad2(w.week), no: w.week, mon: mon, days: days, phase: phase, lead: ms >= dayMs(mon), nextOpen: next, nextNo: nw.week, closed: {} };
 }
-function anyOpen(week, ms) {
+/* còn khung nào trong hạn tuần này (bỏ qua chỗ trống) — như máy chủ C.anyOpen. off(ngày, giờ): coach của hội viên không nhận khách ở
+   khung đó (đã đăng nhập: st.coachAt 'off'). Không có off → xét như coach chưa có lưới (T2–T7) — tuần tự dựng trên máy chỉ có T2–T7 */
+function anyOpen(week, ms, off) {
   for (var i = 0; i < week.days.length; i++) {
-    if (week.closed && week.closed[week.days[i]] !== undefined) continue;
-    for (var j = 0; j < SLOTS.length; j++) { var t = slotMs(week.days[i], SLOTS[j]); if (t > ms && (!week.lead || t - ms >= LEAD)) return true; }
+    var d = week.days[i];
+    if (week.closed && week.closed[d] !== undefined) continue;
+    for (var j = 0; j < SLOTS.length; j++) {
+      var h = SLOTS[j], t = slotMs(d, h);
+      if (t > ms && (!week.lead || t - ms >= LEAD) && !(off ? off(d, h) : dowOf(d) === 0)) return true;
+    }
   }
   return false;
 }
@@ -1250,7 +1259,7 @@ VIEWS.closed = function () {
   var st = S.st, w = st ? st.week : S.pub ? S.pub.week : weekCtx(now());
   var target = w.nextOpen, p = parts(target), sunTxt = 'Chủ Nhật ' + pad2(p.d) + '.' + pad2(p.m);
   var reason = '';
-  if (st && st.mode === 'closed' && w.phase !== 'before' && anyOpen(w, now())) reason = closedReason(st);
+  if (st && st.mode === 'closed' && w.phase !== 'before' && anyOpen(w, now(), function (d, h) { return coachAt(d, h) === 'off'; })) reason = closedReason(st);
   var title = reason ? reason.title : 'Chưa tới giờ đặt.';
   var subD = reason ? reason.body : 'Lịch tuần sau mở lúc 06:00 · ' + sunTxt + '.', subM = reason ? reason.body : 'Mở lúc 06:00 · ' + sunTxt + '.';
   /* nút nhắc: desktop nằm dưới đồng hồ (L56), mobile nằm ở thanh đáy rộng hết màn (M48) — Figma E01 */
@@ -1663,7 +1672,7 @@ function why(iso, h, lead) {
   if (st.duo && st.duo.duoHours.indexOf(h) < 0) return 'gio_ghep';          /* gói 1:2: chỉ các khung ghép (máy chủ cũ không gửi duo → như trước) */
   var t = slotMs(iso, h), n = now();
   if (t <= n) return 'qua';
-  if (lead && t - n < lead) return 'duoi_24h';
+  if (lead && t - n < lead) return 'duoi_12h';
   var k = iso + '|' + h, co = coachAt(iso, h);
   if (co === 'join') return '';                            /* vào cặp 1:2 có sẵn của coach: không thêm suất */
   if ((st.taken[k] || 0) >= st.cap) return 'day';
@@ -1749,7 +1758,7 @@ function cellModel(mode) {
   var pickBy = {}; S.picks.forEach(function (p) { pickBy[p.date] = p.h; });
   var goneBy = {}; S.gone.forEach(function (g) { goneBy[g.date + '|' + g.h] = 1; });
   var runLbl = {}, dayRun = {}, runDay = {};
-  var LBL = { duoi_24h: 'Dưới 24 giờ', het_han: 'Hết hạn', chua_bat_dau: 'Chưa bắt đầu', coach_nghi: 'Coach nghỉ' };
+  var LBL = { duoi_12h: 'Dưới 12 giờ', het_han: 'Hết hạn', chua_bat_dau: 'Chưa bắt đầu', coach_nghi: 'Coach nghỉ' };
   /* đổi lịch: 'full' còn lượt · 'pair' hết lượt nhưng gói 1:2 còn dời được buổi đang lẻ vào cặp (không tính lượt) · 'none' */
   var cm = mode === 'chg' ? chgMode() : 'full', noChg = cm === 'none', pairOnly = cm === 'pair';
   var from = S.chg.from, to = S.chg.to;
@@ -1768,7 +1777,7 @@ function cellModel(mode) {
           else if (mode === 'add') { m.cls = 'mine'; m.html = mineHTML(h, pn); m.aria = label + 'đã đặt' + (pn ? ', tập đôi cùng ' + pn : ''); }
           else if (from && from.date === d && from.h === h) { m.cls = 'moving'; m.html = '<span>' + hm(h) + '</span>'; m.can = true; m.aria = label + 'buổi đang đổi, bấm để bỏ chọn'; }
           else if (noChg || (pairOnly && !single)) { m.cls = 'mine'; m.html = '<span class="d">Không thể đổi</span><span class="m">' + pad2(h) + '</span>'; m.aria = label + 'buổi của bạn, không thể đổi'; }
-          else if (slotMs(d, h) - now() < LEAD) { m.cls = 'mine'; m.html = ico('lock') + '<span class="d">Dưới 24 giờ</span>'; m.aria = label + 'buổi của bạn, dưới 24 giờ nên không đổi được'; }
+          else if (slotMs(d, h) - now() < CHG_LEAD) { m.cls = 'mine'; m.html = ico('lock') + '<span class="d">Dưới 24 giờ</span>'; m.aria = label + 'buổi của bạn, dưới 24 giờ nên không đổi được'; }
           else { m.cls = 'mine tm'; m.html = mineHTML(h, pn); m.can = true; m.aria = label + 'buổi của bạn' + (pn ? ', tập đôi cùng ' + pn : '') + ', bấm để ' + (pairOnly ? 'dời vào cặp' : 'đổi'); }
         } else if (mode === 'chg' && to && to.date === d && to.h === h) {
           m.cls = 'sel pop0'; m.html = selHTML(at); m.can = true; m.aria = label + 'buổi mới, bấm để bỏ chọn';
@@ -1807,7 +1816,7 @@ function cellModel(mode) {
         m.aria = label + (wy === 'nghi' ? 'phòng nghỉ' : wy === 'gio_ghep' ? 'ngoài khung ghép của gói 1:2' : String(txt || 'không chọn được').toLowerCase());
         if (txt) {
           /* phòng nghỉ / coach nghỉ: nhãn ở đầu mỗi đoạn trong ngày · hết hạn / chưa bắt đầu: một nhãn cho cả khối nhiều ngày */
-          var multi = wy !== 'duoi_24h', perDay = wy === 'nghi' || wy === 'coach_nghi';
+          var multi = wy !== 'duoi_12h', perDay = wy === 'nghi' || wy === 'coach_nghi';
           var first = prevWhy !== wy && (!multi || perDay || !dayRun[wy] || dayRun[wy] !== di - 1);
           if (first && !(multi && runLbl[wy] && !perDay)) { m.html = '<span class="d">' + esc(txt) + '</span>'; if (multi) { runLbl[wy] = true; runDay[wy] = di; } }
           /* khối khoá nhiều ngày (hết hạn / chưa bắt đầu): nghỉ trưa cắt khối làm hai → ghi nhãn lại ở hàng chiều đầu tiên của cột đầu (như Figma E06) */
@@ -2011,7 +2020,7 @@ function bookNotice() {
     var first = null;
     for (var i = 0; i < w.days.length && !first; i++) for (var j = 0; j < SLOTS.length; j++) if (!why(w.days[i], SLOTS[j], LEAD)) { first = { date: w.days[i], h: SLOTS[j] }; break; }
     var fd = freeDays(LEAD).length;
-    if (first) return { tone: 'info', title: 'Đặt muộn: khung cách bây giờ ít nhất 24 giờ.', body: 'Sớm nhất ' + dFull(first.date) + ' · ' + hm(first.h) + '. Còn ' + fd + ' ngày đặt được, mỗi ngày tối đa 1 buổi.',
+    if (first) return { tone: 'info', title: 'Đặt muộn: khung cách bây giờ ít nhất 12 giờ.', body: 'Sớm nhất ' + dFull(first.date) + ' · ' + hm(first.h) + '. Còn ' + fd + ' ngày đặt được, mỗi ngày tối đa 1 buổi.',
                         mtitle: 'Đặt muộn · sớm nhất ' + dShort(first.date).split(' ')[0] + ' ' + hm(first.h) + '.' };
   }
   if (duoSt()) return { tone: 'info', title: 'Gói 1:2 · tập theo khung ghép.', body: 'Đặt ở ' + hoursTxt() + '. Ô có tên là bạn cùng coach đang chờ: chọn ô đó để tập đôi.',
@@ -2084,7 +2093,7 @@ function legendHTML(kind) {
   };
   var duo = !!duoSt();
   /* ô gạch X = Đầy (phòng đầy hay coach bận, không nói lý do) · ô xám = không chọn được: bảng có ô xám nào (ngày nghỉ, gói chưa bắt
-     đầu / hết hạn, dưới 24 giờ, coach nghỉ một phần ngày — khối "COACH NGHỈ" trọn ngày tự ghi chữ) thì luôn có mục xám (chủ studio 19/10).
+     đầu / hết hạn, dưới 12 giờ, coach nghỉ một phần ngày — khối "COACH NGHỈ" trọn ngày tự ghi chữ) thì luôn có mục xám (chủ studio 19/10).
      Gói 1:2: thêm ô "Ghép" (bạn cùng coach đang chờ) */
   var lock = lockCells();
   var sets = {
@@ -2298,7 +2307,8 @@ function whyText(w, d, h) {
     it_hon_toi_thieu: ['Chưa đủ số buổi tối thiểu.', 'Chọn thêm buổi rồi gửi lại.'],
     mot_ngay_mot_buoi: ['Mỗi ngày tối đa 1 buổi.', 'Chọn ngày khác cho buổi còn lại.'],
     qua: [at + ' đã qua.', 'Chọn khung khác trên bảng.'],
-    duoi_24h: [at + ' chỉ còn dưới 24 giờ.', 'Đặt muộn phải trước buổi tập ít nhất 24 giờ.'],
+    duoi_12h: [at + ' chỉ còn dưới 12 giờ.', 'Đặt lịch phải trước buổi tập ít nhất 12 giờ.'],
+    duoi_24h: [at + ' chỉ còn dưới 24 giờ.', 'Đặt muộn phải trước buổi tập ít nhất 24 giờ.'],     /* máy chủ dự phòng Apps Script V36 còn luật cũ */
     nghi: [at + ' phòng nghỉ.', 'Chọn ngày khác trong tuần.'],
     het_han: ['Gói không dùng được ngày ' + (d ? ddmm(d) : 'đó') + '.', 'Gói của bạn hết hạn trước ngày này.'],
     chua_bat_dau: ['Gói chưa bắt đầu vào ngày ' + (d ? ddmm(d) : 'đó') + '.', 'Chọn ngày từ khi gói bắt đầu.'],
@@ -2369,7 +2379,7 @@ VIEWS.change = function () {
   return { page: page, mbar: mb, mood: no ? 'doubt' : 'observe', step: 1, flow: 'chg', back: true,
            floorAfter: function () { updateChange(true); }, mbarAfter: function () { updateChange(true); }, after: function () { updateChange(true); } };
 };
-/* buổi f dời được tới khung t không: khung còn chỗ ≥ 24 giờ, ngày đó chưa có buổi khác; trong cùng ngày chỉ khi vào cặp (Ghép);
+/* buổi f dời được tới khung t không: khung còn chỗ ≥ 12 giờ, ngày đó chưa có buổi khác; trong cùng ngày chỉ khi vào cặp (Ghép);
    hết lượt đổi (gói 1:2) thì chỉ vào cặp */
 function toOk(f, t) {
   if (!f || !t || sameSlot(f, t) || why(t.date, t.h, LEAD)) return false;
@@ -2378,7 +2388,7 @@ function toOk(f, t) {
   if (t.date !== f.date && sessOn(t.date)) return false;
   return S.st.mine.changesLeft > 0 || pm;
 }
-function changeable() { return upcoming().filter(function (s) { return slotMs(s.date, s.h) - now() >= LEAD; }); }
+function changeable() { return upcoming().filter(function (s) { return slotMs(s.date, s.h) - now() >= CHG_LEAD; }); }
 function trailOf(s) {
   var mv = (S.st.mine.moves || []), chain = [{ date: s.date, h: s.h }], guard = 0, cur = { date: s.date, h: s.h };
   for (var i = mv.length - 1; i >= 0 && guard < 6; i--) {
@@ -2499,6 +2509,7 @@ function chgError(r) {
     S.chg.to = null;
   } else {
     var M = { buoi_duoi_24h: ['Buổi này đã dưới 24 giờ.', 'Đổi lịch phải trước buổi tập 24 giờ.'],
+              duoi_12h: ['Khung mới chỉ còn dưới 12 giờ.', 'Khung mới phải cách giờ tập ít nhất 12 giờ. Chọn ô khác trên bảng.'],
               cung_ngay: duoSt() ? ['Trong ngày chỉ dời được vào cặp đang chờ.', 'Chọn ô Ghép trong ngày, hoặc một ô ở ngày khác.'] : ['Chỉ đổi sang ngày khác.', 'Chọn một ô ở ngày khác trong tuần.'],
               khong_co_buoi: ['Buổi này không còn trong phiếu.', 'Bảng vừa được cập nhật. Chọn lại buổi cần đổi.'], mot_ngay_mot_buoi: ['Ngày đó đã có buổi.', 'Mỗi ngày tối đa 1 buổi.'] };
     var x = M[r.why] || [whyText(r.why).title, whyText(r.why).body];
@@ -3214,7 +3225,7 @@ function duoErr(r) {
   if (e === 'he_thong_ban' || e === 'loi_he_thong') return 'Hệ thống đang bận. Thử lại sau vài giây.';
   if (e === 'unknown_action') return 'Máy chủ chưa nhận lời mời. Thử lại sau.';
   if (w === 'nguoi_moi') return 'Không mời được người này.';
-  if (w === 'duoi_24h' || w === 'qua') return 'Buổi này đã quá gần giờ tập.';
+  if (w === 'duoi_12h' || w === 'duoi_24h' || w === 'qua') return 'Buổi này đã quá gần giờ tập.';
   if (w === 'khong_co_buoi') return 'Buổi này không còn trong phiếu.';
   return 'Chưa gửi được. Thử lại.';
 }
@@ -3284,14 +3295,14 @@ function acceptInvite(d, h) {
     return;
   }
   if (same) {
-    var free = same.st === 'on' && slotMs(same.date, same.h) - now() >= LEAD;
+    var free = same.st === 'on' && slotMs(same.date, same.h) - now() >= CHG_LEAD;
     if (free && toOk(same, slot)) { S.chg = { from: { date: same.date, h: same.h }, to: slot, keep: true }; S.notice = null; go('change', 'fwd', { push: true }); return; }
     toast(pairName(same.date, same.h) ? day + ' bạn đã tập đôi lúc ' + hm(same.h) + ' · mỗi ngày tối đa 1 buổi.'
       : same.st === 'on' && !free ? 'Buổi ' + day + ' ' + hm(same.h) + ' đã dưới 24 giờ nên không dời được.'
       : day + ' bạn đã có buổi ' + hm(same.h) + ' · mỗi ngày tối đa 1 buổi.');
     return;
   }
-  if (why(d, slot.h, LEAD)) { toast(at + ' còn dưới 24 giờ · đổi lịch phải trước 24 giờ.'); return; }
+  if (why(d, slot.h, LEAD)) { toast(at + ' còn dưới 12 giờ nên không dời sang được.'); return; }
   var c = changeable().filter(function (f) { return toOk(f, slot); });
   if (!c.length) { toast(st.mine.changesLeft > 0 ? 'Không còn buổi nào dời được sang ' + at + '.' : 'Hết lượt đổi tuần này · chỉ dời được buổi đang chờ bạn tập vào cặp.'); return; }
   S.chg = { from: c.length === 1 ? { date: c[0].date, h: c[0].h } : null, to: slot, keep: true }; S.notice = null;

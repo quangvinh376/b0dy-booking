@@ -4,7 +4,7 @@ Trang đặt lịch cho hội viên B0DY Studio: https://booking.b0dy.studio (Gi
 
 Hội viên tìm tên (gõ tới đâu ra tới đó: vài chữ của tên đệm / tên gọi, có dấu hay không dấu đều được; gõ riêng họ không ra ai vì trang chỉ hiện chữ cái đầu của họ)
 → xác minh 4 số cuối điện thoại (nhớ máy 60 ngày) →
-chọn 2–4 buổi trên bảng tuần (T2–CN) → nhận phiếu. Trong tuần: thêm buổi, đổi buổi (tối đa 2 lần, trước 24 giờ). Mở đặt 06:00 Chủ Nhật.
+chọn 2–4 buổi trên bảng tuần (T2–CN) → nhận phiếu. Trong tuần: đặt muộn / thêm buổi trước giờ tập ít nhất 12 giờ; đổi buổi tối đa 2 lần, buổi đang có còn ít nhất 24 giờ, khung mới ít nhất 12 giờ. Mở đặt 06:00 Chủ Nhật.
 Bảng cập nhật live (1.2.0): ai đó đặt / đổi / mời xong thì mọi trang đang mở hỏi lại trong khoảng 1 giây (ô mình đang chọn vừa
 bị lấy → báo ngay, trước khi bấm Đặt lịch); B0B nhìn quanh khi có thêm người mở trang, dưới chân ghi "N người đang xem" (ẩn danh).
 Giờ / ngày coach nhận khách: tab `Lịch coach` (file Lịch tập tuần, ô tick từng giờ × 7 ngày) — ô ngoài lịch hiện xám "Coach nghỉ",

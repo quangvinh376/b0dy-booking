@@ -26,7 +26,7 @@ const cfgName = Object.keys(fx).find(k => C.isCfgTab(k));
 
 const NOW = Number(process.env.SIM_NOW || Date.now());
 const ctx = C.weekCtx(NOW);
-if (ctx.lead) console.warn('⚠ tuần đích đã bắt đầu (luật 24 giờ) — nên chạy với SIM_NOW sau 06:00 CN trước tuần đích');
+if (ctx.lead) console.warn('⚠ tuần đích đã bắt đầu (luật báo trước 12 giờ) — nên chạy với SIM_NOW sau 06:00 CN trước tuần đích');
 const TODAY = ctx.today, SRC_MON = C.addDays(ctx.mon, -7), SRC_SUN = C.addDays(ctx.mon, -1);
 
 /* ---------- hội viên: đúng memberRows → persons(today) của máy chủ ---------- */

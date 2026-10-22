@@ -19,7 +19,8 @@ var LT = {
   SLOTS: [6, 7, 8, 9, 10, 11, 14, 15, 16, 17, 18, 19, 20], // 12:00–14:00 coach nghỉ trưa
   NDAYS: 7,                                          // T2..CN · ngày / giờ nhận khách của từng coach: tab "Lịch coach" (SCHED)
   OPEN_H: 6,                                         // lịch tuần sau mở lúc 06:00 Chủ Nhật
-  LEAD: 24 * 3600e3,                                 // đặt muộn và đổi lịch: khung cách hiện tại ≥ 24 giờ
+  LEAD: 12 * 3600e3,                                 // đặt muộn / thêm buổi / khung mới khi đổi lịch / mời: cách hiện tại ≥ 12 giờ
+  CHG_LEAD: 24 * 3600e3,                             // đổi lịch: buổi đang có phải cách hiện tại ≥ 24 giờ (chủ studio chốt 22/10, khớp hợp đồng)
   MIN: 2, MAX: 4, CHANGES: 2,
   CAP: 4,                                            // dự phòng khi ⚙️ 2 không có "Sức chứa tối đa / khung"
   REMEMBER: 60 * 864e5, SESSION: 12 * 3600e3,        // nhớ máy 60 ngày · không nhớ thì 12 giờ
@@ -75,7 +76,7 @@ function ltWeekKey_(monIso) { var w = ltIsoWeek_(monIso); return w.year + '-W' +
 /**
  * Tuần đang nhận đặt:
  *  · Chủ Nhật từ 06:00 → tuần sau (phase 'open', đặt khung nào cũng được, không cần báo trước).
- *  · T2–T7 → tuần này (phase 'late', khung phải cách hiện tại ≥ 24 giờ).
+ *  · T2–T7 → tuần này (phase 'late', khung phải cách hiện tại ≥ 12 giờ).
  *  · Chủ Nhật trước 06:00 → tuần vừa qua (phase 'before', mọi khung đã qua → hiện đếm ngược tới 06:00).
  */
 function ltWeekCtx_(now) {
@@ -621,7 +622,7 @@ function ltWhy_(ctx, person, env, iso, h, lead) {
   if (ltIsDuo_(person.kind) && LT.DUO_HOURS.indexOf(h) < 0) return 'gio_ghep';     /* gói 1:2: chỉ các khung ghép cố định */
   var t = ltSlotMs_(iso, h);
   if (t <= ctx.now) return 'qua';
-  if (lead && t - ctx.now < lead) return 'duoi_24h';
+  if (lead && t - ctx.now < lead) return 'duoi_12h';
   var k = iso + '|' + h, co = ltCoachAt_(env, person, k);
   if (co === 'join') return '';                            /* vào cặp 1:2 có sẵn của coach: không thêm suất nên phòng đầy vẫn vào được */
   if ((env.taken[k] || 0) >= env.cap) return 'day';
@@ -671,7 +672,7 @@ function ltCheckBook_(ctx, person, env, mine, picks) {
   return { ok: true };
 }
 /**
- * Kiểm tra đổi buổi: từ buổi `from` sang khung `to` (ngày khác, cùng tuần, cả hai cách hiện tại ≥ 24 giờ).
+ * Kiểm tra đổi buổi: từ buổi `from` (cách hiện tại ≥ 24 giờ) sang khung `to` (ngày khác, cùng tuần, cách hiện tại ≥ 12 giờ như đặt lịch).
  * Gói 1:2: dời một buổi đang lẻ vào cặp đang chờ (ltPairMove_) không tính lượt đổi — còn làm được khi đã hết lượt, và được dời
  * trong cùng ngày. Trả {ok, cur, pair} — pair: ghi "Ghép" thay "Đổi".
  */
@@ -684,7 +685,7 @@ function ltCheckChange_(ctx, person, env, mine, from, to) {
   if (!cur) return { error: 'khong_hop_le', why: 'khong_co_buoi' };
   var pair = duo && ltPairMove_(env, person, cur, to);
   if (!pair && mine.changes >= LT.CHANGES) return { error: 'het_luot_doi' };
-  if (ltSlotMs_(cur.date, cur.h) - ctx.now < LT.LEAD) return { error: 'khong_hop_le', why: 'buoi_duoi_24h' };
+  if (ltSlotMs_(cur.date, cur.h) - ctx.now < LT.CHG_LEAD) return { error: 'khong_hop_le', why: 'buoi_duoi_24h' };
   if (to.date === from.date && !pair) return { error: 'khong_hop_le', why: 'cung_ngay' };
   for (var i = 0; i < mine.sessions.length; i++) if (mine.sessions[i].date === to.date && mine.sessions[i] !== cur) return { error: 'khong_hop_le', why: 'mot_ngay_mot_buoi' };
   var w = ltWhy_(ctx, person, env, to.date, to.h, LT.LEAD);
@@ -703,7 +704,7 @@ function ltCheckInvite_(ctx, person, env, mine, slot, to) {
   if (!mine.sessions.some(function (s) { return s.date === slot.date && s.h === slot.h; })) return { error: 'khong_hop_le', why: 'khong_co_buoi' };
   var t = ltSlotMs_(slot.date, slot.h), k = slot.date + '|' + slot.h;
   if (t <= ctx.now) return { error: 'khong_hop_le', why: 'qua' };
-  if (ctx.lead && t - ctx.now < ctx.lead) return { error: 'khong_hop_le', why: 'duoi_24h' };
+  if (ctx.lead && t - ctx.now < ctx.lead) return { error: 'khong_hop_le', why: 'duoi_12h' };
   if (ltOthersAt_(env, person, k).length) return { error: 'da_ghep' };
   if (mine.acts >= LT.INVITE_MAX) return { error: 'qua_luot_moi' };
   var cur = ltLiveInvite_(env, person.key, ltSelfAt_(env, person, k), k);
@@ -725,13 +726,22 @@ function ltCheckDecline_(ctx, person, env, slot) {
   return { ok: true, from: { kh: o[0].kh, name: o[0].name } };
 }
 
-/** Hội viên có còn khung nào đặt được tuần này không (bỏ qua chỗ trống) — dùng cho màn chưa mở. */
-function ltAnyOpen_(ctx, closed) {
+/**
+ * Còn khung nào đặt được tuần này không (bỏ qua chỗ trống) — dùng cho màn chưa mở. Khung chỉ tính khi ít nhất một coach của các
+ * hội viên còn gói nhận khách ở đó (tab "Lịch coach"; coach chưa có lưới: T2–T7). Từ luật báo trước 12 giờ, khung Chủ Nhật của tuần
+ * đang chạy còn trong hạn suốt tối thứ Bảy — mà mặc định coach nghỉ Chủ Nhật — nên phải xét lịch coach, không thì màn đếm ngược tới
+ * 06:00 Chủ Nhật không bao giờ hiện. persons rỗng / không có → xét như một coach chưa có lưới.
+ */
+function ltAnyOpen_(ctx, closed, sched, persons) {
+  var env = { sched: sched || {} }, seen = {}, coaches = [];
+  (persons || []).forEach(function (p) { var k = ltCoachKey_(p.coach); if (!seen[k]) { seen[k] = 1; coaches.push({ coach: p.coach }); } });
+  if (!coaches.length) coaches.push({ coach: '' });
   for (var i = 0; i < ctx.days.length; i++) {
-    if (closed[ctx.days[i]] !== undefined) continue;
+    var d = ctx.days[i];
+    if (closed[d] !== undefined) continue;
     for (var j = 0; j < LT.SLOTS.length; j++) {
-      var t = ltSlotMs_(ctx.days[i], LT.SLOTS[j]);
-      if (t > ctx.now && (!ctx.lead || t - ctx.now >= ctx.lead)) return true;
+      var h = LT.SLOTS[j], t = ltSlotMs_(d, h);
+      if (t > ctx.now && (!ctx.lead || t - ctx.now >= ctx.lead) && coaches.some(function (c) { return !ltOffAt_(env, c, d, h); })) return true;
     }
   }
   return false;
@@ -943,8 +953,8 @@ function ltApiBoot_(p, now) {
   return ltPublic_(ctx, '');
 }
 function ltPublic_(ctx, why) {
-  var closed = ltClosedNow_();
-  return { ok: true, auth: false, why: why, now: ctx.now, open: ltAnyOpen_(ctx, closed),
+  var closed = ltClosedNow_(), sched = ltCached_('lt:sc', 60, ltSched_);
+  return { ok: true, auth: false, why: why, now: ctx.now, open: ltAnyOpen_(ctx, closed, sched, ltPersonsNow_(ctx, false)),
            week: { key: ctx.key, no: ctx.no, mon: ctx.mon, days: ctx.days, phase: ctx.phase, lead: ctx.lead > 0, nextOpen: ctx.nextOpen, nextNo: ctx.nextNo } };
 }
 

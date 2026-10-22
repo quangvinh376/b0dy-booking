@@ -529,11 +529,16 @@ export class BookingCore {
       if (t) {
         const ba = await this.getBA(), list = this.persons(ctx, ba), me = C.findPerson(list, t.k);
         if (me) return this.loadState(ctx, me, list, ba);
-        return C.publicOf(ctx, 'het_goi', ba.closed);
+        return C.publicOf(ctx, 'het_goi', ba.closed, ba.sched, list);
       }
-      return C.publicOf(ctx, 'het_phien', (await this.getBA()).closed);
+      return this.publicNow(ctx, 'het_phien');
     }
-    return C.publicOf(ctx, '', (await this.getBA()).closed);
+    return this.publicNow(ctx, '');
+  }
+  /** Thông tin tuần cho màn công khai: "còn khung đặt được" xét theo lịch nhận khách của coach các hội viên còn gói (C.anyOpen). */
+  async publicNow(ctx, why) {
+    const ba = await this.getBA();
+    return C.publicOf(ctx, why, ba.closed, ba.sched, this.persons(ctx, ba));
   }
 
   /** Tìm tên gõ tới đâu ra tới đó (từ 1 ký tự, có dấu hay không dấu đều được; luật ở C.findRank). Trả tối đa 6 người,

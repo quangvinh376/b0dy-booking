@@ -59,8 +59,8 @@ const WEEK = C.weekKey(MON), WNO = C.isoWeek(MON).week;
 const SCEN = {
   truoc: { at: vn('2026-10-18', '05:59:30'), t: 'CN 18.10 · 05:59:30', s: 'Trước giờ mở · đếm ngược 30 giây rồi tự mở', booked: false },
   mo: { at: vn('2026-10-18', '07:00:00'), t: 'CN 18.10 · 07:00', s: 'Đang mở đặt tuần 43 · đã có người đặt', booked: true },
-  giua: { at: vn('2026-10-21', '08:30:00'), t: 'T4 21.10 · 08:30', s: 'Giữa tuần · đặt muộn, đổi lịch, luật 24 giờ', booked: true },
-  cuoi: { at: vn('2026-10-24', '21:00:00'), t: 'T7 24.10 · 21:00', s: 'Cuối tuần · hết khung, đếm tới 06:00 Chủ Nhật', booked: true }
+  giua: { at: vn('2026-10-21', '08:30:00'), t: 'T4 21.10 · 08:30', s: 'Giữa tuần · đặt muộn (12 giờ), đổi lịch (24 giờ)', booked: true },
+  cuoi: { at: vn('2026-10-24', '21:00:00'), t: 'T7 24.10 · 21:00', s: 'Cuối tuần · chỉ còn khung CN của coach nhận Chủ Nhật · coach khác đếm tới 06:00 CN', booked: true }
 };
 const ORDER = ['truoc', 'mo', 'giua', 'cuoi'];
 const QH = 'Quyết Hán', HM = 'Hiền Mai', KP = 'Khải Phan', LN = 'Lâm Nguyễn', BN = 'Bích Ngọc';
@@ -454,7 +454,7 @@ async function fillSlot(p) {
   await core.loadLog();
 }
 /**
- * "Người khác vừa đặt" (kênh live): một hội viên nền 1:1 đặt MỘT khung còn chỗ của tuần (còn ≥ 24 giờ, coach của họ nhận khách,
+ * "Người khác vừa đặt" (kênh live): một hội viên nền 1:1 đặt MỘT khung còn chỗ của tuần (còn ≥ 12 giờ như đặt muộn, coach của họ nhận khách,
  * coach chưa có suất ở khung đó) — ghi thẳng vào sổ giả rồi máy chủ giả đọc lại sổ → thấy khác → đẩy tin bump như máy chủ thật →
  * trang đang mở tự cập nhật, không cần tải lại. Ưu tiên khung trang đang chọn (để thử "ô mình đang chọn vừa có người đặt"),
  * còn lại chọn ngẫu nhiên. Trả khung đã đặt hoặc null.

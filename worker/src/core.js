@@ -2,7 +2,7 @@
  * B0DY — Lịch tập tuần · LÕI NGHIỆP VỤ (hàm thuần, không I/O)
  *
  * Bản chép 1:1 phần lõi của backend/LichTuan.gs (Apps Script) sang module ES cho Worker.
- * Mọi luật (tuần, 24 giờ, 2–4 buổi, 1 buổi/ngày, đổi 2 lần, sức chứa, tên, mã nhớ máy…) phải GIỐNG HỆT
+ * Mọi luật (tuần, báo trước 12 / 24 giờ, 2–4 buổi, 1 buổi/ngày, đổi 2 lần, sức chứa, tên, mã nhớ máy…) phải GIỐNG HỆT
  * bản Apps Script: hai máy chủ dùng chung sổ "Sổ đặt lịch" và cùng một hợp đồng API.
  * Sửa luật ở đây thì sửa luôn LichTuan.gs (và ngược lại) — test/parity.mjs bắt mọi chỗ lệch.
  *
@@ -20,7 +20,8 @@ export const LT = {
   SLOTS: [6, 7, 8, 9, 10, 11, 14, 15, 16, 17, 18, 19, 20], // 12:00–14:00 coach nghỉ trưa
   NDAYS: 7,                                          // T2..CN · ngày / giờ nhận khách của từng coach: tab "Lịch coach" (SCHED)
   OPEN_H: 6,                                         // lịch tuần sau mở lúc 06:00 Chủ Nhật
-  LEAD: 24 * 3600e3,                                 // đặt muộn và đổi lịch: khung cách hiện tại ≥ 24 giờ
+  LEAD: 12 * 3600e3,                                 // đặt muộn / thêm buổi / khung mới khi đổi lịch / mời: cách hiện tại ≥ 12 giờ
+  CHG_LEAD: 24 * 3600e3,                             // đổi lịch: buổi đang có phải cách hiện tại ≥ 24 giờ (chủ studio chốt 22/10, khớp hợp đồng)
   MIN: 2, MAX: 4, CHANGES: 2,
   CAP: 4,                                            // dự phòng khi ⚙️ 2 không có "Sức chứa tối đa / khung"
   REMEMBER: 60 * 864e5, SESSION: 12 * 3600e3,        // nhớ máy 60 ngày · không nhớ thì 12 giờ
@@ -75,7 +76,7 @@ export function weekKey(monIso) { const w = isoWeek(monIso); return w.year + '-W
 /**
  * Tuần đang nhận đặt:
  *  · Chủ Nhật từ 06:00 → tuần sau (phase 'open', không cần báo trước).
- *  · T2–T7 → tuần này (phase 'late', khung phải cách hiện tại ≥ 24 giờ).
+ *  · T2–T7 → tuần này (phase 'late', khung phải cách hiện tại ≥ 12 giờ).
  *  · Chủ Nhật trước 06:00 → tuần vừa qua (phase 'before', hiện đếm ngược tới 06:00).
  */
 export function weekCtx(now) {
@@ -632,7 +633,7 @@ export function why(ctx, person, env, iso, h, lead) {
   if (isDuo(person.kind) && LT.DUO_HOURS.indexOf(h) < 0) return 'gio_ghep';     /* gói 1:2: chỉ các khung ghép cố định */
   const t = slotMs(iso, h);
   if (t <= ctx.now) return 'qua';
-  if (lead && t - ctx.now < lead) return 'duoi_24h';
+  if (lead && t - ctx.now < lead) return 'duoi_12h';
   const k = iso + '|' + h, co = coachAt(env, person, k);
   if (co === 'join') return '';                            /* vào cặp 1:2 có sẵn của coach: không thêm suất nên phòng đầy vẫn vào được */
   if ((env.taken[k] || 0) >= env.cap) return 'day';
@@ -683,7 +684,7 @@ export function checkBook(ctx, person, env, m, picks) {
   return { ok: true };
 }
 /**
- * Kiểm tra đổi buổi: từ buổi `from` sang khung `to` (ngày khác, cùng tuần, cả hai cách hiện tại ≥ 24 giờ).
+ * Kiểm tra đổi buổi: từ buổi `from` (cách hiện tại ≥ 24 giờ) sang khung `to` (ngày khác, cùng tuần, cách hiện tại ≥ 12 giờ như đặt lịch).
  * Gói 1:2: dời một buổi đang lẻ vào cặp đang chờ (pairMove) không tính lượt đổi — còn làm được khi đã hết lượt, và được dời
  * trong cùng ngày. Trả {ok, cur, pair} — pair: ghi "Ghép" thay "Đổi".
  */
@@ -696,7 +697,7 @@ export function checkChange(ctx, person, env, m, from, to) {
   if (!cur) return { error: 'khong_hop_le', why: 'khong_co_buoi' };
   const pair = duo && pairMove(env, person, cur, to);
   if (!pair && m.changes >= LT.CHANGES) return { error: 'het_luot_doi' };
-  if (slotMs(cur.date, cur.h) - ctx.now < LT.LEAD) return { error: 'khong_hop_le', why: 'buoi_duoi_24h' };
+  if (slotMs(cur.date, cur.h) - ctx.now < LT.CHG_LEAD) return { error: 'khong_hop_le', why: 'buoi_duoi_24h' };
   if (to.date === from.date && !pair) return { error: 'khong_hop_le', why: 'cung_ngay' };
   for (let i = 0; i < m.sessions.length; i++) if (m.sessions[i].date === to.date && m.sessions[i] !== cur) return { error: 'khong_hop_le', why: 'mot_ngay_mot_buoi' };
   const w = why(ctx, person, env, to.date, to.h, LT.LEAD);
@@ -715,7 +716,7 @@ export function checkInvite(ctx, person, env, m, slot, to) {
   if (!m.sessions.some(s => s.date === slot.date && s.h === slot.h)) return { error: 'khong_hop_le', why: 'khong_co_buoi' };
   const t = slotMs(slot.date, slot.h), k = slot.date + '|' + slot.h;
   if (t <= ctx.now) return { error: 'khong_hop_le', why: 'qua' };
-  if (ctx.lead && t - ctx.now < ctx.lead) return { error: 'khong_hop_le', why: 'duoi_24h' };
+  if (ctx.lead && t - ctx.now < ctx.lead) return { error: 'khong_hop_le', why: 'duoi_12h' };
   if (othersAt(env, person, k).length) return { error: 'da_ghep' };
   if (m.acts >= LT.INVITE_MAX) return { error: 'qua_luot_moi' };
   const cur = liveInvite(env, person.key, selfAt(env, person, k), k);
@@ -748,13 +749,22 @@ export function declineRow(code, ver, week, slot, me, fromShort, fromKey, stampS
           LT.DECLINE, LT.DECLINE, 'Từ chối lời mời của ' + fromShort + ' · ' + fromKey, stampStr, rid, me.key, me.short + ' · ' + initials(me.coach)];
 }
 
-/** Còn khung nào đặt được tuần này không (bỏ qua chỗ trống) — dùng cho màn chưa mở. */
-export function anyOpen(ctx, closed) {
+/**
+ * Còn khung nào đặt được tuần này không (bỏ qua chỗ trống) — dùng cho màn chưa mở. Khung chỉ tính khi ít nhất một coach của các
+ * hội viên còn gói nhận khách ở đó (tab "Lịch coach"; coach chưa có lưới: T2–T7). Từ luật báo trước 12 giờ, khung Chủ Nhật của tuần
+ * đang chạy còn trong hạn suốt tối thứ Bảy — mà mặc định coach nghỉ Chủ Nhật — nên phải xét lịch coach, không thì màn đếm ngược tới
+ * 06:00 Chủ Nhật không bao giờ hiện. list rỗng / không có → xét như một coach chưa có lưới.
+ */
+export function anyOpen(ctx, closed, sched, list) {
+  const env = { sched: sched || {} }, seen = {}, coaches = [];
+  (list || []).forEach(p => { const k = coachKey(p.coach); if (!seen[k]) { seen[k] = 1; coaches.push({ coach: p.coach }); } });
+  if (!coaches.length) coaches.push({ coach: '' });
   for (let i = 0; i < ctx.days.length; i++) {
-    if (closed[ctx.days[i]] !== undefined) continue;
+    const d = ctx.days[i];
+    if (closed[d] !== undefined) continue;
     for (let j = 0; j < LT.SLOTS.length; j++) {
-      const t = slotMs(ctx.days[i], LT.SLOTS[j]);
-      if (t > ctx.now && (!ctx.lead || t - ctx.now >= ctx.lead)) return true;
+      const h = LT.SLOTS[j], t = slotMs(d, h);
+      if (t > ctx.now && (!ctx.lead || t - ctx.now >= ctx.lead) && coaches.some(c => !offAt(env, c, d, h))) return true;
     }
   }
   return false;
@@ -825,9 +835,9 @@ export function stateOf(ctx, person, env, m, marks, list) {
   if (isDuo(person.kind)) out.duo = duoState(ctx, person, env, m, list);
   return out;
 }
-/** Màn công khai (chưa xác minh): thông tin tuần để hiện tìm tên hoặc đếm ngược. */
-export function publicOf(ctx, why, closed) {
-  return { ok: true, auth: false, why: why, now: ctx.now, open: anyOpen(ctx, closed),
+/** Màn công khai (chưa xác minh): thông tin tuần để hiện tìm tên hoặc đếm ngược. sched / list: lịch coach + hội viên còn gói (anyOpen). */
+export function publicOf(ctx, why, closed, sched, list) {
+  return { ok: true, auth: false, why: why, now: ctx.now, open: anyOpen(ctx, closed, sched, list),
            week: { key: ctx.key, no: ctx.no, mon: ctx.mon, days: ctx.days, phase: ctx.phase, lead: ctx.lead > 0, nextOpen: ctx.nextOpen, nextNo: ctx.nextNo } };
 }
 /** Ảnh chụp danh sách hội viên cho tab _dữ liệu (giống ltSnapshot_). */

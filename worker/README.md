@@ -90,7 +90,7 @@ Máy chủ của trang **booking.b0dy.studio**, thay cho Apps Script để mọi
 
 | Tệp | Vai trò |
 |---|---|
-| `src/core.js` | Lõi nghiệp vụ, chép 1:1 từ LichTuan.gs (tuần, 24 giờ, giới hạn buổi, đổi lịch, tên, state) + đọc ô Sheets API |
+| `src/core.js` | Lõi nghiệp vụ, chép 1:1 từ LichTuan.gs (tuần, báo trước 12 / 24 giờ, giới hạn buổi, đổi lịch, tên, state) + đọc ô Sheets API |
 | `src/booking.js` | Durable Object: bộ nhớ đệm, hàng đợi kiểm, nhật ký ghi sau + flush, các lệnh API, alarm, cron |
 | `src/sheets.js` | Google Sheets API (JWT service account bằng WebCrypto, timeout, luật thử lại) |
 | `src/crypto.js` | Mã nhớ máy + mã hội viên (HMAC, giống hệt Apps Script) |

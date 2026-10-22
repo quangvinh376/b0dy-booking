@@ -254,7 +254,7 @@ async function coachCases(h) {
        rowsOf(t, 'B902DY').filter(x => x[12] === 'Đổi').length === 1, r.error || r.why || r.mine);
   }
 
-  console.log('\n== 16. Lời mời cũ không sống lại · dưới 24 giờ · giới hạn số lần mời ==');
+  console.log('\n== 16. Lời mời cũ không sống lại · dưới 12 giờ · giới hạn số lần mời ==');
   {
     const t = await setup(vn('2026-10-18', '07:00'));
     const nn = await login(t, 'ngoc nam', '0002');
@@ -279,14 +279,18 @@ async function coachCases(h) {
     const lastNote = rowsOf(t, 'B902DY', 'Mời').slice(-1)[0][13];
     r = await invite(t, nn, ['2026-10-22', 15], lastNote.indexOf('B925DY') > 0 ? c2id : c1id);
     ok('Mời / đổi người tới 20 lần trong tuần → lần sau qua_luot_moi, không ghi thêm', n === 20 && r.ok === false && r.error === 'qua_luot_moi' && rowsOf(t, 'B902DY', 'Mời').length === 20, [n, r.error]);
-    /* dưới 24 giờ (đặt muộn) */
+    /* dưới 12 giờ (đặt muộn) */
     const t2 = await setup(vn('2026-10-19', '10:00'));
     const nn2 = await login(t2, 'ngoc nam', '0002');
     r = await book(t2, nn2, [['2026-10-20', 11], ['2026-10-21', 9]]);
     ok('T2 10:00 đặt muộn T3 11:00 + T4 09:00 → ok', r.ok, r.error || r.why);
+    const c1id2 = peer(r, 'K. Cặp Một');
     t2.clock.now = vn('2026-10-19', '12:00');
-    r = await invite(t2, nn2, ['2026-10-20', 11], peer(r, 'K. Cặp Một'));
-    ok('T2 12:00 mời vào T3 11:00 (còn 23 giờ) → duoi_24h', r.ok === false && r.why === 'duoi_24h', r.why);
+    r = await invite(t2, nn2, ['2026-10-20', 11], c1id2);
+    ok('T2 12:00 mời vào T3 11:00 (còn 23 giờ, luật cũ 24 giờ chặn) → ok', r.ok, r.error || r.why);
+    t2.clock.now = vn('2026-10-19', '23:30');
+    r = await invite(t2, nn2, ['2026-10-20', 11], c1id2);
+    ok('T2 23:30 mời ở T3 11:00 (còn 11 giờ 30) → duoi_12h', r.ok === false && r.why === 'duoi_12h', r.why);
   }
 
   console.log('\n== 17. Khách tập thử đã có coach tiếp nhận chiếm suất của coach đó (chốt 18/10) ==');
@@ -357,6 +361,58 @@ async function coachCases(h) {
     ok('Ngọc Nam (Quyết · 1:2): CN 11:00 là khung ghép coach nhận, T3 09:00 "off"', !at(nn, '2026-10-25|11') && at(nn, '2026-10-20|9') === 'off', nn.coachAt);
     r = await book(t, nn, [['2026-10-25', 11], ['2026-10-22', 9]]);
     ok('… đặt CN 11:00 + T5 09:00 → ok', r.ok && rowsAt(t, '2026-10-25', 11).length === 1, r.error || r.why);
+  }
+
+  console.log('\n== 19. Báo trước: đặt mới / thêm buổi / khung mới ≥ 12 giờ · buổi đang có muốn đổi ≥ 24 giờ (chốt 22/10, khớp hợp đồng) ==');
+  {
+    const t = await setup(vn('2026-10-18', '07:00'));
+    let nam = await login(t, 'duc nam', '0001');
+    let r = await book(t, nam, [['2026-10-19', 18], ['2026-10-22', 18], ['2026-10-23', 18]]);
+    ok('CN 07:00 đặt T2 18:00 · T5 18:00 · T6 18:00 → ok', r.ok, r.error || r.why);
+    t.clock.now = vn('2026-10-20', '20:00');
+    nam = await boot(t, nam);
+    ok('T3 20:00: còn thêm được 1 buổi', nam.limits.add === 1, nam.limits);
+    r = await book(t, nam, [['2026-10-21', 7]]);
+    ok('Thêm T4 07:00 (11 giờ nữa) → duoi_12h, kèm đúng khung, không ghi', r.ok === false && r.why === 'duoi_12h' && r.date === '2026-10-21' && r.h === 7 && rowsOf(t, 'B901DY').length === 3, [r.why, r.date, r.h]);
+    r = await change(t, nam, ['2026-10-23', 18], ['2026-10-21', 10]);
+    ok('Đổi T6 18:00 (46 giờ) → T4 10:00 (14 giờ — luật cũ 24 giờ chặn) → ok, còn 1 lượt', r.ok && r.mine.changesLeft === 1 && r.mine.sessions.some(x => x.date === '2026-10-21' && x.h === 10), r.error || r.why);
+    r = await change(t, nam, ['2026-10-21', 10], ['2026-10-23', 9]);
+    ok('Đổi T4 10:00 (còn 14 giờ) → buoi_duoi_24h dù khung mới hợp lệ, không ghi', r.ok === false && r.why === 'buoi_duoi_24h' && rowsOf(t, 'B901DY').length === 4, [r.ok, r.why]);
+    t.clock.now = vn('2026-10-21', '18:00');
+    r = await change(t, nam, ['2026-10-22', 18], ['2026-10-23', 9]);
+    ok('T4 18:00 đổi T5 18:00 (đúng 24 giờ) → T6 09:00 → ok, hết lượt', r.ok && r.mine.changesLeft === 0, r.error || r.why);
+    r = await book(t, nam, [['2026-10-22', 6]]);
+    ok('Thêm T5 06:00 (đúng 12 giờ) → ok, đủ 4 buổi', r.ok && r.mine.sessions.length === 4, r.error || r.why);
+  }
+  {
+    /* ngày mở lịch (CN sau 06:00, phase open): lượt đặt cho tuần mới không áp dụng 12 giờ; đổi lịch vẫn theo 24 / 12 giờ */
+    const t = await setup(vn('2026-10-18', '20:00'));
+    const nam = await login(t, 'duc nam', '0001');
+    ok('CN 20:00 → phase open, không cần báo trước', nam.week.phase === 'open' && nam.week.lead === false, nam.week);
+    let r = await book(t, nam, [['2026-10-20', 6], ['2026-10-21', 18]]);
+    ok('Đặt T3 06:00 + T4 18:00 trong ngày mở lịch → ok', r.ok, r.error || r.why);
+    r = await change(t, nam, ['2026-10-21', 18], ['2026-10-19', 7]);
+    ok('Đổi T4 18:00 sang T2 07:00 (11 giờ — khung mới theo 12 giờ, kể cả ngày mở lịch) → duoi_12h, không ghi', r.ok === false && r.why === 'duoi_12h' && rowsOf(t, 'B901DY').length === 2, r.why);
+    r = await book(t, nam, [['2026-10-19', 6]]);
+    ok('Thêm T2 06:00 (10 giờ nữa) trong ngày mở lịch → ok (không áp dụng 12 giờ)', r.ok, r.error || r.why);
+    r = await change(t, nam, ['2026-10-19', 6], ['2026-10-22', 9]);
+    ok('Đổi T2 06:00 (còn 10 giờ) → buoi_duoi_24h', r.ok === false && r.why === 'buoi_duoi_24h', r.why);
+  }
+  {
+    /* màn công khai: "còn khung đặt được" xét lịch nhận khách của coach — tối T7, khung CN của tuần đang chạy còn ≥ 12 giờ */
+    let t = await setup(vn('2026-10-17', '22:40'), { sched: SCHED });
+    let r = await call(t, { action: 'lt_boot' });
+    ok('T7 17.10 22:40, Quyết nhận CN 08–11 → open=true (CN 11:00 còn 12 giờ 20)', r.ok && r.auth === false && r.open === true, r.open);
+    const nam = await login(t, 'duc nam', '0001');
+    ok('… H. Đức Nam (Quyết) → đặt được 1 buổi CN 18.10 (10:40 / 11:00)', nam.mode === 'book' && nam.limits.max === 1, [nam.mode, nam.limits]);
+    const ba = await login(t, 'thu ba', '0023');
+    ok('… K. Thứ Ba (Khải, CN nghỉ) → mode closed', ba.mode === 'closed' && ba.limits.max === 0, [ba.mode, ba.limits]);
+    t.clock.now = vn('2026-10-17', '23:01');
+    r = await call(t, { action: 'lt_boot' });
+    ok('T7 23:01 → CN 11:00 chỉ còn 11 giờ 59 → open=false (đếm tới 06:00 CN)', r.ok && r.auth === false && r.open === false, r.open);
+    t = await setup(vn('2026-10-17', '22:40'));
+    r = await call(t, { action: 'lt_boot' });
+    ok('Không có Lịch coach (mọi coach CN nghỉ) → T7 22:40 open=false dù CN còn ≥ 12 giờ', r.ok && r.open === false, r.open);
   }
 }
 

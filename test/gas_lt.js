@@ -87,14 +87,14 @@ console.log('\n== 1. Thời gian · tuần ISO · cửa sổ đặt ==');
   const t = setup(vn('2026-10-17', '12:00'));
   const e = t.env;
   let c = e.ltWeekCtx_(vn('2026-10-17', '12:00'));
-  ok('T7 17.10 12:00 → tuần này (W42), phase late, báo trước 24 giờ', c.key === '2026-W42' && c.mon === '2026-10-12' && c.phase === 'late' && c.lead === 864e5, c);
+  ok('T7 17.10 12:00 → tuần này (W42), phase late, báo trước 12 giờ', c.key === '2026-W42' && c.mon === '2026-10-12' && c.phase === 'late' && c.lead === 432e5, c);
   ok('… lần mở kế tiếp = CN 18.10 06:00 (tuần 43)', c.nextOpen === vn('2026-10-18', '06:00') && c.nextNo === 43, c);
   c = e.ltWeekCtx_(vn('2026-10-18', '05:59'));
   ok('CN 05:59 → vẫn tuần 42 (phase before) · mở lúc 06:00 hôm nay', c.key === '2026-W42' && c.phase === 'before' && c.nextOpen === vn('2026-10-18', '06:00'), c);
   c = e.ltWeekCtx_(vn('2026-10-18', '06:00'));
   ok('CN 06:00 → tuần 43 (19–25.10, T2 → CN), phase open, không cần báo trước', c.key === '2026-W43' && c.mon === '2026-10-19' && c.days.length === 7 && c.days[6] === '2026-10-25' && c.phase === 'open' && c.lead === 0, c);
   c = e.ltWeekCtx_(vn('2026-10-19', '00:00'));
-  ok('T2 19.10 00:00 → tuần 43, phase late, báo trước 24 giờ', c.key === '2026-W43' && c.phase === 'late' && c.lead === 864e5, c);
+  ok('T2 19.10 00:00 → tuần 43, phase late, báo trước 12 giờ', c.key === '2026-W43' && c.phase === 'late' && c.lead === 432e5, c);
   ok('Tuần ISO: 28.12.2026 = 2026-W53 · 04.01.2027 = 2027-W01 · 01.01.2027 = 2026-W53',
      e.ltWeekKey_('2026-12-28') === '2026-W53' && e.ltWeekKey_('2027-01-04') === '2027-W01' && e.ltIsoWeek_('2027-01-01').week === 53);
   ok('Giờ khung theo giờ Việt Nam: 19.10 06:00 = 18.10 23:00 UTC', e.ltSlotMs_('2026-10-19', 6) === Date.UTC(2026, 9, 18, 23, 0));
@@ -311,22 +311,22 @@ console.log('\n== 7. Giới hạn theo gói: còn ít buổi · hết hạn gi�
   ok('Buổi trước ngày bắt đầu → chua_bat_dau', r.why === 'chua_bat_dau', r.why);
 }
 
-console.log('\n== 8. Đặt muộn (T2–T7): khung phải cách ≥ 24 giờ ==');
+console.log('\n== 8. Đặt muộn (T2–T7): khung phải cách ≥ 12 giờ (chốt 22/10) ==');
 {
-  const t = setup(vn('2026-10-19', '10:00'));
+  const t = setup(vn('2026-10-19', '21:30'));
   const s = login(t, 'ngoc nam', '0002');
-  ok('T2 10:00 → tuần 43, phase late', s.week.key === '2026-W43' && s.week.phase === 'late' && s.week.lead === true, s.week);
+  ok('T2 21:30 → tuần 43, phase late', s.week.key === '2026-W43' && s.week.phase === 'late' && s.week.lead === true, s.week);
   let r = call(t, { action: 'lt_book', tok: s.tok, rid: rid(), week: '2026-W43', picks: [{ date: '2026-10-20', h: 9 }, { date: '2026-10-21', h: 9 }] });
-  ok('T3 09:00 (23 giờ nữa) → duoi_24h', r.why === 'duoi_24h', r.why);
+  ok('T3 09:00 (11 giờ 30 nữa) → duoi_12h, kèm đúng khung', r.why === 'duoi_12h' && r.date === '2026-10-20' && r.h === 9, [r.why, r.date, r.h]);
   r = call(t, { action: 'lt_book', tok: s.tok, rid: rid(), week: '2026-W43', picks: [{ date: '2026-10-20', h: 10 }, { date: '2026-10-21', h: 9 }] });
   ok('Gói 1:2 chọn T3 10:00 (không phải khung ghép 09 · 11 · 15 · 17 · 19) → gio_ghep, chỉ đúng khung đó', r.error === 'khong_hop_le' && r.why === 'gio_ghep' && r.date === '2026-10-20' && r.h === 10, r.why);
-  t.clock.now = vn('2026-10-19', '11:00');
+  t.clock.now = vn('2026-10-19', '23:00');
   r = call(t, { action: 'lt_book', tok: s.tok, rid: rid(), week: '2026-W43', picks: [{ date: '2026-10-20', h: 11 }, { date: '2026-10-21', h: 9 }] });
-  ok('T2 11:00 đặt T3 11:00 (đúng 24 giờ) → ok', r.ok, r.error || r.why);
+  ok('T2 23:00 đặt T3 11:00 (đúng 12 giờ) → ok', r.ok, r.error || r.why);
   ok('Điểm danh SESSION LOG: T2 19.10 "Vắng" không nằm trong phiếu nên không hiện', r.mine.sessions.every(x => x.date !== '2026-10-19'));
 }
 
-console.log('\n== 9. Đổi lịch: tối đa 2 lần, ngày khác, cả hai khung ≥ 24 giờ ==');
+console.log('\n== 9. Đổi lịch: tối đa 2 lần, ngày khác, buổi đang có ≥ 24 giờ, khung mới ≥ 12 giờ (chốt 22/10) ==');
 {
   const t = setup(vn('2026-10-18', '07:00'));
   let s = login(t, 'duc nam', '0001');
@@ -348,8 +348,8 @@ console.log('\n== 9. Đổi lịch: tối đa 2 lần, ngày khác, cả hai khu
   ok('Đổi trong cùng ngày → cung_ngay', r.why === 'cung_ngay', r.why);
   r = call(t, { action: 'lt_change', tok: s.tok, rid: rid(), week: '2026-W43', from: { date: '2026-10-22', h: 19 }, to: { date: '2026-10-23', h: 7 } });
   ok('Đổi sang ngày đã có buổi → mot_ngay_mot_buoi', r.why === 'mot_ngay_mot_buoi', r.why);
-  r = call(t, { action: 'lt_change', tok: s.tok, rid: rid(), week: '2026-W43', from: { date: '2026-10-22', h: 19 }, to: { date: '2026-10-21', h: 8 } });
-  ok('Đổi sang khung < 24 giờ (T4 08:00, 23 giờ nữa) → duoi_24h', r.why === 'duoi_24h', r.why);
+  r = call(t, { action: 'lt_change', tok: s.tok, rid: rid(), week: '2026-W43', from: { date: '2026-10-22', h: 19 }, to: { date: '2026-10-20', h: 20 } });
+  ok('Đổi sang khung < 12 giờ (T3 20:00, 11 giờ nữa) → duoi_12h', r.why === 'duoi_12h', r.why);
   r = call(t, { action: 'lt_change', tok: s.tok, rid: rid(), week: '2026-W43', from: { date: '2026-10-22', h: 19 }, to: { date: '2026-10-24', h: 9 } });
   ok('Đổi sang ngày lễ → nghi', r.why === 'nghi', r.why);
   r = call(t, { action: 'lt_change', tok: s.tok, rid: rid(), week: '2026-W43', from: { date: '2026-10-23', h: 19 }, to: { date: '2026-10-21', h: 19 } });
@@ -366,10 +366,10 @@ console.log('\n== 9. Đổi lịch: tối đa 2 lần, ngày khác, cả hai khu
   t.clock.now = vn('2026-10-21', '20:00');
   r = call(t, { action: 'lt_change', tok: s.tok, rid: rid(), week: '2026-W43', from: { date: '2026-10-21', h: 18 }, to: { date: '2026-10-22', h: 20 } });
   ok('Buổi đã qua (T4 18:00 lúc T4 20:00) → buoi_duoi_24h', r.why === 'buoi_duoi_24h', r.why);
-  r = call(t, { action: 'lt_change', tok: s.tok, rid: rid(), week: '2026-W43', from: { date: '2026-10-23', h: 19 }, to: { date: '2026-10-22', h: 19 } });
-  ok('Khung mới chỉ còn 23 giờ (T5 19:00) → duoi_24h', r.why === 'duoi_24h', r.why);
-  r = call(t, { action: 'lt_change', tok: s.tok, rid: rid(), week: '2026-W43', from: { date: '2026-10-23', h: 19 }, to: { date: '2026-10-22', h: 20 } });
-  ok('Khung mới đúng 24 giờ (T5 20:00) → ok', r.ok, r.error || r.why);
+  r = call(t, { action: 'lt_change', tok: s.tok, rid: rid(), week: '2026-W43', from: { date: '2026-10-23', h: 19 }, to: { date: '2026-10-22', h: 7 } });
+  ok('Khung mới chỉ còn 11 giờ (T5 07:00) → duoi_12h', r.why === 'duoi_12h', r.why);
+  r = call(t, { action: 'lt_change', tok: s.tok, rid: rid(), week: '2026-W43', from: { date: '2026-10-23', h: 19 }, to: { date: '2026-10-22', h: 8 } });
+  ok('Khung mới đúng 12 giờ (T5 08:00) → ok (luật cũ 24 giờ chặn)', r.ok, r.error || r.why);
 }
 {
   const t = setup(vn('2026-10-18', '07:00'));
@@ -394,7 +394,7 @@ console.log('\n== 10. Chưa mở đặt · khoá ghi · ảnh chụp danh sách 
 {
   const t = setup(vn('2026-10-17', '22:40'));
   let r = call(t, { action: 'lt_boot' });
-  ok('T7 22:40 chưa đăng nhập → open=false (mọi khung tuần 42 đã < 24 giờ) · mở CN 06:00 tuần 43', r.ok && r.auth === false && r.open === false && r.week.nextOpen === vn('2026-10-18', '06:00') && r.week.nextNo === 43, r);
+  ok('T7 22:40 chưa đăng nhập → open=false (T2–T7 tuần 42 đã qua; CN 18.10 còn ≥ 12 giờ nhưng chưa có Lịch coach = coach nghỉ CN) · mở CN 06:00 tuần 43', r.ok && r.auth === false && r.open === false && r.week.nextOpen === vn('2026-10-18', '06:00') && r.week.nextNo === 43, r);
   const s = login(t, 'duc nam', '0001');
   ok('Đăng nhập lúc đó → mode closed (không đặt được gì tuần 42)', s.mode === 'closed' && s.limits.max === 0, s.mode);
   const snap = t.files.OUT.getSheetByName('_dữ liệu');

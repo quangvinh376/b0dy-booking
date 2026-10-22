@@ -1,7 +1,7 @@
 /* Chế độ QC (?qc): trang thật + máy chủ giả trong trình duyệt (qc.js chạy đúng BookingCore của Worker) với dữ liệu giả.
    Kiểm: không một lệnh nào ra máy chủ thật · bộ nhớ máy tách tiền tố qc: (mã nhớ máy thật không bị đụng) · nút QC không đè header ·
    đặt lịch ghi vào sổ giả · tải lại vẫn nhớ máy · gây lỗi (mất phản hồi, người khác giữ khung, mất mạng hoàn toàn) · chưa có SĐT ·
-   kịch bản giữa tuần (điểm danh, luật 24 giờ) · trước giờ mở tự mở lúc 06:00 · bảng QC dùng được bằng bàn phím, không bị ngăn kéo
+   kịch bản giữa tuần (điểm danh, luật báo trước 12 / 24 giờ) · trước giờ mở tự mở lúc 06:00 · bảng QC dùng được bằng bàn phím, không bị ngăn kéo
    của trang khoá · thoát QC xoá sạch khoá qc: / qcsrv: · desktop + mobile · 0 lỗi console.
    node test/ui_qc.js */
 'use strict';
@@ -322,13 +322,25 @@ async function strayKeys(page) {
   await signOut(page);
   await login(t, 'minh khoi', 'T. Minh Khôi', '1111');
   await waitView(page, 'book');
-  const lock = await page.evaluate(() => ['2026-10-21|18', '2026-10-22|8', '2026-10-22|16'].map(k => { const [d, h] = k.split('|'); const c = document.querySelector('#wkb .c[data-d="' + d + '"][data-h="' + h + '"]'); return c ? c.getAttribute('aria-disabled') : 'none'; }));
-  ok('Luật 24 giờ: T4 18:00 và T5 08:00 khoá, T5 16:00 đặt được', lock[0] === 'true' && lock[1] === 'true' && lock[2] !== 'true', lock);
+  const lock = await page.evaluate(() => ['2026-10-21|18', '2026-10-21|20', '2026-10-22|8', '2026-10-22|16'].map(k => { const [d, h] = k.split('|'); const c = document.querySelector('#wkb .c[data-d="' + d + '"][data-h="' + h + '"]'); return c ? c.getAttribute('aria-disabled') : 'none'; }));
+  ok('Luật 12 giờ (T4 08:30): T4 18:00 và T4 20:00 khoá, T5 08:00 (23 giờ 30) và T5 16:00 đặt được', lock[0] === 'true' && lock[1] === 'true' && lock[2] !== 'true' && lock[3] !== 'true', lock);
 
-  /* kịch bản cuối tuần: không còn khung nào cách ≥ 24 giờ → màn chưa mở, đếm tới 06:00 CN 25.10 */
+  /* kịch bản cuối tuần T7 24.10 21:00 (báo trước 12 giờ): khung CN 25.10 của coach nhận Chủ Nhật (Quyết 08–11, Mai 14–17) còn trong
+     hạn → trang vẫn mở; hội viên của coach nghỉ CN (Ngọc, chưa có lưới) thấy màn chưa mở, đếm tới 06:00 CN 25.10 */
   await qc(page, '[data-qc="scn"][data-k="cuoi"]', true);
+  await waitView(page, 'find');
+  ok('T7 24.10 21:00 → còn khung CN của coach nhận Chủ Nhật → trang mở tìm tên', true);
+  await login(t, 'luc minh quan', 'L. Minh Quân', '1010');
   await waitView(page, 'closed');
-  ok('T7 24.10 21:00 → màn chưa mở, lịch tuần sau mở 06:00 Chủ Nhật 25.10', /Chủ Nhật 25\.10/.test(await page.textContent('main')), await page.textContent('main'));
+  const cl = await page.textContent('main');
+  ok('… L. Minh Quân (Ngọc, CN nghỉ) → "Chưa tới giờ đặt", lịch tuần sau mở 06:00 Chủ Nhật 25.10', /Chưa tới giờ đặt/.test(cl) && /Chủ Nhật 25\.10/.test(cl), cl);
+  await signOut(page);
+  await login(t, 'minh khoi', 'T. Minh Khôi', '1111');
+  await waitView(page, 'book');
+  /* đồng hồ giả chạy theo giờ thật từ 21:00:00 → lúc này CN 09:00 vừa xuống dưới 12 giờ */
+  const cn = await page.evaluate(() => [9, 10, 11, 14].map(h => { const c = document.querySelector('#wkb .c[data-d="2026-10-25"][data-h="' + h + '"]'); return c ? c.getAttribute('aria-disabled') : 'none'; }));
+  ok('… T. Minh Khôi (Quyết nhận CN 08–11) → đặt được CN 10:00 · 11:00; CN 09:00 (dưới 12 giờ) và 14:00 (Quyết nghỉ) khoá', cn[0] === 'true' && cn[1] === null && cn[2] === null && cn[3] === 'true', cn);
+  await signOut(page);
 
   /* kịch bản trước giờ mở: đếm ngược 30 giây rồi tự mở */
   await qc(page, '[data-qc="scn"][data-k="truoc"]', true);
