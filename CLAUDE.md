@@ -30,15 +30,28 @@ ID hai file Google Sheets: `BA_ID` (file BA: MEMBERS · SESSION LOG · TRIAL · 
 6. Sau mỗi lần đẩy: xác minh commit bằng hash và SHA-256 từng tệp trên `raw.githubusercontent.com/quangvinh376/b0dy-booking/<commit>/…`.
 7. Chỉ MỘT tiến trình Playwright / Chromium một lúc (máy test nhỏ từng hết RAM).
 
-## Đang ở đâu (21/10/2026, 17:40)
+## Đang ở đâu (22/10/2026, 19:15)
 
-- Trang **v1.5.2** (`328ebcf`) trên GitHub Pages `main` — "pages build and deployment" success 17:36:20 21/10; 20 tệp tĩnh SHA-256 khớp
-  trên raw.githubusercontent tại commit; trang thật trả `app.js` / `sw.js` VER 1.5.2 (có `sigCount`, không còn `bobCap`) +
-  CSS mới (máy cloud Claude Code KHÔNG curl được booking.b0dy.studio — proxy chặn 403 — kiểm trang thật bằng WebFetch). Worker
-  không đổi từ 1.2.0 — `b0dy-booking-api` chạy `worker/src` của `3f91f21` (7 module, có `live.js`) — deploy ~17:01 19/10 qua Claude chat
-  (`tools/worker_deploy_snippet.mjs`; chủ studio đồng ý 19/10 và cho tự deploy từ nay — luật 3): `OK etag=c1dc6462b7`, 5 binding (DO `BOOK` ·
-  `ALLOW_ORIGINS` · `BA_ID` · `OUT_ID` · secret `SA_JSON`), cron `* * * * *`, `lt_ping` `pending 0`. Claude Code kiểm 17:01–17:05
-  bằng `curl`: `lt_ping` `pending 0`, `lastError` rỗng · tuần 43 trả 7 ngày · `/live` trả 101 + `{"t":"hi","r":0,"n":1}` · origin lạ 403.
+- Trang **v1.6.0** (`8db2ac5`) trên GitHub Pages `main` — "pages build and deployment" success 19:06:56 22/10; 22 tệp tĩnh SHA-256 khớp
+  trên raw.githubusercontent tại commit; trang thật (Claude chat, tab booking.b0dy.studio → `/img/favicon.svg` rồi fetch no-store) trả
+  index · app.js · app.css · sw.js · qc.js · b0b.js · tk3d.js đúng SHA-256 của commit, `__lt.ver` 1.6.0, 3 thẻ script `?v=1.6.0`.
+  **Worker `b0dy-booking-api` chạy `worker/src` của `8db2ac5`** — deploy 19:05:30 22/10 qua Claude chat (`tools/worker_deploy_snippet.mjs`,
+  chủ studio đăng nhập lại Cloudflare): `OK etag=877e49cc64`, 5 binding (DO `BOOK` · `ALLOW_ORIGINS` · `BA_ID` · `OUT_ID` · secret `SA_JSON`),
+  cron `* * * * *`; `lt_ping` `pending 0`, `lastError` rỗng · `lt_boot` tuần 43 7 ngày · `lt_find` 'zqxj' → `results: []`.
+  Máy cloud của Claude Code 22/10 KHÔNG curl được `workers.dev` nữa (proxy 403) → kiểm sức khoẻ trong tab booking.b0dy.studio.
+- **1.6.0 (chủ studio chốt 22/10, khớp hợp đồng dịch vụ mẫu mới)** — luật báo trước: `LT.LEAD` 24 → **12 giờ** (đặt muộn, thêm buổi,
+  khung mới khi đổi lịch, lời mời); **`LT.CHG_LEAD` 24 giờ** cho buổi đang có muốn đổi (kể cả dời vào cặp "Ghép"). Ngày mở lịch (CN từ
+  06:00, phase `open`) giữ ngoại lệ cho lượt đặt / thêm; khung mới khi đổi vẫn 12 giờ. Mã lỗi hạn đặt `duoi_12h` (`buoi_duoi_24h` giữ
+  nguyên; trang vẫn hiểu `duoi_24h` của Apps Script V36). Hệ quả đã xử lý: (1) `anyOpen` / `publicOf` xét `Lịch coach` của các coach có
+  hội viên còn gói — tối T7 khung CN tuần đang chạy còn ≥ 12 giờ mà mặc định coach nghỉ CN → vẫn đếm tới 06:00 CN; trang:
+  `anyOpen(week, ms, off)` dùng `coachAt` 'off' ở màn chưa mở; (2) CN 00:00–05:59 (phase `before`) đóng đặt / đổi / mời (`why` →
+  `dong_dat`) như thời 24 giờ. Chữ: ô "Dưới 12 giờ", thông báo "Đặt muộn: khung cách bây giờ ít nhất 12 giờ", Gói & luật (luật 04 đổi
+  lịch 24 / 12 giờ, luật 08 đặt / thêm trước 12 giờ), câu lỗi đổi lịch. QC `?qc`: "Giữa tuần" (T4 08:30) theo 12 giờ; "Cuối tuần"
+  (T7 21:00) còn khung CN của Quyết / Mai, hội viên coach khác thấy đếm ngược. Test: `gas_lt` 267 · parity 320 (836 lượt giống hệt) ·
+  `coach_cases` mục 19 · `ui_states` 107 (E12 mới: màn đổi lịch) · `ui_qc` 84 · đủ bộ PASS 22/10 (`rv_tilt` / `b0b_check` trượt nhiễu,
+  chạy lại PASS) · workerd 20 PASS + 3 ca lỗi test đã biết. Rà soát độc lập 1 vòng: tìm ra lỗi phase `before`, đã sửa + có test.
+  Còn biết: khách chưa đăng nhập mở trang tối T7 khi có coach nhận CN thấy màn đếm ngược lóe ~0,1 s rồi sang tìm tên (tuần dựng trên máy
+  trước khi máy chủ trả lời chỉ có T2–T7).
 - **1.5.2 (chủ studio 21/10 16:54 + 17:05)** — "N người đang xem" (kênh live) bỏ khỏi chân B0B (mobile: đè thẻ thông báo; desktop: sát
   đáy màn; và biến B0B thành ô chữ của giao diện). Số người đang xem = trạng thái của CẢ PHÒNG → nằm trong tín hiệu header sau
   "Đang mở đặt · Tuần N": **icon mắt (lưới 24, nét 1,5, 14 px) + số** Mono (`#sigN`, `sigCount` trong `app.js`); câu đủ "N người đang
@@ -96,7 +109,8 @@ ID hai file Google Sheets: `BA_ID` (file BA: MEMBERS · SESSION LOG · TRIAL · 
   (tên ngắn trên các dòng này còn kiểu cũ). Xoá trước khi dùng thật. Khôi phục bản trước: Lịch sử phiên bản (trước 17:19 18/10).
 - Chủ studio đã quyết (18/10): giữ tối thiểu 2 buổi; buổi 1:2 lẻ giờ cao điểm: chưa làm, đo sau tuần 44. Tìm tên không đổi
   (gõ tên đệm hiện tắt vẫn ra). Khách 1:2 của Lâm → Ngọc: chủ studio tự đổi trong BA. Tuần 44 chạy thử nội bộ, ra mắt chính thức tháng 11.
-- Apps Script dự phòng vẫn V36 (cũ hơn repo nhiều bản) — đưa V37 lên chỉ khi cần và được duyệt, chạy parity trước.
+- Apps Script dự phòng vẫn V36 (cũ hơn repo nhiều bản, **còn luật 24 giờ**) — nếu phải lui về dự phòng, đưa bản repo (V37, đã luật 12 / 24 giờ,
+  parity PASS) lên trước; chỉ khi cần và được duyệt (luật 4).
 
 ## Phối hợp Claude Code ↔ Claude chat
 
@@ -115,7 +129,7 @@ Mỗi lần đổi tệp tĩnh: tăng `VER` trong `app.js` **và** `sw.js`, cùn
 
 ```bash
 npm i playwright && npx playwright install chromium   # máy mới; hoặc PW_CHROMIUM=<đường dẫn chrome>
-node test/gas_lt.js                      # luật + Apps Script (218)
+node test/gas_lt.js                      # luật + Apps Script (267)
 cd worker && node test/run_all.mjs       # parity · concurrency · robust · http · realdata
 node test/ui_states.js && node test/ui_qc.js && node test/ui_duo.js && node test/ui_live.js && node test/ui_notice.js && node test/ui_smoke.js && node test/ui_sw.js
 node test/ui_tk3d.js all && node test/ui_png.js all && node test/b0b_check.js && for f in test/rv_*.js; do node $f; done
