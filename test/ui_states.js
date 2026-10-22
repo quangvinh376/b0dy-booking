@@ -354,9 +354,12 @@ async function E12chg() {
     await sleep(500);
     const src = await page.evaluate(() => { const c = document.querySelector('#wkb .c[data-d="2026-10-20"][data-h="19"]'); return [c.getAttribute('aria-disabled'), c.textContent]; });
     ok('E12 ' + k + ': buổi T3 19:00 (còn 12 giờ) khoá "Dưới 24 giờ"', src[0] === 'true' && /Dưới 24 giờ/.test(src[1]), src);
-    await cell(page, '2026-10-23', 18);
+    /* chỉ còn MỘT buổi đổi được (T3 19:00 dưới 24 giờ) → trang tự chọn sẵn T6 18:00; bấm lại là bỏ chọn (bẫy trong runbook) */
+    const from0 = await page.evaluate(() => window.__lt.S.chg.from);
+    ok('E12 ' + k + ': chỉ T6 18:00 đổi được → trang chọn sẵn làm buổi cần đổi', from0 && from0.date === '2026-10-23' && from0.h === 18, from0);
+    if (!from0) await cell(page, '2026-10-23', 18);
     const dst = await page.evaluate(() => ['2026-10-21|6', '2026-10-21|7'].map(x => { const [d, h] = x.split('|'); return document.querySelector('#wkb .c[data-d="' + d + '"][data-h="' + h + '"]').getAttribute('aria-disabled'); }));
-    ok('E12 ' + k + ': chọn T6 18:00 → T4 06:00 (23 giờ) · 07:00 chọn được', dst[0] === null && dst[1] === null, dst);
+    ok('E12 ' + k + ': từ T6 18:00 → T4 06:00 (23 giờ) · 07:00 chọn được', dst[0] === null && dst[1] === null, dst);
     await cell(page, '2026-10-21', 6);
     await tap(page, desk ? '#cta' : '#ctaM');
     await page.waitForSelector('.pg-tk'); await sleep(400);
