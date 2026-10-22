@@ -28,7 +28,7 @@ var OFF = 7 * 3600e3, HR = 3600e3, DAY = 864e5;
    buổi đang có muốn đổi ≥ 24 giờ */
 var LEAD = 12 * HR, CHG_LEAD = 24 * HR;
 var RULES = ['Mỗi tuần đặt 2–4 buổi, mỗi ngày tối đa 1 buổi.', 'Mỗi khung giờ, coach dạy một suất: 1 khách 1:1, hoặc 2 khách gói 1:2 của coach đó.', 'Lịch đã đặt không thể huỷ.',
-  'Đổi lịch tối đa 2 lần mỗi tuần, trước buổi tập 24 giờ.', 'Chỉ đổi sang ngày khác trong cùng tuần.',
+  'Đổi lịch tối đa 2 lần mỗi tuần: buổi muốn đổi còn ít nhất 24 giờ, khung mới còn ít nhất 12 giờ.', 'Chỉ đổi sang ngày khác trong cùng tuần.',
   'Không đến vẫn tính 1 buổi.', 'Lịch tuần sau mở lúc 06:00 Chủ Nhật.', 'Đặt hoặc thêm buổi trong tuần: trước buổi tập ít nhất 12 giờ.'];
 
 /* ============================== TIỆN ÍCH ============================== */
@@ -1665,6 +1665,7 @@ function why(iso, h, lead) {
   var st = S.st, w = st.week, me = st.me;
   if (w.days.indexOf(iso) < 0) return 'ngoai_tuan';
   if (SLOTS.indexOf(h) < 0) return 'gio';
+  if (w.phase === 'before') return 'dong_dat';                              /* CN 00:00–05:59: chờ 06:00 mở tuần sau (như máy chủ) */
   if (w.closed && w.closed[iso] !== undefined) return 'nghi';
   if (me.start && iso < me.start) return 'chua_bat_dau';
   if (me.exp && iso > me.exp) return 'het_han';
@@ -2309,6 +2310,7 @@ function whyText(w, d, h) {
     qua: [at + ' đã qua.', 'Chọn khung khác trên bảng.'],
     duoi_12h: [at + ' chỉ còn dưới 12 giờ.', 'Đặt lịch phải trước buổi tập ít nhất 12 giờ.'],
     duoi_24h: [at + ' chỉ còn dưới 24 giờ.', 'Đặt muộn phải trước buổi tập ít nhất 24 giờ.'],     /* máy chủ dự phòng Apps Script V36 còn luật cũ */
+    dong_dat: ['Lịch tuần này đã đóng.', 'Lịch tuần sau mở lúc 06:00 Chủ Nhật.'],
     nghi: [at + ' phòng nghỉ.', 'Chọn ngày khác trong tuần.'],
     het_han: ['Gói không dùng được ngày ' + (d ? ddmm(d) : 'đó') + '.', 'Gói của bạn hết hạn trước ngày này.'],
     chua_bat_dau: ['Gói chưa bắt đầu vào ngày ' + (d ? ddmm(d) : 'đó') + '.', 'Chọn ngày từ khi gói bắt đầu.'],
@@ -2509,7 +2511,8 @@ function chgError(r) {
     S.chg.to = null;
   } else {
     var M = { buoi_duoi_24h: ['Buổi này đã dưới 24 giờ.', 'Đổi lịch phải trước buổi tập 24 giờ.'],
-              duoi_12h: ['Khung mới chỉ còn dưới 12 giờ.', 'Khung mới phải cách giờ tập ít nhất 12 giờ. Chọn ô khác trên bảng.'],
+              duoi_12h: ['Khung mới chỉ còn dưới 12 giờ.', 'Khung mới phải cách bây giờ ít nhất 12 giờ. Chọn ô khác trên bảng.'],
+              duoi_24h: ['Khung mới chỉ còn dưới 24 giờ.', 'Chọn khung cách bây giờ ít nhất 24 giờ.'],     /* Apps Script V36 dự phòng còn luật cũ */
               cung_ngay: duoSt() ? ['Trong ngày chỉ dời được vào cặp đang chờ.', 'Chọn ô Ghép trong ngày, hoặc một ô ở ngày khác.'] : ['Chỉ đổi sang ngày khác.', 'Chọn một ô ở ngày khác trong tuần.'],
               khong_co_buoi: ['Buổi này không còn trong phiếu.', 'Bảng vừa được cập nhật. Chọn lại buổi cần đổi.'], mot_ngay_mot_buoi: ['Ngày đó đã có buổi.', 'Mỗi ngày tối đa 1 buổi.'] };
     var x = M[r.why] || [whyText(r.why).title, whyText(r.why).body];
@@ -3226,6 +3229,7 @@ function duoErr(r) {
   if (e === 'unknown_action') return 'Máy chủ chưa nhận lời mời. Thử lại sau.';
   if (w === 'nguoi_moi') return 'Không mời được người này.';
   if (w === 'duoi_12h' || w === 'duoi_24h' || w === 'qua') return 'Buổi này đã quá gần giờ tập.';
+  if (w === 'dong_dat') return 'Lịch tuần này đã đóng. Lịch tuần sau mở lúc 06:00 Chủ Nhật.';
   if (w === 'khong_co_buoi') return 'Buổi này không còn trong phiếu.';
   return 'Chưa gửi được. Thử lại.';
 }

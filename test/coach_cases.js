@@ -414,6 +414,24 @@ async function coachCases(h) {
     r = await call(t, { action: 'lt_boot' });
     ok('Không có Lịch coach (mọi coach CN nghỉ) → T7 22:40 open=false dù CN còn ≥ 12 giờ', r.ok && r.open === false, r.open);
   }
+  {
+    /* CN 00:00–05:59 (phase 'before'): tuần đang chạy đóng đặt dù khung chiều CN còn ≥ 12 giờ — trang hiện đếm ngược tới 06:00 */
+    const ALL = [['', '— LỊCH COACH'], []].concat(grid('Quyết Hán', () => true));
+    const t = await setup(vn('2026-10-17', '22:00'), { sched: ALL });
+    let nam = await login(t, 'duc nam', '0001');
+    const b42 = (s, d, hh) => call(t, { action: 'lt_book', tok: s.tok, rid: rid(), week: '2026-W42', picks: [{ date: d, h: hh }] });
+    let r = await b42(nam, '2026-10-18', 17);
+    ok('T7 22:00, Quyết nhận CN cả ngày → đặt CN 18.10 17:00 (19 giờ nữa) → ok', r.ok, r.error || r.why);
+    t.clock.now = vn('2026-10-18', '02:00');
+    r = await call(t, { action: 'lt_boot' });
+    ok('CN 02:00 (phase before) → open=false dù CN 17:00–20:00 còn ≥ 12 giờ', r.ok && r.week.phase === 'before' && r.open === false, [r.week && r.week.phase, r.open]);
+    const mot = await login(t, 'thu mot', '0021');
+    ok('… K. Thứ Một (Quyết, chưa đặt) → mode closed', mot.mode === 'closed' && mot.limits.max === 0, [mot.mode, mot.limits]);
+    r = await b42(mot, '2026-10-18', 19);
+    ok('… đặt CN 19:00 → khong_hop_le · dong_dat, không ghi', r.ok === false && r.why === 'dong_dat' && rowsOf(t, 'B921DY').length === 0, r.why);
+    nam = await boot(t, nam);
+    ok('… H. Đức Nam vẫn thấy phiếu (buổi CN 17:00), không thêm được', nam.mode === 'ticket' && nam.limits.add === 0, [nam.mode, nam.limits]);
+  }
 }
 
 module.exports = { coachCases };

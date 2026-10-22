@@ -334,6 +334,38 @@ async function E06E07() {
     await close(page);
   }
 }
+async function E12chg() {
+  /* đổi lịch theo luật 22/10: buổi muốn đổi còn < 24 giờ → khoá "Dưới 24 giờ"; khung mới chỉ cần ≥ 12 giờ (luật cũ 24 giờ khoá) */
+  console.log('\n== E12 · đổi lịch: buổi muốn đổi ≥ 24 giờ, khung mới ≥ 12 giờ (T3 07:00) ==');
+  for (const [k, o] of [['d', DESK], ['m', MOB]]) {
+    const t = backend(vn('2026-10-18', '20:15'));
+    const page = await open(t, o, 'E12' + k);
+    const desk = k === 'd';
+    await login(page, 'duc nam', '0001', desk);
+    await page.waitForSelector('.pg-book');
+    for (const [d, h] of [['2026-10-20', 19], ['2026-10-23', 18]]) await cell(page, d, h);
+    await tap(page, desk ? '#cta' : '#ctaM');
+    await page.waitForSelector('.pg-tk');
+    t.clock.now = vn('2026-10-20', '07:00');
+    await page.reload();
+    await page.waitForSelector(vis('[data-a="gochg"]'));
+    await sleep(600);
+    await tap(page, '[data-a="gochg"]'); await page.waitForSelector('.pg-chg');
+    await sleep(500);
+    const src = await page.evaluate(() => { const c = document.querySelector('#wkb .c[data-d="2026-10-20"][data-h="19"]'); return [c.getAttribute('aria-disabled'), c.textContent]; });
+    ok('E12 ' + k + ': buổi T3 19:00 (còn 12 giờ) khoá "Dưới 24 giờ"', src[0] === 'true' && /Dưới 24 giờ/.test(src[1]), src);
+    await cell(page, '2026-10-23', 18);
+    const dst = await page.evaluate(() => ['2026-10-21|6', '2026-10-21|7'].map(x => { const [d, h] = x.split('|'); return document.querySelector('#wkb .c[data-d="' + d + '"][data-h="' + h + '"]').getAttribute('aria-disabled'); }));
+    ok('E12 ' + k + ': chọn T6 18:00 → T4 06:00 (23 giờ) · 07:00 chọn được', dst[0] === null && dst[1] === null, dst);
+    await cell(page, '2026-10-21', 6);
+    await tap(page, desk ? '#cta' : '#ctaM');
+    await page.waitForSelector('.pg-tk'); await sleep(400);
+    const ses = await page.evaluate(() => window.__lt.S.st.mine.sessions.map(s => s.date + ' ' + s.h).join(','));
+    ok('E12 ' + k + ': máy chủ nhận đổi T6 18:00 → T4 06:00', ses === '2026-10-20 19,2026-10-21 6', ses);
+    await shot(page, 'E12-' + k, 600);
+    await close(page);
+  }
+}
 async function E09drawer() {
   console.log('\n== E09 hết lượt đổi · ngăn kéo / cửa sổ · bàn phím ==');
   for (const [k, o] of [['d', DESK], ['m', MOB]]) {
@@ -431,7 +463,7 @@ async function reduced() {
   browser = await chromium.launch({ executablePath: EXE, args: ARGS });
   server = await startServer();
   const only = process.argv[2];
-  const all = { E01, E03, E04, E11, E08, E10, E06E07, E09drawer, overflow, reduced };
+  const all = { E01, E03, E04, E11, E08, E12chg, E10, E06E07, E09drawer, overflow, reduced };
   process.on('unhandledRejection', e => { console.error(e); process.exit(2); });
   for (const k of Object.keys(all)) if (!only || only.split(',').indexOf(k) >= 0) await all[k]();
   console.log('\n  console/pageerror:', ERRS.length ? ERRS : 'none');

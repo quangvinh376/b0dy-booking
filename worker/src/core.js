@@ -77,7 +77,8 @@ export function weekKey(monIso) { const w = isoWeek(monIso); return w.year + '-W
  * Tuần đang nhận đặt:
  *  · Chủ Nhật từ 06:00 → tuần sau (phase 'open', không cần báo trước).
  *  · T2–T7 → tuần này (phase 'late', khung phải cách hiện tại ≥ 12 giờ).
- *  · Chủ Nhật trước 06:00 → tuần vừa qua (phase 'before', hiện đếm ngược tới 06:00).
+ *  · Chủ Nhật trước 06:00 → tuần vừa qua (phase 'before', hiện đếm ngược tới 06:00) — đóng đặt / đổi / mời: báo trước 12 giờ
+ *    để khung chiều CN còn trong hạn, nhưng tuần đang chạy đóng lúc 00:00 CN như khi còn luật 24 giờ (why → 'dong_dat').
  */
 export function weekCtx(now) {
   const p = parts(now), today = isoP(p);
@@ -626,6 +627,7 @@ export function isFull(w) { return w === 'day' || w === 'coach_ban'; }
 export function why(ctx, person, env, iso, h, lead) {
   if (ctx.days.indexOf(iso) < 0) return 'ngoai_tuan';
   if (LT.SLOTS.indexOf(h) < 0) return 'gio';
+  if (ctx.phase === 'before') return 'dong_dat';                                   /* CN 00:00–05:59: chờ 06:00 mở tuần sau */
   if (env.closed[iso] !== undefined) return 'nghi';
   if (person.start && iso < person.start) return 'chua_bat_dau';
   if (person.exp && iso > person.exp) return 'het_han';
@@ -714,6 +716,7 @@ export function checkInvite(ctx, person, env, m, slot, to) {
   if (!isDuo(person.kind)) return { error: 'khong_hop_le', why: 'goi' };
   if (!slot || !validIso(slot.date) || LT.DUO_HOURS.indexOf(slot.h) < 0) return { error: 'khong_hop_le', why: 'khung' };
   if (!m.sessions.some(s => s.date === slot.date && s.h === slot.h)) return { error: 'khong_hop_le', why: 'khong_co_buoi' };
+  if (ctx.phase === 'before') return { error: 'khong_hop_le', why: 'dong_dat' };
   const t = slotMs(slot.date, slot.h), k = slot.date + '|' + slot.h;
   if (t <= ctx.now) return { error: 'khong_hop_le', why: 'qua' };
   if (ctx.lead && t - ctx.now < ctx.lead) return { error: 'khong_hop_le', why: 'duoi_12h' };
@@ -759,6 +762,7 @@ export function anyOpen(ctx, closed, sched, list) {
   const env = { sched: sched || {} }, seen = {}, coaches = [];
   (list || []).forEach(p => { const k = coachKey(p.coach); if (!seen[k]) { seen[k] = 1; coaches.push({ coach: p.coach }); } });
   if (!coaches.length) coaches.push({ coach: '' });
+  if (ctx.phase === 'before') return false;
   for (let i = 0; i < ctx.days.length; i++) {
     const d = ctx.days[i];
     if (closed[d] !== undefined) continue;
