@@ -24,7 +24,9 @@ ID hai file Google Sheets: `BA_ID` (file BA: MEMBERS · SESSION LOG · TRIAL · 
    biến `CLOUDFLARE_API_TOKEN` (quyền Workers Scripts: Edit) + `CLOUDFLARE_ACCOUNT_ID` thì `cd worker && npx wrangler deploy` trực tiếp.
    Không áp dụng cho: sửa hàng loạt Google Sheets (luật 5), đưa Apps Script dự phòng lên (luật 4). Cách deploy: mục "Máy chủ" dưới.
 4. Apps Script dự phòng (`backend/LichTuan.gs`): đưa lên bằng Deploy ▸ Manage deployments ▸ New version; KHÔNG bấm Run.
-   Đang chạy V36 (cũ hơn repo) — đưa V37 lên chỉ khi cần và được duyệt, chạy parity trước.
+   Đang chạy **V38 = `backend/LichTuan.gs` của `8db2ac5`** (22/10, chủ studio cho đưa lên không cần hỏi lại). Đổi luật ở repo thì đưa
+   bản mới lên cùng lúc với Worker (chạy parity trước). Ô "Description" của New version để trống → deployment mất tên ("Untitled"):
+   luôn gõ mô tả.
 5. Sửa hàng loạt Google Sheets dùng chung (sổ, bảng lịch tập, BA) cần chủ studio đồng ý rõ. Không ghi dòng bịa vào `Sổ đặt lịch`
    trừ khi chủ studio yêu cầu (như mô phỏng 18/10).
 6. Sau mỗi lần đẩy: xác minh commit bằng hash và SHA-256 từng tệp trên `raw.githubusercontent.com/quangvinh376/b0dy-booking/<commit>/…`.
@@ -109,8 +111,12 @@ ID hai file Google Sheets: `BA_ID` (file BA: MEMBERS · SESSION LOG · TRIAL · 
   (tên ngắn trên các dòng này còn kiểu cũ). Xoá trước khi dùng thật. Khôi phục bản trước: Lịch sử phiên bản (trước 17:19 18/10).
 - Chủ studio đã quyết (18/10): giữ tối thiểu 2 buổi; buổi 1:2 lẻ giờ cao điểm: chưa làm, đo sau tuần 44. Tìm tên không đổi
   (gõ tên đệm hiện tắt vẫn ra). Khách 1:2 của Lâm → Ngọc: chủ studio tự đổi trong BA. Tuần 44 chạy thử nội bộ, ra mắt chính thức tháng 11.
-- Apps Script dự phòng vẫn V36 (cũ hơn repo nhiều bản, **còn luật 24 giờ**) — nếu phải lui về dự phòng, đưa bản repo (V37, đã luật 12 / 24 giờ,
-  parity PASS) lên trước; chỉ khi cần và được duyệt (luật 4).
+- **Apps Script dự phòng V38** (22/10 19:34, chủ studio "sửa cả appscript, không cần hỏi tôi duyệt"): project "B0DY Booking API"
+  (`1QjIkBPOj3s7DiJF2iFNDAmcBZxi8m7qBVgPLSfXg9juzaxy3daCZ2jRe`), tệp LichTuan.gs = repo `8db2ac5` (SHA-256 `6cf7706f…`, đọc lại sau khi
+  tải lại trình soạn thảo; Code.gs · Discord.gs không đổi; 0 tên hàm trùng). Deployment **"Lich tap tuan (booking.b0dy.studio) - luat 12/24 gio,
+  22/10"** giữ ID `AKfycbxyoH2Ipok…qGYnqdA` (V37 19:31 lỡ để trống mô tả → V38 cùng mã, có tên). Deployment tập thử "V35 cot Ghi chu…"
+  (`AKfycbxiZL…`) vẫn Version 35. Kiểm (chỉ đọc, từ tab booking.b0dy.studio): `lt_find` 'zqxj' → `results: []` không còn `need` (V36 trả
+  `need: 2`) · `lt_boot` tuần 43 7 ngày. Trang vẫn chạy Worker; chỉ chuyển sang Apps Script khi Worker hỏng hẳn (mục Máy chủ).
 
 ## Phối hợp Claude Code ↔ Claude chat
 
