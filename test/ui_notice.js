@@ -476,7 +476,7 @@ async function ticketLine(browser, server, mobile) {
   await waitView(page, 'ticket');
   await beamUp(page, SEL);
   const s = await state(page, SEL), fc = await face(page, SEL);
-  ok('Dòng "2 buổi đang chờ bạn tập · Mời bạn" có hào quang: data-beam="card", 3 lớp, 27 Web Animations một đồng hồ, đang chạy', !!fc && /2 buổi đang chờ bạn tập/.test(fc.txt) && fc.label === 'Mời bạn' &&
+  ok('Dòng "2 buổi đang chờ ghép nhóm · Mời bạn" có hào quang: data-beam="card", 3 lớp, 27 Web Animations một đồng hồ, đang chạy', !!fc && /2 buổi đang chờ ghép nhóm/.test(fc.txt) && fc.label === 'Mời bạn' &&
      !!s && s.card && s.beam === 'card' && s.lay === 'hq bm|hq bmx|hq bma' && s.n === 27 && s.props === 'opacity,transform' && s.oneStart && s.uni && s.run, [fc, s]);
   ok('Cùng mặt thẻ với thẻ mời mobile: nền Giấy 2, không viền, bo 4, icon ghép 20 px, tiêu đề 16 px ở x = 46', !!fc && fc.bg === 'rgb(242, 242, 242)' && fc.shadow === 'none' &&
      fc.radius === '4px' && fc.pair && fc.ic === 20 && fc.fs === '16px' && fc.x === 46, fc);

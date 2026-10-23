@@ -9,7 +9,7 @@
 'use strict';
 
 /* ============================== CẤU HÌNH ============================== */
-var VER = '1.6.0';
+var VER = '1.6.1';
 var API_URL = 'https://b0dy-booking-api.little-bonus-1d87.workers.dev/';
 var API_SLOW = false;                 /* true khi chạy Apps Script (chậm hơn nhiều) → nới thời gian chờ */
 /* kênh live: Worker chỉ nhận từ trang thật (ALLOW_ORIGINS) → trang chạy chỗ khác (test trên máy) không nối, khỏi gõ cửa máy chủ thật.
@@ -1248,7 +1248,7 @@ VIEWS.loading = function () {
 };
 VIEWS.fail = function () {
   var page = pageEl('pg-fail', '<div class="ctr st"><div class="col">' +
-    '<div class="ttl-row rs"><div class="ttl"><h1 class="h56" tabindex="-1">Chưa kết nối được.</h1><p class="b16">Mạng chậm hoặc máy chủ đang bận. Thử lại sau vài giây.</p></div><div class="bob-slot m"></div></div>' +
+    '<div class="ttl-row rs"><div class="ttl"><h1 class="h56" tabindex="-1">Chưa kết nối được.</h1><p class="b16">Lỗi kết nối. Vui lòng thử lại.</p></div><div class="bob-slot m"></div></div>' +
     '<div class="rs r1"><button class="btn btn-phu" type="button" data-a="retry" data-focus>' + ico('swap') + '<span>Thử lại</span></button></div></div></div>');
   return { page: page, mood: 'doubt', step: -1 };
 };
@@ -1490,7 +1490,7 @@ function choose(i) {
 function whoHTML() {
   var w = S.who || { short: '', coach: '' };
   return '<div class="who rs r1">' + ico('user') + '<div class="who-tx"><span class="h22">' + esc(w.short) + '</span><span class="lbl">Coach ' + esc(w.coach) + '</span></div>' +
-    '<button class="btn btn-s btn-phu" type="button" data-a="notme">' + ico('left') + '<span>Không phải tôi</span></button></div>';
+    '<button class="btn btn-s btn-phu" type="button" data-a="notme">' + ico('left') + '<span>Không phải bạn?</span></button></div>';
 }
 VIEWS.verify = function () {
   var page = pageEl('pg-verify', '<div class="ctr st"><div class="col">' +
@@ -1543,7 +1543,7 @@ function verify() {
   var remember = S.remember, who = S.who;
   call('lt_verify', { id: S.who.id, pin: S.pin, remember: remember }, T_READ + 6000).then(function (r) {
     S.sending = false; setBtnBusy(['#vgo', '#vgoM'], false);
-    if (S.view !== 'verify' || S.who !== who) return;   /* khách đã rời màn xác minh ("Không phải tôi") → bỏ phản hồi muộn */
+    if (S.view !== 'verify' || S.who !== who) return;   /* khách đã rời màn xác minh ("Không phải bạn?") → bỏ phản hồi muộn */
     if (r && r.ok && r.auth) {
       bumpGen();
       TOK.set(r.tok, r.tokExp, remember);
@@ -1570,7 +1570,7 @@ VIEWS.lock = function () {
     (S.who ? whoHTML() : '') +
     '<div class="pinw rs r2"><div class="pins">' + [0, 1, 2, 3].map(function () { return '<span class="pin lock">' + ico('lock') + '</span>'; }).join('') + '</div>' +
     '<div class="cd"><span class="lbl">Còn lại · phút : giây</span><div class="cd-v" id="cdv"></div></div>' +
-    '<p class="b14">Máy này tạm khoá để giữ lịch của bạn an toàn. Hết 15 phút, bạn nhập lại từ đầu.</p></div>' +
+    '<p class="b14">Máy này tạm khoá để giữ lịch của bạn an toàn. Vui lòng nhập lại sau 15 phút.</p></div>' +
     '</div></div>');
   var cdv = page.querySelector('#cdv');
   function tickL() {
@@ -1779,7 +1779,7 @@ function cellModel(mode) {
           else if (from && from.date === d && from.h === h) { m.cls = 'moving'; m.html = '<span>' + hm(h) + '</span>'; m.can = true; m.aria = label + 'buổi đang đổi, bấm để bỏ chọn'; }
           else if (noChg || (pairOnly && !single)) { m.cls = 'mine'; m.html = '<span class="d">Không thể đổi</span><span class="m">' + pad2(h) + '</span>'; m.aria = label + 'buổi của bạn, không thể đổi'; }
           else if (slotMs(d, h) - now() < CHG_LEAD) { m.cls = 'mine'; m.html = ico('lock') + '<span class="d">Dưới 24 giờ</span>'; m.aria = label + 'buổi của bạn, dưới 24 giờ nên không đổi được'; }
-          else { m.cls = 'mine tm'; m.html = mineHTML(h, pn); m.can = true; m.aria = label + 'buổi của bạn' + (pn ? ', tập đôi cùng ' + pn : '') + ', bấm để ' + (pairOnly ? 'dời vào cặp' : 'đổi'); }
+          else { m.cls = 'mine tm'; m.html = mineHTML(h, pn); m.can = true; m.aria = label + 'buổi của bạn' + (pn ? ', tập đôi cùng ' + pn : '') + ', bấm để ' + (pairOnly ? 'dời vào nhóm' : 'đổi'); }
         } else if (mode === 'chg' && to && to.date === d && to.h === h) {
           m.cls = 'sel pop0'; m.html = selHTML(at); m.can = true; m.aria = label + 'buổi mới, bấm để bỏ chọn';
         } else if (mode === 'chg' && from && from.date === d && pairMove(from, at) && !why(d, h, LEAD)) {
@@ -2036,9 +2036,9 @@ function inviteNotice() {
   if (!x) return null;
   var at = dFull(x.date) + ' · ' + hm(x.h) + ' · coach ' + S.st.me.coach;
   var mw = dShort(x.date).split(' ')[0] + ' ' + hm(x.h);
-  return { tone: 'info', type: 'inv', title: x.from + ' mời bạn tập đôi.', body: at + '.', mtitle: x.from + ' mời bạn tập đôi · ' + mw, mt: x.from + ' mời bạn tập đôi', mw: mw,
+  return { tone: 'info', type: 'inv', title: x.from + ' mời bạn tập cùng.', body: at + '.', mtitle: x.from + ' mời bạn tập đôi · ' + mw, mt: x.from + ' mời bạn tập đôi', mw: mw,
            acts: [{ a: 'invok', label: 'Tập cùng', d: x.date, h: x.h, main: true }, { a: 'invno', label: 'Không, cảm ơn', d: x.date, h: x.h }],
-           sheet: { title: x.from + ' mời bạn tập đôi.', body: at + '. Chọn “Tập cùng” để thêm khung này vào lịch bạn đang chọn, rồi đặt lịch như thường.' } };
+           sheet: { title: x.from + ' mời bạn tập cùng.', body: at + '. Chọn “Tập cùng” để thêm khung này vào lịch bạn đang chọn, rồi đặt lịch như thường.' } };
 }
 function noticeForErr(n) {
   /* chuẩn hoá thông báo ép (lỗi gửi …) thành {title, body, mtitle, tone, sugs} */
@@ -2071,7 +2071,7 @@ VIEWS.book = function () {
 function bookSub() {
   var st = S.st, w = st.week, me = st.me, l = st.limits, last = w.days[w.days.length - 1];
   if (me.exp && me.exp >= w.days[0] && me.exp < last) return 'Gói hết hạn ' + dFull(me.exp) + ' · đặt tối đa ' + l.max + ' buổi';
-  if (w.phase === 'late') return 'Tuần này bạn chưa đặt lịch · đặt muộn';
+  if (w.phase === 'late') return 'Bạn chưa đặt lịch tuần này · đặt lịch muộn';
   return 'Chọn lịch bạn muốn đặt cho tuần tới';
 }
 /* bảng đặt lịch có ô xám (không chọn được, không phải ô X Đầy hay khung đã qua) ngoài các ngày coach nghỉ trọn ngày */
@@ -2364,14 +2364,14 @@ VIEWS.change = function () {
     var c = (po ? pairFroms() : changeable()).filter(function (f) { return !S.chg.to || toOk(f, S.chg.to); });
     if (c.length === 1) S.chg.from = { date: c[0].date, h: c[0].h };
   }
-  var sub = no ? 'Tuần này đã dùng ' + st.mine.changes + ' / 2 lần đổi' : po ? 'Hết lượt đổi · vẫn dời được buổi đang chờ vào cặp'
+  var sub = no ? 'Tuần này đã dùng ' + st.mine.changes + ' / 2 lần đổi' : po ? 'Hết lượt đổi · bạn vẫn có thể dời sang nhóm khác'
     : st.week.phase === 'open' ? 'Chọn lịch bạn muốn đổi cho tuần tới' : 'Chọn lịch bạn muốn đổi cho tuần này';
   var subM = no || po ? sub : 'Chạm buổi cần đổi, rồi chạm ô mới';
   var page = pageEl('pg-chg', '<div class="bk st">' +
     '<div class="side"><div class="side-top">' +
       helloHTML({ title: 'Chào ' + me.call, sub: desk() ? sub : subM, info: me.coach + ' · còn ' + me.left + ' buổi · còn ' + st.mine.changesLeft + ' lần đổi', notYou: true }) +
       '<div class="m rs r1" id="mNote"></div>' +
-      '<div class="grp d rs r1"><div class="grp-h"><span class="k">' + (po ? 'Dời vào cặp' : 'Đổi buổi') + '</span></div><p class="grp-d" id="chgD"></p><div class="picks" id="pkList"></div></div>' +
+      '<div class="grp d rs r1"><div class="grp-h"><span class="k">' + (po ? 'Dời sang nhóm khác' : 'Đổi buổi') + '</span></div><p class="grp-d" id="chgD"></p><div class="picks" id="pkList"></div></div>' +
       '<div class="grp d lg-d rs r2"><div class="grp-h"><span class="k">Cách đọc bảng</span></div>' + legendHTML(no ? 'nochg' : 'chg') + '</div>' +
     '</div><div class="side-act d rs r3">' + (no ? '' : '<button class="btn btn-tat" type="button" id="cta" data-a="chgo" disabled><span class="wd"><span>Xác nhận đổi</span></span>' + ico('right') + '</button>') + rulesHTML() + '</div></div>' +
     '<div class="wkw rs r1">' + gridHTML() + '<div class="lg-m m">' + legendHTML(no ? 'nochg-m' : 'chg-m') + '</div></div>' +
@@ -2413,18 +2413,18 @@ function updateChange(first) {
     if (d) d.textContent = 'Không còn buổi nào đổi được tuần này.';
     upcoming().forEach(function (s) { cards.push({ key: 'k' + s.date, kind: 'booked', l: 'Giữ nguyên · ' + dFull(s.date), t: hm(s.h) }); });
   } else {
-    if (d) d.textContent = po ? (desk() ? 'Bấm buổi đang chờ bạn, rồi bấm ô Ghép.' : 'Chạm buổi đang chờ bạn, rồi chạm ô Ghép.') : desk() ? 'Bấm buổi cần đổi, rồi bấm ô mới.' : 'Chạm buổi cần đổi, rồi chạm ô mới.';
+    if (d) d.textContent = po ? (desk() ? 'Chọn buổi đang chờ ghép, rồi chọn buổi khác cũng đang được chờ ghép.' : 'Chạm buổi đang chờ bạn, rồi chạm ô Ghép.') : desk() ? 'Chọn buổi cần đổi, rồi chọn buổi mới.' : 'Chạm buổi cần đổi, rồi chạm ô mới.';
     if (from) cards.push({ key: 'f', kind: 'moving', l: 'Từ · ' + dFull(from.date), t: hm(from.h), w: pairName(from.date, from.h) });
-    else cards.push({ key: 'f0', kind: 'add', need: true, l: 'Từ', t: to ? 'Bấm buổi sẽ dời sang ' + hm(to.h) : 'Bấm buổi cần đổi trên bảng' });
+    else cards.push({ key: 'f0', kind: 'add', need: true, l: 'Từ', t: to ? 'Chọn buổi sẽ đổi sang ' + hm(to.h) : 'Chọn buổi cần đổi trên bảng' });
     cards.push({ key: 'arr', kind: 'arrow' });
     if (to) cards.push({ key: 't', kind: 'to', l: 'Sang · ' + dFull(to.date), t: hm(to.h), w: toName && coachAt(to.date, to.h) === 'join' ? toName : '' });
-    else cards.push({ key: 't0', kind: 'add', need: !!from, l: 'Sang', t: from ? (po ? 'Bấm ô Ghép trên bảng' : 'Bấm ô mới trên bảng') : 'Chọn sau khi có buổi cần đổi' });
+    else cards.push({ key: 't0', kind: 'add', need: !!from, l: 'Sang', t: from ? (po ? 'Bấm ô Ghép trên bảng' : 'Chọn buổi mới trên bảng') : 'Chọn sau khi có buổi cần đổi' });
   }
   renderChgCards(cards, no || !can.length);
   /* "Gửi lại" chỉ khi buổi từ / sang trên màn đúng y lệnh đã gửi */
   var resend = !!(S.notice && noticeForErr(S.notice).resend && S.pending && S.pending.action === 'lt_change' && sameSlot(S.pending.body.from, from) && sameSlot(S.pending.body.to, to));
   var ok = !!(from && to) || resend;
-  ctaSet(['#cta', '#ctaM'], resend ? 'Gửi lại' : pm ? 'Dời vào cặp' : 'Xác nhận đổi', ok, S.sending);
+  ctaSet(['#cta', '#ctaM'], resend ? 'Gửi lại' : pm ? 'Dời vào nhóm' : 'Xác nhận đổi', ok, S.sending);
   /* thanh đáy mobile: dải tuần (buổi của bạn viền Mực · buổi đang đổi viền đứt · ô mới Mực). Hết lượt / không còn buổi đổi được:
      thêm dòng chú thích vết đổi (T4 18:00 → T5 19:00 → T7 18:00) — lúc đó không có nút chốt, thanh còn chỗ */
   var wk = {}, locked = no || !can.length;
@@ -2436,7 +2436,7 @@ function updateChange(first) {
     : from ? (pm ? 'Dời ' : 'Đổi ') + DOWF[dowOf(from.date)] + ' ' + hm(from.h) + (to ? ' sang ' + DOWF[dowOf(to.date)] + ' ' + hm(to.h) : '') : to ? 'Chọn buổi sẽ dời sang ' + DOWF[dowOf(to.date)] + ' ' + hm(to.h) : 'Chọn buổi cần đổi';
   mbWeek(wk, '', cap, first);
   var mbl = $('#mbL'); if (mbl) mbl.className = locked ? 'mb-cap' : 'sr';
-  var mbn = $('#mbNote .ln'); if (mbn) line(mbn, pm ? 'Dời vào cặp không tính lượt đổi' : MRULE, 1, first);
+  var mbn = $('#mbNote .ln'); if (mbn) line(mbn, pm ? 'Dời vào nhóm không tính lượt đổi' : MRULE, 1, first);
   /* thông báo */
   var n = S.notice ? noticeForErr(S.notice) : null;
   if (!n && (no || !can.length)) {
@@ -2446,7 +2446,7 @@ function updateChange(first) {
       : { tone: 'warn', title: 'Không còn buổi nào đổi được.', body: 'Đổi lịch phải trước buổi tập 24 giờ. Các buổi còn lại vẫn giữ.', mtitle: 'Không còn buổi nào đổi được.' };
   }
   if (!n && pm) n = { tone: 'info', title: 'Dời vào cặp không tính lượt đổi.', body: 'Bạn sẽ tập đôi cùng ' + toName + ' · ' + dFull(to.date) + ' ' + hm(to.h) + '.', mtitle: 'Tập đôi cùng ' + toName + ' · không tính lượt đổi.' };
-  if (!n && po) n = { tone: 'info', title: 'Hết lượt đổi · vẫn ghép được.', body: 'Dời một buổi đang chờ bạn vào ô Ghép không tính lượt đổi.', mtitle: 'Hết lượt đổi · vẫn dời được vào ô Ghép.' };
+  if (!n && po) n = { tone: 'info', title: 'Hết lượt đổi · vẫn ghép được.', body: 'Dời một buổi đang chờ Ghép vào buổi Ghép khác sẽ không bị tính lượt đổi.', mtitle: 'Hết lượt đổi · có thể dời sang buổi Ghép.' };
   setWarn(n && n.tone === 'warn');
   setFloor(n ? '<div class="fl">' + noticeHTML(n) + '</div>' + infoBtn()
     : '<div class="fl">' + specHTML(st.me.coach, 'Coach của bạn') + '<i class="spec-sep"></i>' + specHTML('Còn ' + st.mine.changesLeft + ' lần', 'Đổi lịch tuần này') + '</div>' + infoBtn());
@@ -2507,14 +2507,14 @@ function chgError(r) {
   if (e === 'het_luot_doi') { S.chg = { from: null, to: null }; S.notice = null; go('change', 'fwd', { instant: true }); return; }
   if (e === 'het_cho') {
     var t = (r.full && r.full[0]) || S.chg.to;
-    S.notice = { tone: 'warn', title: (t ? dFull(t.date).split(' ').slice(0, 2).join(' ') + ' ' + hm(+t.h) : 'Khung này') + ' vừa hết chỗ.', body: 'Có người xác nhận trước bạn vài giây. Chọn ô khác trên bảng.', mtitle: (t ? dShort(t.date).split(' ')[0] + ' ' + hm(+t.h) : 'Khung này') + ' vừa hết chỗ.' };
+    S.notice = { tone: 'warn', title: (t ? dFull(t.date).split(' ').slice(0, 2).join(' ') + ' ' + hm(+t.h) : 'Khung này') + ' vừa hết chỗ.', body: 'Có người xác nhận trước bạn vài giây. Chọn buổi khác trên bảng.', mtitle: (t ? dShort(t.date).split(' ')[0] + ' ' + hm(+t.h) : 'Khung này') + ' vừa hết chỗ.' };
     S.chg.to = null;
   } else {
-    var M = { buoi_duoi_24h: ['Buổi này đã dưới 24 giờ.', 'Đổi lịch phải trước buổi tập 24 giờ.'],
-              duoi_12h: ['Khung mới chỉ còn dưới 12 giờ.', 'Khung mới phải cách bây giờ ít nhất 12 giờ. Chọn ô khác trên bảng.'],
-              duoi_24h: ['Khung mới chỉ còn dưới 24 giờ.', 'Chọn khung cách bây giờ ít nhất 24 giờ.'],     /* Apps Script V36 dự phòng còn luật cũ */
-              cung_ngay: duoSt() ? ['Trong ngày chỉ dời được vào cặp đang chờ.', 'Chọn ô Ghép trong ngày, hoặc một ô ở ngày khác.'] : ['Chỉ đổi sang ngày khác.', 'Chọn một ô ở ngày khác trong tuần.'],
-              khong_co_buoi: ['Buổi này không còn trong phiếu.', 'Bảng vừa được cập nhật. Chọn lại buổi cần đổi.'], mot_ngay_mot_buoi: ['Ngày đó đã có buổi.', 'Mỗi ngày tối đa 1 buổi.'] };
+    var M = { buoi_duoi_24h: ['Buổi này đã cách hiện tại dưới 24 giờ.', 'Bạn chỉ có thể đổi lịch trước buổi tập ít nhất 24 giờ.'],
+              duoi_12h: ['Buổi mới chỉ còn cách hiện tại dưới 12 giờ.', 'Buổi mới phải cách hiện tại ít nhất 12 giờ. Vui lòng chọn buổi khác.'],
+              duoi_24h: ['Buổi mới chỉ còn cách hiện tại dưới 24 giờ.', 'Chọn buổi cách hiện tại ít nhất 24 giờ.'],     /* Apps Script V36 dự phòng còn luật cũ */
+              cung_ngay: duoSt() ? ['Trong ngày chỉ dời được sang buổi đang chờ ghép.', 'Chọn buổi đang chờ Ghép trong ngày, hoặc một buổi ở ngày khác.'] : ['Chỉ có thể đổi sang ngày khác.', 'Chọn một buổi ở ngày khác trong tuần.'],
+              khong_co_buoi: ['Buổi này không còn trong phiếu.', 'Bảng vừa được cập nhật. Chọn lại buổi cần đổi.'], mot_ngay_mot_buoi: ['Ngày bạn chọn đã có buổi.', 'Đăng ký tối đa 1 buổi mỗi ngày.'] };
     var x = M[r.why] || [whyText(r.why).title, whyText(r.why).body];
     S.notice = { tone: 'warn', title: x[0], body: x[1] };
     S.chg = { from: null, to: null };
@@ -3126,7 +3126,7 @@ function pairLineHTML() {
   if (no) return '<button class="prl w" type="button" data-a="pairs" data-d="' + esc(no.date) + '" data-h="' + esc(no.h) + '"' + BEAM + '>' +
     pcIn('pair', 'prl-t', declinedTxt(invOutOf(no).to), dShort(no.date).split(' ')[0] + ' ' + hm(no.h), 'Mời bạn khác') + '</button>';
   var names = []; paired.forEach(function (x) { var n = pairName(x.date, x.h); if (names.indexOf(n) < 0) names.push(n); });
-  var txt = wait.length ? wait.length + ' buổi đang chờ bạn tập' : 'Tập đôi cả ' + paired.length + ' buổi',
+  var txt = wait.length ? wait.length + ' buổi đang chờ ghép nhóm' : 'Tập đôi cả ' + paired.length + ' buổi',
     sub = wait.length ? (paired.length ? paired.length + ' buổi tập đôi' : '') : 'cùng ' + names.join(', ');
   var ask = wait.some(canInvite);
   return '<button class="prl' + (sub ? ' w' : '') + '" type="button" data-a="pairs"' + (ask ? BEAM : '') + '>' + pcIn('pair', 'prl-t', txt, sub, ask ? 'Mời bạn' : '') + '</button>';
@@ -3171,7 +3171,7 @@ function pairsHTML(isSheet) {
   if (!up.length) h += '<p class="pr-empty">Chưa có buổi nào sắp tới.</p>';
   up.forEach(function (x) {
     var pn = pairName(x.date, x.h), io = d.invOut ? d.invOut[x.date + '|' + x.h] : null, can = canInvite(x);
-    var stx = pn ? 'Tập đôi cùng ' + pn : io ? (io.st === 'no' ? declinedTxt(io.to) : 'Đã mời ' + io.to + ' · chờ trả lời') : coachAt(x.date, x.h) === '' ? 'Chờ bạn tập · buổi vẫn diễn ra' : 'Coach đã có lịch khác ở khung này';
+    var stx = pn ? 'Tập đôi cùng ' + pn : io ? (io.st === 'no' ? declinedTxt(io.to) : 'Đã mời ' + io.to + ' · chờ trả lời') : coachAt(x.date, x.h) === '' ? 'Chờ người ghép · buổi vẫn diễn ra' : 'Coach đã có lịch khác ở khung này';
     var open = pick && pick.date === x.date && +pick.h === x.h;
     h += '<div class="pr-row' + (pn ? ' on' : '') + '"><div class="pr-l"><span class="pr-t">' + esc(dShort(x.date) + ' · ' + hm(x.h)) + '</span><span class="pr-s">' + esc(stx) + '</span></div>' +
       (can && !open ? '<div class="pr-a"><button class="btn btn-s ' + (io && io.st !== 'no' ? 'btn-phu' : 'btn-toi') + '" type="button" data-a="invpick" data-d="' + esc(x.date) + '" data-h="' + esc(x.h) + '"' + busyA + '><span>' + (!io ? 'Mời bạn' : io.st === 'no' ? 'Mời bạn khác' : 'Đổi người') + '</span></button></div>' : '') + '</div>';
@@ -3186,7 +3186,7 @@ function pairsHTML(isSheet) {
         (io && io.st !== 'no' ? '<button class="btn btn-m btn-phu" type="button" data-a="invcancel"' + busyA + '><span>Huỷ lời mời</span></button>' : '<button class="btn btn-m btn-phu" type="button" data-a="invpickoff"><span>Để sau</span></button>') + '</div></div>';
     }
   });
-  h += '</div></div><p class="pr-note">Bạn được mời thấy lời mời khi mở trang đặt lịch. Chưa có bạn thì buổi vẫn diễn ra. Dời một buổi đang chờ vào ô Ghép không tính lượt đổi.</p>';
+  h += '</div></div><p class="pr-note">Người được mời sẽ thấy lời mời khi mở trang đặt lịch. Chưa có bạn thì buổi vẫn diễn ra. Dời một buổi đang chờ Ghép vào buổi Ghép khác sẽ không bị tính lượt đổi.</p>';
   return h;
 }
 var DUO = { busy: false };

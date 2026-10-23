@@ -1,9 +1,9 @@
 /* Gói 1:2 · ghép lớp (chủ studio chốt 18/10) — ca biên trên trang thật + máy chủ giả của chế độ QC (qc.js = mã Worker), desktop + mobile.
    node test/ui_duo.js
    1. Thục Quyên đặt T4 11:00 + T5 11:00 (một mình) · Uyển Nhi đặt T4 09:00 + T6 09:00, mời Thục Quyên T4 09:00
-   2. Thục Quyên mở → phiếu: dòng Tập đôi báo lời mời → bảng → Tập cùng → đổi lịch chọn sẵn T4 11:00 → T4 09:00, nút "Dời vào cặp"
+   2. Thục Quyên mở → phiếu: dòng Tập đôi báo lời mời → bảng → Tập cùng → đổi lịch chọn sẵn T4 11:00 → T4 09:00, nút "Dời vào nhóm"
    3. Gửi → phiếu "Đã ghép tập đôi!" · lượt đổi còn 2 · sổ: dòng "Ghép" · Uyển Nhi thấy T4 09:00 tập đôi cùng Thục Quyên
-   4. Uyển Nhi đổi T6 09:00 (đang lẻ) sang T5 11:00 (Thục Quyên đang chờ) → "Dời vào cặp" khác ngày, không tính lượt
+   4. Uyển Nhi đổi T6 09:00 (đang lẻ) sang T5 11:00 (Thục Quyên đang chờ) → "Dời vào nhóm" khác ngày, không tính lượt
    5. Thục Quyên đổi T4 09:00 (đang tập đôi) ra T4 11:00 → không được (cùng ngày, rời cặp) · sang T6 19:00 → "Xác nhận đổi" (tính lượt)
    6. Thục Quyên mời Uyển Nhi T6 19:00 → Uyển Nhi "Không, cảm ơn" → Thục Quyên thấy "Uyển Nhi đã từ chối tham gia" + "Mời bạn khác" */
 'use strict';
@@ -90,7 +90,7 @@ async function run(browser, server, mobile) {
   await waitView(page, 'change'); await sleep(600);
   const chg = await page.evaluate(() => window.__lt.S.chg);
   ok('Tập cùng (cùng ngày có buổi đang chờ) → đổi lịch chọn sẵn T4 11:00 → T4 09:00', chg.from && chg.from.date === '2026-10-21' && chg.from.h === 11 && chg.to && chg.to.date === '2026-10-21' && chg.to.h === 9, chg);
-  ok('Nút chốt "Dời vào cặp" bật', await ctaIs(/Dời vào cặp/, true));
+  ok('Nút chốt "Dời vào nhóm" bật', await ctaIs(/Dời vào nhóm/, true));
   await cta().click();
   await waitView(page, 'ticket'); await flushed(); await sleep(800);
   const st = await page.evaluate(() => ({ v: window.__lt.S.tkVariant, left: window.__lt.S.st.mine.changesLeft, pairs: window.__lt.S.st.duo.pairs, h1: document.querySelector('#pg-tk h1, .pg-tk h1') ? document.querySelector('.pg-tk h1').textContent : '' }));
@@ -105,7 +105,7 @@ async function run(browser, server, mobile) {
   const jn = await page.evaluate(() => { const c = document.querySelector('#wkb .c[data-d="2026-10-22"][data-h="11"]'); return c ? c.className + ' · ' + c.textContent : 'none'; });
   ok('Chọn T6 09:00 (đang lẻ) → T5 11:00 hiện ô Ghép · Thục Quyên', /join/.test(jn) && /Thục Quyên/.test(jn), jn);
   await cell('2026-10-22', 11).click(); await sleep(300);
-  ok('Nút chốt "Dời vào cặp"', await ctaIs(/Dời vào cặp/, true));
+  ok('Nút chốt "Dời vào nhóm"', await ctaIs(/Dời vào nhóm/, true));
   await cta().click(); await waitView(page, 'ticket'); await flushed(); await sleep(600);
   const s2 = await page.evaluate(() => ({ v: window.__lt.S.tkVariant, left: window.__lt.S.st.mine.changesLeft, pairs: window.__lt.S.st.duo.pairs }));
   ok('Uyển Nhi: Ghép khác ngày → phiếu "paired" · lượt đổi còn 2 · T5 11:00 cùng Thục Quyên', s2.v === 'paired' && s2.left === 2 && s2.pairs['2026-10-22|11'] === 'Thục Quyên', s2);
@@ -125,7 +125,7 @@ async function run(browser, server, mobile) {
   await signOut(); await login('uyen nhi', '5555'); await waitView(page, 'ticket'); await sleep(500);
   ok('Uyển Nhi: T4 09:00 thành chờ bạn tập', await page.evaluate(() => !window.__lt.S.st.duo.pairs['2026-10-21|9']));
   await openPairs();
-  ok('Bảng Tập đôi của Uyển Nhi: T4 09:00 "Chờ bạn tập" + nút Mời bạn', await page.evaluate(h => { const r = Array.from(document.querySelectorAll(h + ' .pr-row')).find(x => /21\.10/.test(x.textContent)); return !!r && /Chờ bạn tập/.test(r.textContent) && !!r.querySelector('[data-a="invpick"]'); }, host));
+  ok('Bảng Tập đôi của Uyển Nhi: T4 09:00 "Chờ người ghép" + nút Mời bạn', await page.evaluate(h => { const r = Array.from(document.querySelectorAll(h + ' .pr-row')).find(x => /21\.10/.test(x.textContent)); return !!r && /Chờ người ghép/.test(r.textContent) && !!r.querySelector('[data-a="invpick"]'); }, host));
   /* 6 · từ chối (chủ studio 19/10): người mời thấy "<tên> đã từ chối tham gia" + nút "Mời bạn khác" — ở dòng Tập đôi trên phiếu và ở bảng.
        Thục Quyên (không có lời mời đến nên dòng Tập đôi không bị lời mời chiếm chỗ) mời Uyển Nhi T6 19:00 → Uyển Nhi từ chối */
   await page.keyboard.press('Escape'); await sleep(300);

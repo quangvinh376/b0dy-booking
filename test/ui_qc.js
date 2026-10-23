@@ -217,8 +217,8 @@ async function strayKeys(page) {
   await waitView(page, 'book');
   const hrs = await page.evaluate(() => Array.from(new Set(Array.from(document.querySelectorAll('#wkb .c')).map(c => +c.dataset.h))));
   ok('Gói 1:2 → bảng chỉ các khung ghép 09 · 11 · 15 · 17 · 19', hrs.join() === '9,11,15,17,19', hrs);
-  ok('Lời mời của Tuấn Kiệt hiện ở sàn: "Tuấn Kiệt mời bạn tập đôi." + Tập cùng / Không, cảm ơn',
-     /Tuấn Kiệt mời bạn tập đôi/.test(await page.textContent('.floor')) && (await page.locator('.floor [data-a="invok"]').count()) === 1 && (await page.locator('.floor [data-a="invno"]').count()) === 1);
+  ok('Lời mời của Tuấn Kiệt hiện ở sàn: "Tuấn Kiệt mời bạn tập cùng." + Tập cùng / Không, cảm ơn',
+     /Tuấn Kiệt mời bạn tập cùng/.test(await page.textContent('.floor')) && (await page.locator('.floor [data-a="invok"]').count()) === 1 && (await page.locator('.floor [data-a="invno"]').count()) === 1);
   const cls = k => page.evaluate(k => { const [d, h] = k.split('|'); const c = document.querySelector('#wkb .c[data-d="' + d + '"][data-h="' + h + '"]'); return c ? c.className + ' · ' + c.textContent : 'none'; }, k);
   ok('T3 17:00 phòng đầy vẫn ghép được: ô "Ghép · Tuấn Kiệt" + chấm lời mời', /join/.test(await cls('2026-10-20|17')) && /inv/.test(await cls('2026-10-20|17')) && /Tuấn Kiệt/.test(await cls('2026-10-20|17')), await cls('2026-10-20|17'));
   ok('T2 15:00 cặp 1:2 của Lâm đã đủ → ô gạch X, không chữ (không nói lý do)', /\bfull\b/.test(await cls('2026-10-19|15')) && / · $/.test(await cls('2026-10-19|15')) &&
@@ -226,7 +226,7 @@ async function strayKeys(page) {
   ok('T2 10:00 (ngoài khung ghép) không có trên bảng', (await cls('2026-10-19|10')) === 'none');
   await page.locator('.floor [data-a="invok"]').click();
   ok('Tập cùng → chọn sẵn T3 17:00', JSON.stringify(await page.evaluate(() => window.__lt.S.picks)) === '[{"date":"2026-10-20","h":17}]', await page.evaluate(() => window.__lt.S.picks));
-  const next = await page.waitForFunction(() => /Thảo Vy mời bạn tập đôi/.test(document.querySelector('.floor').textContent), null, { timeout: 4000 }).then(() => true, () => false);
+  const next = await page.waitForFunction(() => /Thảo Vy mời bạn tập cùng/.test(document.querySelector('.floor').textContent), null, { timeout: 4000 }).then(() => true, () => false);
   ok('Lời mời kế tiếp (Thảo Vy · T7 15:00) lên sàn', next, await page.textContent('.floor'));
   await book(t, [['2026-10-21', 9]]);
   await page.waitForFunction(() => window.__lt.S.notice && window.__lt.S.notice.type === 'busy', null, { timeout: 8000 });
@@ -258,7 +258,7 @@ async function strayKeys(page) {
   await signOut(page);
   await login(t, 'thuc quyen', 'M. Thục Quyên', '1212');
   await waitView(page, 'book');
-  const seen = await page.waitForFunction(() => { const t = document.querySelector('.floor').textContent; return /Uyển Nhi mời bạn tập đôi/.test(t) && /Thứ Tư 21\.10 · 09:00/.test(t); }, null, { timeout: 4000 }).then(() => true, () => false);
+  const seen = await page.waitForFunction(() => { const t = document.querySelector('.floor').textContent; return /Uyển Nhi mời bạn tập cùng/.test(t) && /Thứ Tư 21\.10 · 09:00/.test(t); }, null, { timeout: 4000 }).then(() => true, () => false);
   ok('Thục Quyên mở trang → thấy lời mời của Uyển Nhi (T4 21.10 · 09:00)', seen, await page.textContent('.floor'));
   await page.locator('.floor [data-a="invok"]').click();
   await book(t, [['2026-10-22', 11]]);
@@ -393,7 +393,7 @@ async function strayKeys(page) {
   await mp.locator('#prLine .prl').click();
   await mp.waitForSelector('#sheet.on');
   ok('Mobile: cửa sổ Tập đôi: lời mời + 2 buổi (T3 tập đôi cùng Tuấn Kiệt · T4 chờ bạn tập)',
-     await mp.evaluate(() => { const t = document.querySelector('#sheet').textContent; return /Tập đôi tuần 43/.test(t) && /Tập đôi cùng Tuấn Kiệt/.test(t) && /Chờ bạn tập/.test(t) && document.querySelectorAll('#sheet [data-a="invok"]').length === 1; }));
+     await mp.evaluate(() => { const t = document.querySelector('#sheet').textContent; return /Tập đôi tuần 43/.test(t) && /Tập đôi cùng Tuấn Kiệt/.test(t) && /Chờ người ghép/.test(t) && document.querySelectorAll('#sheet [data-a="invok"]').length === 1; }));
   await mp.locator('#sheet .sh-h [data-a="closesheet"]').click();
   await mp.waitForSelector('#sheet', { state: 'hidden' });
   ok('Mobile: không lệnh nào ra máy chủ thật', m.hits === 0, m.hits);
