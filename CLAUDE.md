@@ -32,8 +32,16 @@ ID hai file Google Sheets: `BA_ID` (file BA: MEMBERS · SESSION LOG · TRIAL · 
 6. Sau mỗi lần đẩy: xác minh commit bằng hash và SHA-256 từng tệp trên `raw.githubusercontent.com/quangvinh376/b0dy-booking/<commit>/…`.
 7. Chỉ MỘT tiến trình Playwright / Chromium một lúc (máy test nhỏ từng hết RAM).
 
-## Đang ở đâu (22/10/2026, 19:15)
+## Đang ở đâu (23/10/2026, 12:10)
 
+- Trang **v1.6.1** (`3722239`) trên GitHub Pages `main` — "pages build and deployment" success 12:04:26 23/10; 8 tệp tĩnh (index · app.js ·
+  app.css · sw.js · qc.js · qc.css · b0b.js · tk3d.js) SHA-256 khớp trên raw.githubusercontent tại commit. Chưa đọc được trang thật từ máy cloud
+  (WebFetch booking.b0dy.studio cần quyền, proxy chặn curl) → Claude chat kiểm `__lt.ver` 1.6.1 trong tab. Worker không đổi (`8db2ac5`).
+- **1.6.1 (chủ studio 23/10: tự soát văn phong trên doc "B0DY Booking · Toàn bộ UX writing" — claude.ai artifact `3qGqN1DJqKkNNcJqjA3Ace`)** —
+  chỉ đổi chữ, 34 ô sửa → 27 chỗ trong `app.js`: lỗi kết nối ("Lỗi kết nối. Vui lòng thử lại."), "Không phải tôi" → "Không phải bạn?", màn
+  khoá, phụ đề đặt muộn, tiêu đề lời mời trên sàn + cửa sổ "… mời bạn tập cùng." (dòng mobile / phiếu / bảng Tập đôi vẫn "tập đôi"), màn đổi
+  lịch ("Chọn …" thay "Bấm …" trên desktop, "Dời vào nhóm" / "Dời sang nhóm khác", câu lỗi đổi lịch "Buổi mới … cách hiện tại …"), bảng
+  Tập đôi ("đang chờ ghép nhóm", "Chờ người ghép", ghi chú cuối). Test sửa theo chữ mới (ui_duo · ui_notice · ui_qc); đủ bộ PASS 23/10.
 - Trang **v1.6.0** (`8db2ac5`) trên GitHub Pages `main` — "pages build and deployment" success 19:06:56 22/10; 22 tệp tĩnh SHA-256 khớp
   trên raw.githubusercontent tại commit; trang thật (Claude chat, tab booking.b0dy.studio → `/img/favicon.svg` rồi fetch no-store) trả
   index · app.js · app.css · sw.js · qc.js · b0b.js · tk3d.js đúng SHA-256 của commit, `__lt.ver` 1.6.0, 3 thẻ script `?v=1.6.0`.
