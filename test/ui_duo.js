@@ -83,7 +83,7 @@ async function run(browser, server, mobile) {
   await page.keyboard.press('Escape'); await sleep(300);
   /* 2 */
   await signOut(); await login('thuc quyen', '1212'); await waitView(page, 'ticket'); await sleep(800);
-  ok('Thục Quyên: dòng Tập đôi báo "Uyển Nhi mời bạn tập đôi · T4 09:00"', /Uyển Nhi mời bạn tập đôi · T4 09:00/.test(await page.textContent('#prLine')), await page.textContent('#prLine'));
+  ok('Thục Quyên: dòng Tập đôi báo "Uyển Nhi mời bạn tập cùng · T4 09:00"', /Uyển Nhi mời bạn tập cùng · T4 09:00/.test(await page.textContent('#prLine')), await page.textContent('#prLine'));
   ok('… dòng lời mời có hào quang Acid đang chạy', await beamOn(), await beamOn(true));
   await openPairs();
   await page.locator(host + ' [data-a="invok"]').click();

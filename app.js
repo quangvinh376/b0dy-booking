@@ -9,7 +9,7 @@
 'use strict';
 
 /* ============================== CẤU HÌNH ============================== */
-var VER = '1.6.1';
+var VER = '1.6.2';
 var API_URL = 'https://b0dy-booking-api.little-bonus-1d87.workers.dev/';
 var API_SLOW = false;                 /* true khi chạy Apps Script (chậm hơn nhiều) → nới thời gian chờ */
 /* kênh live: Worker chỉ nhận từ trang thật (ALLOW_ORIGINS) → trang chạy chỗ khác (test trên máy) không nối, khỏi gõ cửa máy chủ thật.
@@ -1233,10 +1233,10 @@ function mNoteHTML(n) {
 function rulesOf() {
   var d = duoSt(); if (!d) return RULES;
   var r = RULES.slice();
-  r[4] = 'Chỉ đổi sang ngày khác trong cùng tuần, trừ khi dời vào cặp.';
+  r[4] = 'Chỉ đổi sang ngày khác trong cùng tuần, trừ khi dời vào nhóm.';
   return r.slice(0, 2).concat(['Gói 1:2 đặt vào các khung ghép ' + hoursTxt() + '. Bạn tập cùng coach đã đặt hiện tên trên bảng.',
     'Chưa có bạn tập thì buổi vẫn diễn ra. Bạn có thể mời một bạn cùng coach; bạn ấy thấy lời mời khi mở trang đặt lịch.',
-    'Dời buổi đang chờ vào cặp có sẵn không tính lượt đổi, kể cả trong ngày.']).concat(r.slice(2));
+    'Dời buổi đang chờ ghép vào nhóm có sẵn sẽ không bị tính lượt đổi, kể cả trong ngày.']).concat(r.slice(2));
 }
 function rulesHTML() { return '<div class="rules"><p>Lịch đã đặt không thể huỷ.</p><p>Có thể đổi lịch tối đa 2 lần, trước 24 giờ.</p></div>'; }
 var MRULE = 'Không huỷ · đổi tối đa 2 lần, trước 24 giờ';
@@ -1776,12 +1776,12 @@ function cellModel(mode) {
           else if (s.st === 'absent') { m.cls = 'done'; m.html = '<span class="d">Vắng</span><span class="m">V</span>'; m.aria = label + 'vắng'; }
           else if (s.st === 'past') { m.cls = 'past'; m.html = '<span>' + hm(h) + '</span>'; m.aria = label + 'buổi đã qua'; }
           else if (mode === 'add') { m.cls = 'mine'; m.html = mineHTML(h, pn); m.aria = label + 'đã đặt' + (pn ? ', tập đôi cùng ' + pn : ''); }
-          else if (from && from.date === d && from.h === h) { m.cls = 'moving'; m.html = '<span>' + hm(h) + '</span>'; m.can = true; m.aria = label + 'buổi đang đổi, bấm để bỏ chọn'; }
+          else if (from && from.date === d && from.h === h) { m.cls = 'moving'; m.html = '<span>' + hm(h) + '</span>'; m.can = true; m.aria = label + 'buổi đang đổi, chọn lại để bỏ'; }
           else if (noChg || (pairOnly && !single)) { m.cls = 'mine'; m.html = '<span class="d">Không thể đổi</span><span class="m">' + pad2(h) + '</span>'; m.aria = label + 'buổi của bạn, không thể đổi'; }
           else if (slotMs(d, h) - now() < CHG_LEAD) { m.cls = 'mine'; m.html = ico('lock') + '<span class="d">Dưới 24 giờ</span>'; m.aria = label + 'buổi của bạn, dưới 24 giờ nên không đổi được'; }
-          else { m.cls = 'mine tm'; m.html = mineHTML(h, pn); m.can = true; m.aria = label + 'buổi của bạn' + (pn ? ', tập đôi cùng ' + pn : '') + ', bấm để ' + (pairOnly ? 'dời vào nhóm' : 'đổi'); }
+          else { m.cls = 'mine tm'; m.html = mineHTML(h, pn); m.can = true; m.aria = label + 'buổi của bạn' + (pn ? ', tập đôi cùng ' + pn : '') + ', chọn để ' + (pairOnly ? 'dời vào nhóm' : 'đổi'); }
         } else if (mode === 'chg' && to && to.date === d && to.h === h) {
-          m.cls = 'sel pop0'; m.html = selHTML(at); m.can = true; m.aria = label + 'buổi mới, bấm để bỏ chọn';
+          m.cls = 'sel pop0'; m.html = selHTML(at); m.can = true; m.aria = label + 'buổi mới, chọn lại để bỏ';
         } else if (mode === 'chg' && from && from.date === d && pairMove(from, at) && !why(d, h, LEAD)) {
           /* dời trong cùng ngày chỉ khi vào cặp đang chờ (Ghép) */
           m = joinModel(at, label); m.can = true;
@@ -1793,11 +1793,11 @@ function cellModel(mode) {
       }
       var wy = why(d, h, lead);
       if (mode === 'chg') {
-        if (to && to.date === d && to.h === h) { m.cls = 'sel pop0'; m.html = selHTML(at); m.can = true; m.aria = label + 'buổi mới, bấm để bỏ chọn'; out[k] = m; return; }
+        if (to && to.date === d && to.h === h) { m.cls = 'sel pop0'; m.html = selHTML(at); m.can = true; m.aria = label + 'buổi mới, chọn lại để bỏ'; out[k] = m; return; }
         if (wy === 'qua') { m.cls = 'past'; m.aria = label + 'đã qua'; out[k] = m; return; }
         if (noChg || !from || from.date === d || (s && s.date === d) || (pairOnly && !pairMove(from, at))) { m.cls = 'lock'; m.aria = label + 'không chuyển tới được'; out[k] = m; return; }
       } else {
-        if (pickBy[d] === h) { m.cls = 'sel'; m.html = selHTML(at); m.can = true; m.aria = label + 'đã chọn, bấm để bỏ'; out[k] = m; return; }
+        if (pickBy[d] === h) { m.cls = 'sel'; m.html = selHTML(at); m.can = true; m.aria = label + 'đã chọn, chọn lại để bỏ'; out[k] = m; return; }
         if (goneBy[k]) { m.cls = 'gone'; m.html = '<span class="d">Vừa hết</span><span class="m">Hết</span>'; m.aria = label + 'vừa hết chỗ'; out[k] = m; return; }
       }
       if (wy === '') {
@@ -2036,7 +2036,7 @@ function inviteNotice() {
   if (!x) return null;
   var at = dFull(x.date) + ' · ' + hm(x.h) + ' · coach ' + S.st.me.coach;
   var mw = dShort(x.date).split(' ')[0] + ' ' + hm(x.h);
-  return { tone: 'info', type: 'inv', title: x.from + ' mời bạn tập cùng.', body: at + '.', mtitle: x.from + ' mời bạn tập đôi · ' + mw, mt: x.from + ' mời bạn tập đôi', mw: mw,
+  return { tone: 'info', type: 'inv', title: x.from + ' mời bạn tập cùng.', body: at + '.', mtitle: x.from + ' mời bạn tập cùng · ' + mw, mt: x.from + ' mời bạn tập cùng', mw: mw,
            acts: [{ a: 'invok', label: 'Tập cùng', d: x.date, h: x.h, main: true }, { a: 'invno', label: 'Không, cảm ơn', d: x.date, h: x.h }],
            sheet: { title: x.from + ' mời bạn tập cùng.', body: at + '. Chọn “Tập cùng” để thêm khung này vào lịch bạn đang chọn, rồi đặt lịch như thường.' } };
 }
@@ -2146,7 +2146,7 @@ function updateBook(first) {
   S.gone.forEach(function (g) { if (!S.picks.some(function (p) { return p.date === g.date; })) cards.push({ key: 'g' + g.date, kind: 'add', need: true, l: 'Chọn lại · ' + dFull(g.date), t: hm(g.h) + ' vừa hết' }); });
   if (n < max && !S.gone.length) {
     var idx = (add ? st.mine.sessions.length : 0) + n + 1;
-    cards.push({ key: 'add', kind: 'add', need: n < min, l: n < min ? 'Chọn buổi ' + idx : 'Tuỳ chọn', t: n < min ? (desk() ? 'Bấm một ô trống trên bảng' : 'Chạm một ô trống') : 'Thêm buổi ' + idx });
+    cards.push({ key: 'add', kind: 'add', need: n < min, l: n < min ? 'Chọn buổi ' + idx : 'Tuỳ chọn', t: n < min ? (desk() ? 'Chọn một ô trống trên bảng' : 'Chạm một ô trống') : 'Thêm buổi ' + idx });
   }
   cards.sort(function (a, b) { var da = a.date || (a.key.charAt(0) === 'g' ? a.key.slice(1) : a.key.charAt(0) === 'b' ? a.key.slice(1) : 'z'), db = b.date || (b.key.charAt(0) === 'g' ? b.key.slice(1) : b.key.charAt(0) === 'b' ? b.key.slice(1) : 'z'); return da < db ? -1 : da > db ? 1 : 0; });
   flipList($('#pkList'), cards);
@@ -2366,7 +2366,7 @@ VIEWS.change = function () {
   }
   var sub = no ? 'Tuần này đã dùng ' + st.mine.changes + ' / 2 lần đổi' : po ? 'Hết lượt đổi · bạn vẫn có thể dời sang nhóm khác'
     : st.week.phase === 'open' ? 'Chọn lịch bạn muốn đổi cho tuần tới' : 'Chọn lịch bạn muốn đổi cho tuần này';
-  var subM = no || po ? sub : 'Chạm buổi cần đổi, rồi chạm ô mới';
+  var subM = no || po ? sub : 'Chạm buổi cần đổi, rồi chạm buổi mới';
   var page = pageEl('pg-chg', '<div class="bk st">' +
     '<div class="side"><div class="side-top">' +
       helloHTML({ title: 'Chào ' + me.call, sub: desk() ? sub : subM, info: me.coach + ' · còn ' + me.left + ' buổi · còn ' + st.mine.changesLeft + ' lần đổi', notYou: true }) +
@@ -2413,12 +2413,12 @@ function updateChange(first) {
     if (d) d.textContent = 'Không còn buổi nào đổi được tuần này.';
     upcoming().forEach(function (s) { cards.push({ key: 'k' + s.date, kind: 'booked', l: 'Giữ nguyên · ' + dFull(s.date), t: hm(s.h) }); });
   } else {
-    if (d) d.textContent = po ? (desk() ? 'Chọn buổi đang chờ ghép, rồi chọn buổi khác cũng đang được chờ ghép.' : 'Chạm buổi đang chờ bạn, rồi chạm ô Ghép.') : desk() ? 'Chọn buổi cần đổi, rồi chọn buổi mới.' : 'Chạm buổi cần đổi, rồi chạm ô mới.';
+    if (d) d.textContent = po ? (desk() ? 'Chọn buổi đang chờ ghép, rồi chọn buổi khác cũng đang được chờ ghép.' : 'Chạm buổi đang chờ ghép, rồi chạm buổi khác cũng đang được chờ ghép.') : desk() ? 'Chọn buổi cần đổi, rồi chọn buổi mới.' : 'Chạm buổi cần đổi, rồi chạm buổi mới.';
     if (from) cards.push({ key: 'f', kind: 'moving', l: 'Từ · ' + dFull(from.date), t: hm(from.h), w: pairName(from.date, from.h) });
     else cards.push({ key: 'f0', kind: 'add', need: true, l: 'Từ', t: to ? 'Chọn buổi sẽ đổi sang ' + hm(to.h) : 'Chọn buổi cần đổi trên bảng' });
     cards.push({ key: 'arr', kind: 'arrow' });
     if (to) cards.push({ key: 't', kind: 'to', l: 'Sang · ' + dFull(to.date), t: hm(to.h), w: toName && coachAt(to.date, to.h) === 'join' ? toName : '' });
-    else cards.push({ key: 't0', kind: 'add', need: !!from, l: 'Sang', t: from ? (po ? 'Bấm ô Ghép trên bảng' : 'Chọn buổi mới trên bảng') : 'Chọn sau khi có buổi cần đổi' });
+    else cards.push({ key: 't0', kind: 'add', need: !!from, l: 'Sang', t: from ? (po ? 'Chọn buổi đang chờ ghép trên bảng' : 'Chọn buổi mới trên bảng') : 'Chọn sau khi có buổi cần đổi' });
   }
   renderChgCards(cards, no || !can.length);
   /* "Gửi lại" chỉ khi buổi từ / sang trên màn đúng y lệnh đã gửi */
@@ -2445,7 +2445,7 @@ function updateChange(first) {
              mtitle: 'Hết lượt đổi' + (up.length === 1 ? ' · ' + dShort(up[0].date).split(' ')[0] + ' ' + hm(up[0].h) + ' vẫn giữ.' : '.') }
       : { tone: 'warn', title: 'Không còn buổi nào đổi được.', body: 'Đổi lịch phải trước buổi tập 24 giờ. Các buổi còn lại vẫn giữ.', mtitle: 'Không còn buổi nào đổi được.' };
   }
-  if (!n && pm) n = { tone: 'info', title: 'Dời vào cặp không tính lượt đổi.', body: 'Bạn sẽ tập đôi cùng ' + toName + ' · ' + dFull(to.date) + ' ' + hm(to.h) + '.', mtitle: 'Tập đôi cùng ' + toName + ' · không tính lượt đổi.' };
+  if (!n && pm) n = { tone: 'info', title: 'Dời vào nhóm không tính lượt đổi.', body: 'Bạn sẽ tập đôi cùng ' + toName + ' · ' + dFull(to.date) + ' ' + hm(to.h) + '.', mtitle: 'Tập đôi cùng ' + toName + ' · không tính lượt đổi.' };
   if (!n && po) n = { tone: 'info', title: 'Hết lượt đổi · vẫn ghép được.', body: 'Dời một buổi đang chờ Ghép vào buổi Ghép khác sẽ không bị tính lượt đổi.', mtitle: 'Hết lượt đổi · có thể dời sang buổi Ghép.' };
   setWarn(n && n.tone === 'warn');
   setFloor(n ? '<div class="fl">' + noticeHTML(n) + '</div>' + infoBtn()
@@ -3119,7 +3119,7 @@ function savePng() {
 function pairLineHTML() {
   var d = duoSt(); if (!d || !S.st) return '';
   var up = upcoming(), iv = (d.invIn || [])[0];
-  if (iv) return '<button class="prl inv w" type="button" data-a="pairs"' + BEAM + '>' + pcIn('pair', 'prl-t', iv.from + ' mời bạn tập đôi', dShort(iv.date).split(' ')[0] + ' ' + hm(iv.h), 'Xem') + '</button>';
+  if (iv) return '<button class="prl inv w" type="button" data-a="pairs"' + BEAM + '>' + pcIn('pair', 'prl-t', iv.from + ' mời bạn tập cùng', dShort(iv.date).split(' ')[0] + ' ' + hm(iv.h), 'Xem') + '</button>';
   if (!up.length) return '';
   var paired = up.filter(function (x) { return pairName(x.date, x.h); }), wait = up.filter(function (x) { return !pairName(x.date, x.h); });
   var no = wait.slice().sort(byDate).filter(function (x) { return invOutOf(x).st === 'no' && canInvite(x); })[0];
@@ -3161,7 +3161,7 @@ function pairsHTML(isSheet) {
   var busyA = DUO.busy ? ' disabled aria-busy="true"' : '';
   if (d.invIn && d.invIn.length) {
     h += '<div class="dr-sec"><span class="k">Lời mời cho bạn</span><div class="pr-list">' + d.invIn.map(function (x) {
-      return '<div class="pr-row inv"><div class="pr-l"><span class="pr-t">' + esc(dShort(x.date) + ' · ' + hm(x.h)) + '</span><span class="pr-s">' + esc(x.from) + ' mời bạn tập đôi</span></div>' +
+      return '<div class="pr-row inv"><div class="pr-l"><span class="pr-t">' + esc(dShort(x.date) + ' · ' + hm(x.h)) + '</span><span class="pr-s">' + esc(x.from) + ' mời bạn tập cùng</span></div>' +
         '<div class="pr-a"><button class="btn btn-s ' + (pick ? 'btn-toi' : 'btn-chinh') + '" type="button" data-a="invok" data-d="' + esc(x.date) + '" data-h="' + esc(x.h) + '"' + busyA + '><span>Tập cùng</span></button>' +
         '<button class="btn btn-s btn-phu" type="button" data-a="invno" data-d="' + esc(x.date) + '" data-h="' + esc(x.h) + '"' + busyA + '><span>Không, cảm ơn</span></button></div></div>';
     }).join('') + '</div></div>';
@@ -3308,7 +3308,7 @@ function acceptInvite(d, h) {
   }
   if (why(d, slot.h, LEAD)) { toast(at + ' còn dưới 12 giờ nên không dời sang được.'); return; }
   var c = changeable().filter(function (f) { return toOk(f, slot); });
-  if (!c.length) { toast(st.mine.changesLeft > 0 ? 'Không còn buổi nào dời được sang ' + at + '.' : 'Hết lượt đổi tuần này · chỉ dời được buổi đang chờ bạn tập vào cặp.'); return; }
+  if (!c.length) { toast(st.mine.changesLeft > 0 ? 'Không còn buổi nào dời được sang ' + at + '.' : 'Hết lượt đổi tuần này · bạn chỉ có thể dời buổi đang chờ ghép sang nhóm khác.'); return; }
   S.chg = { from: c.length === 1 ? { date: c[0].date, h: c[0].h } : null, to: slot, keep: true }; S.notice = null;
   go('change', 'fwd', { push: true });
 }

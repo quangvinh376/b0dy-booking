@@ -236,7 +236,7 @@ async function strayKeys(page) {
   await flushed(page);
   ok('Gửi lại → phiếu · sổ giả đúng 2 dòng', (await soOf(page, 'B805DY')).length === 2);
   ok('Phiếu: T3 17:00 tập đôi cùng Tuấn Kiệt', await page.evaluate(() => window.__lt.S.st.duo.pairs['2026-10-20|17'] === 'Tuấn Kiệt'));
-  ok('Dòng Tập đôi trên phiếu báo lời mời của Thảo Vy', /Thảo Vy mời bạn tập đôi/.test(await page.textContent('#prLine')));
+  ok('Dòng Tập đôi trên phiếu báo lời mời của Thảo Vy', /Thảo Vy mời bạn tập cùng/.test(await page.textContent('#prLine')));
   await page.locator('#prLine .prl').click();
   await page.waitForSelector('#drawer.on');
   await page.locator('#drawer [data-a="invpick"][data-d="2026-10-21"]').click();
@@ -380,7 +380,7 @@ async function strayKeys(page) {
   await login(m, 'uyen nhi', 'T. Uyển Nhi', '5555');
   await waitView(mp, 'book');
   await mp.waitForSelector('#mNote .mnt');
-  ok('Mobile: lời mời hiện ở dòng thông báo trên bảng', /Tuấn Kiệt mời bạn tập đôi · T3 17:00/.test(await mp.textContent('#mNote')), await mp.textContent('#mNote'));
+  ok('Mobile: lời mời hiện ở dòng thông báo trên bảng', /Tuấn Kiệt mời bạn tập cùng · T3 17:00/.test(await mp.textContent('#mNote')), await mp.textContent('#mNote'));
   await mp.locator('#mNote .mnt').click();
   await mp.waitForSelector('#sheet.on [data-a="invok"]');
   await mp.locator('#sheet [data-a="invok"]').click();
@@ -389,7 +389,7 @@ async function strayKeys(page) {
   await book(m, [['2026-10-21', 9]]);
   await waitView(mp, 'ticket');
   await flushed(mp);
-  ok('Mobile: phiếu có dòng Tập đôi (lời mời của Thảo Vy)', /Thảo Vy mời bạn tập đôi/.test(await mp.textContent('#prLine')));
+  ok('Mobile: phiếu có dòng Tập đôi (lời mời của Thảo Vy)', /Thảo Vy mời bạn tập cùng/.test(await mp.textContent('#prLine')));
   await mp.locator('#prLine .prl').click();
   await mp.waitForSelector('#sheet.on');
   ok('Mobile: cửa sổ Tập đôi: lời mời + 2 buổi (T3 tập đôi cùng Tuấn Kiệt · T4 chờ bạn tập)',

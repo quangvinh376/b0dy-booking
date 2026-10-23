@@ -320,8 +320,8 @@ async function invitee(browser, server, mobile) {
     const fc = await face(page, SEL);
     ok('Mặt thẻ chung: nền Giấy 2, không viền Mực, bo 4, icon ghép 20 px, tiêu đề 16 px ở x = 46', !!fc && fc.bg === 'rgb(242, 242, 242)' && fc.shadow === 'none' && fc.radius === '4px' &&
        fc.pair && fc.ic === 20 && fc.fs === '16px' && fc.x === 46, fc);
-    ok('Mobile: tiêu đề dòng 1 · "T3 17:00" + nhãn "Xem" dòng 2 · chữ đọc liền "Tuấn Kiệt mời bạn tập đôi · T3 17:00"', !!fc && fc.two && fc.row2 && fc.label === 'Xem' &&
-       /Tuấn Kiệt mời bạn tập đôi · T3 17:00/.test(fc.txt), fc);
+    ok('Mobile: tiêu đề dòng 1 · "T3 17:00" + nhãn "Xem" dòng 2 · chữ đọc liền "Tuấn Kiệt mời bạn tập cùng · T3 17:00"', !!fc && fc.two && fc.row2 && fc.label === 'Xem' &&
+       /Tuấn Kiệt mời bạn tập cùng · T3 17:00/.test(fc.txt), fc);
     /* ra khỏi khung nhìn (IntersectionObserver) → dừng đúng mốc; vào lại → chạy tiếp */
     await page.evaluate(() => { document.querySelector('#mNote').style.display = 'none'; }); await sleep(400);
     const o1 = await state(page, SEL === '#mNote .mnt' ? '#mNote .mnt' : SEL).catch(() => null), oh = await page.evaluate(() => { const b = document.querySelector('#mNote .mnt')._bm; return { run: b.run, vis: b.vis, e: b.e,
@@ -495,7 +495,7 @@ async function ticketLine(browser, server, mobile) {
   await sleep(500);
   const s3 = await state(page, SEL);
   ok('Kênh live hỏi lại trên phiếu, dòng không đổi → cùng phần tử, cùng lớp, không chạy lại từ đầu', !!s3 && s3.id === s.id && s3.bmEl === s.bmEl && s3.start === s2.start && s3.run, [s2.start, s3 && s3.start]);
-  /* đổi trạng thái tại chỗ (tin live mang lời mời mới — chèn vào câu trả lời của máy chủ giả): dòng thành "Thảo Vy mời bạn tập đôi · T4 11:00"
+  /* đổi trạng thái tại chỗ (tin live mang lời mời mới — chèn vào câu trả lời của máy chủ giả): dòng thành "Thảo Vy mời bạn tập cùng · T4 11:00"
      ngay trên phiếu → chữ mờ vào nhẹ (.swap), hào quang chạy tiếp từ đúng mốc (.bm-now): không kẻ lại, không bừng lại */
   const inv = who => page.evaluate(w => { const f = window.QCB.__f0 || window.QCB.fetch; window.QCB.__f0 = f; window.QCB.fetch = (u, i) => f(u, i).then(async r => { const j = await r.clone().json();
     if (!j || !j.duo) return r; j.duo.invIn = [{ from: w, date: '2026-10-21', h: 11 }];
@@ -507,9 +507,9 @@ async function ticketLine(browser, server, mobile) {
   await until(async () => /Thảo Vy/.test(await page.textContent('#prLine')), 3000); await sleep(300);
   const s4 = await state(page, SEL), t4 = Date.now(), sw = await page.evaluate(() => { const e = document.querySelector('#prLine .prl'), t = e.querySelector('.prl-t');
     return { cls: e.className, t: getComputedStyle(t.querySelector('.pt')).animationName, w: getComputedStyle(t.querySelector('.pw')).animationName, c: getComputedStyle(e.querySelector(':scope > .prl-c')).animationName }; });
-  ok('Tin live đổi trạng thái → dòng lời mời "Thảo Vy mời bạn tập đôi · T4 11:00 · Xem" thay tại chỗ', /Thảo Vy mời bạn tập đôi · T4 11:00/.test(await page.textContent('#prLine')) && /\binv\b/.test(sw.cls), [await page.textContent('#prLine'), sw]);
+  ok('Tin live đổi trạng thái → dòng lời mời "Thảo Vy mời bạn tập cùng · T4 11:00 · Xem" thay tại chỗ', /Thảo Vy mời bạn tập cùng · T4 11:00/.test(await page.textContent('#prLine')) && /\binv\b/.test(sw.cls), [await page.textContent('#prLine'), sw]);
   if (!mobile) { const f4 = await face(page, SEL), hh = await page.evaluate(() => Math.round(document.querySelector('#prLine .prl').getBoundingClientRect().height));
-    ok('Desktop: dòng lời mời một dòng ("… · T4 11:00" liền tiêu đề), cao 48', !!f4 && !f4.two && hh === 48 && /Thảo Vy mời bạn tập đôi · T4 11:00/.test(f4.txt), [f4, hh]); }
+    ok('Desktop: dòng lời mời một dòng ("… · T4 11:00" liền tiêu đề), cao 48', !!f4 && !f4.two && hh === 48 && /Thảo Vy mời bạn tập cùng · T4 11:00/.test(f4.txt), [f4, hh]); }
   ok('… chữ mờ vào nhẹ (.swap), hào quang chạy tiếp từ đúng mốc (.bm-now, phần tử mới, mốc tiến theo thời gian trôi — không về đầu, không nhảy)', /\bswap\b/.test(sw.cls) && /\bbm-now\b/.test(sw.cls) && sw.t === 'bmin' &&
      sw.w === 'bmin' && sw.c === 'bmin' && !!s4 && s4.bmEl !== s.bmEl && s4.run && s4.n === 27 && s4.oneStart && typeof s4.e === 'number' && typeof e3.e === 'number' &&
      s4.e - e3.e >= 0 && s4.e - e3.e <= (t4 - t3) + 600, [sw, e3 && e3.e, s4 && s4.e, t4 - t3]);
