@@ -32,8 +32,14 @@ ID hai file Google Sheets: `BA_ID` (file BA: MEMBERS · SESSION LOG · TRIAL · 
 6. Sau mỗi lần đẩy: xác minh commit bằng hash và SHA-256 từng tệp trên `raw.githubusercontent.com/quangvinh376/b0dy-booking/<commit>/…`.
 7. Chỉ MỘT tiến trình Playwright / Chromium một lúc (máy test nhỏ từng hết RAM).
 
-## Đang ở đâu (23/10/2026, 12:10)
+## Đang ở đâu (23/10/2026, 16:10)
 
+- Trang **v1.6.2** (`3ec8ef4`) trên GitHub Pages `main` — "pages build and deployment" success 16:05:26 23/10; 8 tệp tĩnh SHA-256 khớp trên
+  raw.githubusercontent tại commit (trang thật: Claude chat kiểm `__lt.ver` 1.6.2). Worker không đổi (`8db2ac5`).
+- **1.6.2 (chủ studio 23/10 "đổi nốt cho thống nhất")** — chỉ đổi chữ theo từ của bản soát 1.6.1: lời mời "… mời bạn tập cùng" ở mọi nơi
+  (dòng mobile, dòng Tập đôi trên phiếu, bảng Tập đôi); "nhóm" thay "cặp" (thông báo dời, 2 luật gói 1:2, toast hết lượt); "Chọn …" thay
+  "Bấm …" (desktop) và "buổi" thay "ô mới / ô Ghép" (cả mobile "Chạm …"); đọc to "chọn lại để bỏ" / "chọn để đổi". Tên tính năng "Tập đôi",
+  "tập đôi cùng {tên}" giữ. Doc UX writing cập nhật theo. Đủ bộ test giao diện PASS 23/10.
 - Trang **v1.6.1** (`3722239`) trên GitHub Pages `main` — "pages build and deployment" success 12:04:26 23/10; 8 tệp tĩnh (index · app.js ·
   app.css · sw.js · qc.js · qc.css · b0b.js · tk3d.js) SHA-256 khớp trên raw.githubusercontent tại commit. Chưa đọc được trang thật từ máy cloud
   (WebFetch booking.b0dy.studio cần quyền, proxy chặn curl) → Claude chat kiểm `__lt.ver` 1.6.1 trong tab. Worker không đổi (`8db2ac5`).
