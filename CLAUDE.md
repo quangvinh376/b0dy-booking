@@ -33,7 +33,21 @@ ID hai file Google Sheets: `BA_ID` (file BA: MEMBERS · SESSION LOG · TRIAL · 
 6. Sau mỗi lần đẩy: xác minh commit bằng hash và SHA-256 từng tệp trên `raw.githubusercontent.com/quangvinh376/b0dy-booking/<commit>/…`.
 7. Chỉ MỘT tiến trình Playwright / Chromium một lúc (máy test nhỏ từng hết RAM).
 
-## Đang ở đâu (31/10/2026, 14:45)
+## Đang ở đâu (31/10/2026, 15:55)
+
+- **1.7.1 live 31/10 15:52** (`df69040` trên `main`, chỉ trang — Worker / Apps Script không đổi, vẫn `aee113b` / V40): Pages success 15:52:53,
+  9 tệp đổi SHA-256 khớp trên raw, trang thật index · app.js · sw.js khớp, `lt_ping` `pending 0`. Chủ studio hỏi giao thoa "khách thấp
+  điểm mà coach cũng bận các khung đó" → `coach_cases` mục 21 (Apps Script + Worker, parity 973 lượt giống hệt): coach bận cả 5 khung
+  trong gói (khách khác + tập thử) · hai khách thấp điểm tranh khung · coach kín 4/5 ngày → tối thiểu / tối đa tự hạ về 1 · kín cả tuần →
+  `closed` · Lịch coach không nhận 09–15 (CN nhận; CN 15:00 tick vẫn `thap_diem`) · phòng đầy · 1:2 thấp điểm vào nhóm khi phòng đầy, không
+  vào nhóm 15:00 · Ghép ngoài gói bị chặn · buổi cũ ngoài gói giữ, đổi / thêm vào gói · hết hạn giữa tuần (`het_han` trước `thap_diem`) ·
+  đặt muộn + coach bận. `ui_peak` 71 (thêm phần giao thoa desktop + mobile, máy chủ giả LichTuan.gs): ô X trên bảng con, vừa hết chỗ chỉ gợi
+  ý khung trong gói còn trống, "Chọn 1 buổi", màn kín lịch / coach nghỉ, đổi buổi cũ ngoài gói. **Sửa trang**: màn kín lịch của khách thấp
+  điểm trước ghi "Không còn khung trống nào đặt được trong tuần" (sai — phòng còn khung ngoài 09–15) → "Các khung trong gói thấp điểm
+  (09:00–15:00) đã kín." / coach không nhận khách mọi khung trong gói còn lại của tuần → "Coach nghỉ trong giờ thấp điểm. · Tuần này coach
+  của bạn không nhận khách trong 09:00–15:00." (chữ mới, chưa vào doc UX writing). `ui_harness` nhận thêm `extra` (có "Khung giờ") ·
+  `log` · `sched`. Đủ bộ test PASS 31/10 15:40 (`rv_tilt` trượt 2 mốc thời gian như bản cũ). Khách sổ bịa của test dùng mã B7xx (không
+  trùng hội viên bịa B9xx / mã thật).
 
 - **1.7.0 live 31/10** (`aee113b` trên `main`): Worker `b0dy-booking-api` deploy **14:28:49** qua Claude in Chrome (tab dash, đoạn
   `tools/worker_deploy_snippet.mjs aee113b` — 7 module SHA khớp): `OK etag=9f2d05f773`, 5 binding (DO `BOOK` · `ALLOW_ORIGINS` · `BA_ID` ·
