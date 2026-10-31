@@ -24,7 +24,8 @@ ID hai file Google Sheets: `BA_ID` (file BA: MEMBERS · SESSION LOG · TRIAL · 
    biến `CLOUDFLARE_API_TOKEN` (quyền Workers Scripts: Edit) + `CLOUDFLARE_ACCOUNT_ID` thì `cd worker && npx wrangler deploy` trực tiếp.
    Không áp dụng cho: sửa hàng loạt Google Sheets (luật 5), đưa Apps Script dự phòng lên (luật 4). Cách deploy: mục "Máy chủ" dưới.
 4. Apps Script dự phòng (`backend/LichTuan.gs`): đưa lên bằng Deploy ▸ Manage deployments ▸ New version; KHÔNG bấm Run.
-   Đang chạy **V38 = `backend/LichTuan.gs` của `8db2ac5`** (22/10, chủ studio cho đưa lên không cần hỏi lại). Đổi luật ở repo thì đưa
+   Đang chạy **V40 = `backend/LichTuan.gs` của `aee113b`** (31/10, chủ studio "mọi quyền deploy đều được cho phép"). Số version là của
+   cả project: V39 (28/10) là của deployment tập thử, không phải trang đặt lịch. Đổi luật ở repo thì đưa
    bản mới lên cùng lúc với Worker (chạy parity trước). Ô "Description" của New version để trống → deployment mất tên ("Untitled"):
    luôn gõ mô tả.
 5. Sửa hàng loạt Google Sheets dùng chung (sổ, bảng lịch tập, BA) cần chủ studio đồng ý rõ. Không ghi dòng bịa vào `Sổ đặt lịch`
@@ -32,7 +33,40 @@ ID hai file Google Sheets: `BA_ID` (file BA: MEMBERS · SESSION LOG · TRIAL · 
 6. Sau mỗi lần đẩy: xác minh commit bằng hash và SHA-256 từng tệp trên `raw.githubusercontent.com/quangvinh376/b0dy-booking/<commit>/…`.
 7. Chỉ MỘT tiến trình Playwright / Chromium một lúc (máy test nhỏ từng hết RAM).
 
-## Đang ở đâu (23/10/2026, 16:10)
+## Đang ở đâu (31/10/2026, 14:45)
+
+- **1.7.0 live 31/10** (`aee113b` trên `main`): Worker `b0dy-booking-api` deploy **14:28:49** qua Claude in Chrome (tab dash, đoạn
+  `tools/worker_deploy_snippet.mjs aee113b` — 7 module SHA khớp): `OK etag=9f2d05f773`, 5 binding (DO `BOOK` · `ALLOW_ORIGINS` · `BA_ID` ·
+  `OUT_ID` · secret `SA_JSON`), cron `* * * * *`; `lt_ping` `pending 0`, `lastError` rỗng · `lt_boot` tuần 44 7 ngày · `lt_find` 'zqxj' →
+  `results: []`. Apps Script **V40** 14:31 = `LichTuan.gs` của `aee113b` (thay nội dung bằng Monaco `pushEditOperations` từ raw ở đúng
+  commit, SHA-256 `e95bb642…` khớp cả sau khi tải lại trình soạn thảo), deployment "Lich tap tuan (booking.b0dy.studio) - ca 12:00 + goi
+  thap diem, 31/10" giữ ID `AKfycbxyoH2Ipok…qGYnqdA`; `/exec` `lt_boot` tuần 44 · `lt_find` 'zqxj' → `[]`. Deployment tập thử
+  (`AKfycbxiZL…`) đang **V39** (28/10, "V39 avatar B0B moi (BOT_AVATAR)…" — không do phiên này) — không đụng. Trang: "pages build and
+  deployment" success 14:33:25; 31 tệp SHA-256 khớp trên raw tại commit; trang thật (tab booking.b0dy.studio, từ `/img/og.png` fetch
+  no-store) 8 tệp tĩnh khớp, `__lt.ver` 1.7.0, CSS 7 + dải + 7 hàng; 14:41 (hết hạn bộ nhớ đệm HTML) 4 thẻ `?v=1.7.0`, SW lưu HTML mới; state
+  đăng nhập sẵn trên Chrome chủ studio có `coachAt` khung 12:00 (chỉ CN 'off', như 11:00) → Worker đọc đúng hàng 12:00 của Lịch coach. Thứ tự: Worker → Apps Script → trang (trang 1.6.2 với Worker mới
+  chạy được: không có hàng 12:00, chưa ai thấp điểm).
+- **1.7.0 (chủ studio 31/10)** — (1) BA · MEMBERS cột **Y "Khung giờ"** (cuối bảng, không chen giữa để không lệch công thức / QUERY theo
+  vị trí cột; ô chọn "Toàn thời gian" / "Thấp điểm", cùng định dạng sheet), cả 81 dòng có Mã KH = "Toàn thời gian" — chủ studio tự đổi.
+  (2) **Mở ca 12:00**, nghỉ trưa còn 13:00–14:00: `LT.SLOTS` thêm 12; trang 14 hàng (`LUNCH` 13; CSS `repeat(7) dải repeat(7)`, `.lunch`
+  hàng 8; `--rh` chia 14; vạch "bây giờ" tính theo đoạn). (3) **Gói thấp điểm** = buổi nằm trọn trong 09:00–15:00 → `LT.OFF_HOURS`
+  09 · 10 · 11 · 12 · 14 (cùng cách hiểu "Giờ mở cửa 06:00 – 21:00" ↔ khung 06…20; muốn tính cả 15:00 chỉ đổi hằng số): why `thap_diem`
+  (sau `gio_ghep` → 1:2 thấp điểm chỉ 09 · 11), mời bạn thấp điểm vào khung ngoài gói → `nguoi_moi`, `duo.wait` bỏ khung ngoài gói,
+  `duo.peers[].hours`, state `offpeak: {hours}`; trang: bảng con (`.wk.sub` — cùng lối với khung ghép 1:2, giữ giờ của buổi đã đặt trước),
+  thông báo "Gói thấp điểm · 09:00–15:00.", Gói & luật (dòng "Khung giờ · Thấp điểm · 09:00–15:00" + luật), Tập đôi lọc bạn thấp điểm.
+  Đổi dạng dữ liệu: `snap:ba` fmt 2 (`SNAP_BA_FMT`), cache Apps Script `lt:mem2` / `lt:sc2`. Sheets 31/10 (chủ studio cho sửa): `Lịch coach`
+  chèn hàng 12:00 vào 5 khối (T2–T7 tick, CN trống), vạch nghỉ trưa dưới 12:00 · `Bảng lịch tập` chèn 2 hàng (12:00 + khe), D8 MAKEARRAY 13
+  hàng, nhãn "NGHỈ TRƯA · 13:00–14:00", quy tắc CF "Theo coach" `ROW()-43` (đọc ngược: 88 ô · 5 quy tắc · 9 gộp · 63 hàng khớp script; J2:P2
+  19 · 7 · 0 · 50) · BA `⚙️ 2`!C29 "Số khung tối đa / ngày" 13 → **14** (C30 = 70; CAPACITY tính lại cả tuần cũ theo 14 khung). QC: Văn Thục
+  Đoan 1313 (thấp điểm 1:1 · Ngọc) · Tiêu Hạ Miên 1414 (thấp điểm 1:2 · Lâm), `WORLD_V` 6 — tên / SĐT / mã so với MEMBERS + TRIAL thật:
+  0 trùng (đổi "Tiêu Hải Yến" vì trùng 2 chữ cuối một khách thật). Test: `gas_lt` 305 · parity 358 (897 lượt giống hệt) · concurrency 37 ·
+  robust 86 · http 13 · live 25 · realdata 17 (BA xuất 31/10, 57 hội viên — bỏ số cứng 54) · workerd 20 + 3 ca lỗi test đã biết (bản cũ
+  y hệt) · `ui_states` 107 · `ui_qc` 84 · `ui_duo` 48 · `ui_live` 28 · `ui_notice` 110 · `ui_smoke` 24 · `ui_sw` 8 · `ui_peak` 41 (mới) ·
+  `ui_tk3d` 81 · `ui_png` 93 · `b0b_check` 31 · `rv_*` PASS (trừ `rv_tilt` trượt mốc lắc gợi ý / về dáng nghỉ — bản cũ cũng trượt trên máy
+  này). Sửa test: `ui_sw` trượt từ 25/10 cả trên bản cũ (giờ giả 18/10 lệch giờ thật > 7 ngày → `boot` bỏ `lt_skew` khi mất mạng tải lại)
+  → dời `Date` của trang theo máy chủ giả; `rv_h7` đợi tấm trượt vào hẳn rồi mới đo nút (máy bận chạm rơi ra ngoài màn).
+  Còn biết: GitHub Pages cho tệp `max-age=600` → máy đã mở trang trong 10 phút trước deploy có thể nhận lại HTML cũ (`?v=1.6.2`) từ bộ nhớ
+  đệm trình duyệt tới khi hết hạn (SW còn lưu bản đó làm bản dự phòng tới lượt mở có mạng kế tiếp). Tab kiểm 14:34: HTML cũ, CSS + JS mới.
 
 - Trang **v1.6.2** (`3ec8ef4`) trên GitHub Pages `main` — "pages build and deployment" success 16:05:26 23/10; 8 tệp tĩnh SHA-256 khớp trên
   raw.githubusercontent tại commit (trang thật: Claude chat kiểm `__lt.ver` 1.6.2). Worker không đổi (`8db2ac5`).
@@ -125,7 +159,7 @@ ID hai file Google Sheets: `BA_ID` (file BA: MEMBERS · SESSION LOG · TRIAL · 
   (tên ngắn trên các dòng này còn kiểu cũ). Xoá trước khi dùng thật. Khôi phục bản trước: Lịch sử phiên bản (trước 17:19 18/10).
 - Chủ studio đã quyết (18/10): giữ tối thiểu 2 buổi; buổi 1:2 lẻ giờ cao điểm: chưa làm, đo sau tuần 44. Tìm tên không đổi
   (gõ tên đệm hiện tắt vẫn ra). Khách 1:2 của Lâm → Ngọc: chủ studio tự đổi trong BA. Tuần 44 chạy thử nội bộ, ra mắt chính thức tháng 11.
-- **Apps Script dự phòng V38** (22/10 19:34, chủ studio "sửa cả appscript, không cần hỏi tôi duyệt"): project "B0DY Booking API"
+- **Apps Script dự phòng V38** (22/10 19:34, chủ studio "sửa cả appscript, không cần hỏi tôi duyệt" — từ 31/10 là **V40**, mục 1.7.0): project "B0DY Booking API"
   (`1QjIkBPOj3s7DiJF2iFNDAmcBZxi8m7qBVgPLSfXg9juzaxy3daCZ2jRe`), tệp LichTuan.gs = repo `8db2ac5` (SHA-256 `6cf7706f…`, đọc lại sau khi
   tải lại trình soạn thảo; Code.gs · Discord.gs không đổi; 0 tên hàm trùng). Deployment **"Lich tap tuan (booking.b0dy.studio) - luat 12/24 gio,
   22/10"** giữ ID `AKfycbxyoH2Ipok…qGYnqdA` (V37 19:31 lỡ để trống mô tả → V38 cùng mã, có tên). Deployment tập thử "V35 cot Ghi chu…"
