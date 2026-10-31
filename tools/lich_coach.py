@@ -10,6 +10,8 @@ khi chủ studio sửa ô tick.
 python3 tools/lich_coach.py <thư mục ra> [sheetId mới, mặc định 713] [vị trí tab, mặc định 1]
   → lich_coach.json: requests cho spreadsheets.batchUpdate (addSheet + giá trị + ô tick + định dạng), áp một lần.
 Chỉ dùng để TẠO tab (addSheet trùng tên thì Sheets từ chối cả lượt). Tab đã có thì sửa tay, đừng chạy lại.
+31/10 (1.7.0, ca 12:00): tab thật đã chèn tay hàng 12:00 vào cả 5 khối (T2–T7 tick, CN trống như mặc định) và dời vạch nghỉ trưa xuống
+dưới 12:00. Khối cũ thiếu hàng 12:00 → máy chủ coi coach nghỉ 12:00 (an toàn: không ai đặt được tới khi có hàng + tick).
 """
 import json, sys
 
@@ -27,12 +29,12 @@ INTER, MONO = 'Inter', 'JetBrains Mono'
 
 COACHES = ['Quyết Hán', 'Hiền Mai', 'Khải Phan', 'Lâm Nguyễn', 'Bích Ngọc']
 DAYS = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN']
-HOURS = ['06:00', '07:00', '08:00', '09:00', '10:00', '11:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00']   # = LT.SLOTS
+HOURS = ['06:00', '07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00']   # = LT.SLOTS
 # cột: A lề 24 · B tên coach / giờ 96 · C..I T2..CN 44 · J lề 24
 C_NAME, C_D0 = 1, 2
 NCOL = C_D0 + len(DAYS) + 1
 # hàng: 0 lề · 1 tiêu đề · 2 dòng phụ · 3–6 ghi chú (mỗi ý một dòng — chữ tràn quá cột cuối của tab thì bị cắt) · 7 khoảng
-# · rồi mỗi coach: đầu khối + 13 giờ + 1 khoảng
+# · rồi mỗi coach: đầu khối + 14 giờ + 1 khoảng
 NOTES = ['Có hiệu lực trên trang đặt lịch sau 1–2 phút.',
          'Bỏ tick không huỷ buổi đã đặt — chỉ chặn đặt / đổi mới vào khung đó.',
          'Coach không có khối ở đây: T2–T7 nhận đủ giờ, CN nghỉ.',
@@ -85,8 +87,8 @@ reqs += [
     style(grid(r + 1, C_D0, r + 1 + H, C_D0 + len(DAYS)), INTER, 10, MUC, h='CENTER'),
     {'setDataValidation': {'range': grid(r + 1, C_D0, r + 1 + H, C_D0 + len(DAYS)), 'rule': {'condition': {'type': 'BOOLEAN'}}}},
     {'updateBorders': {'range': grid(r + 1, C_NAME, r + 1 + H, C_D0 + len(DAYS)), 'bottom': B, 'innerHorizontal': B}},
-    # nghỉ trưa (11:00 → 14:00): vạch Đá dưới hàng 11:00
-    {'updateBorders': {'range': grid(r + 1 + HOURS.index('11:00'), C_NAME, r + 2 + HOURS.index('11:00'), C_D0 + len(DAYS)),
+    # nghỉ trưa (13:00 → 14:00): vạch Đá dưới hàng 12:00
+    {'updateBorders': {'range': grid(r + 1 + HOURS.index('12:00'), C_NAME, r + 2 + HOURS.index('12:00'), C_D0 + len(DAYS)),
                        'bottom': {'style': 'SOLID_MEDIUM', 'color': DA}}},
     # CN: cột nền Giấy 2 để dễ thấy (mặc định không tick)
     {'repeatCell': {'range': grid(r, CN, r + 1 + H, CN + 1), 'cell': {'userEnteredFormat': {'backgroundColor': GIAY2}},

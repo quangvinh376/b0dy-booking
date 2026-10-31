@@ -20,6 +20,15 @@ function ok(label, cond, extra) {
   const server = await startServer();
   const t = backend(vn('2026-10-18', '20:15'));
   const ctx = await browser.newContext({ viewport: { width: 393, height: 764 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  /* đồng hồ trang ≈ đồng hồ máy chủ giả (CN 18.10): mất mạng tải lại thì trang tính giờ bằng lệch giờ đã lưu (lt_skew), mà lệch quá 7 ngày
+     bị bỏ (boot) → chạy test sau 25.10 (giờ thật) thì trang lấy giờ thật, sang tuần khác, không mở phiếu đã lưu. Chỉ dời Date (không dùng
+     ctx.clock.install: nó giả cả performance → mất số đo navigation bên dưới) */
+  await ctx.addInitScript(off => {
+    const RD = Date, rnow = RD.now.bind(RD);
+    function FD(...a) { return new.target ? (a.length ? new RD(...a) : new RD(rnow() + off)) : new RD(rnow() + off).toString(); }
+    FD.prototype = RD.prototype; FD.now = () => rnow() + off; FD.UTC = RD.UTC; FD.parse = RD.parse;
+    window.Date = FD;
+  }, t.clock.now - Date.now());
   const page = await ctx.newPage();
   const errs = [];
   page.on('pageerror', e => errs.push('pageerror: ' + e.message));

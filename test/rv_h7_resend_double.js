@@ -18,7 +18,10 @@ const { vn } = R.H;
   await page.waitForFunction(() => /Gửi lại/.test(document.querySelector('#ctaM').textContent));
   t.fail = null;
   t.delayFor = b => (b.action === 'lt_book' ? 300 : 0);
-  await R.tap(page, '.mnt'); await page.waitForSelector('#sheet.on [data-a="resend"]'); await R.sleep(450);
+  await R.tap(page, '.mnt'); await page.waitForSelector('#sheet.on [data-a="resend"]');
+  /* đợi tấm trượt vào hẳn rồi mới đo nút: máy test bận thì 450 ms có lúc chưa đủ — đo giữa lúc trượt, chạm rơi ra ngoài màn (31/10) */
+  await page.waitForFunction(() => getComputedStyle(document.querySelector('#sheet')).transform === 'none', null, { timeout: 5000 });
+  await R.sleep(150);
   const n0 = t.calls.filter(a => a === 'lt_book').length;
   const box = await page.locator('#sheet [data-a="resend"]').boundingBox();
   await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);

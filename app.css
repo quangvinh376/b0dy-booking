@@ -441,10 +441,11 @@ button.stepn .ic{width:16px;height:16px}
 .sw.k-day{background:var(--suong);box-shadow:none;overflow:hidden}
 
 /* bảng tuần */
-.wk{--tc:48px;--g:4px;--rh:clamp(30px,calc((100dvh - 354px)/13),42px);--lh:24px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.wk{--tc:48px;--g:4px;--rh:clamp(30px,calc((100dvh - 354px)/14),42px);--lh:24px;display:flex;flex-direction:column;gap:8px;min-width:0}
 .wk-head,.wk-body{display:grid;grid-template-columns:var(--tc) repeat(7,minmax(0,1fr));column-gap:var(--g)}
 .wk-head{height:44px}
-.wk-body{position:relative;grid-template-rows:repeat(6,var(--rh)) var(--lh) repeat(7,var(--rh));row-gap:var(--g)}
+/* 14 khung: 06–12 (7 hàng) · dải nghỉ trưa 13:00–14:00 · 14–20 (7 hàng) */
+.wk-body{position:relative;grid-template-rows:repeat(7,var(--rh)) var(--lh) repeat(7,var(--rh));row-gap:var(--g)}
 .dh{position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;padding-top:2px;color:var(--muc);transition:color .3s var(--eio)}
 .dh-d{font-family:var(--mono);font-size:11px;line-height:13px;letter-spacing:.08em;color:var(--than)}
 .dh-n{font-family:var(--mono);font-size:16px;line-height:19px;color:var(--muc)}
@@ -458,7 +459,7 @@ button.stepn .ic{width:16px;height:16px}
 /* máy chủ cũ (tuần 6 ngày + cột CN cố định): dải nghỉ trưa chỉ qua 6 cột ngày · tuần 7 ngày: qua cả 7, khối "COACH NGHỈ" nằm trên */
 .wk.d6 .lunch{grid-column:2/8}
 .wk-body>.cn[data-gc]{position:relative;z-index:1}
-.lunch{grid-column:2/-1;grid-row:7;display:flex;align-items:center;justify-content:center;border-radius:var(--r);background:var(--giay2);
+.lunch{grid-column:2/-1;grid-row:8;display:flex;align-items:center;justify-content:center;border-radius:var(--r);background:var(--giay2);
        font-family:var(--mono);font-size:10px;line-height:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--tro)}
 .c{position:relative;display:flex;align-items:center;justify-content:center;gap:6px;min-width:0;padding:0 8px;border-radius:var(--r);background:var(--giay);
    box-shadow:inset 0 0 0 1px var(--ke);font-family:var(--mono);font-size:10px;line-height:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--than);
@@ -490,8 +491,8 @@ button.stepn .ic{width:16px;height:16px}
   .c.sel:not(:disabled):hover::before{background:var(--ke-giay)}
 }
 .c .m{display:none}
-/* gói 1:2 · ghép lớp: bảng chỉ các khung ghép (ít hàng → hàng cao hơn, đủ chỗ cho tên bạn tập) */
-.wk.duo{--rh:clamp(48px,calc((100dvh - 354px)/(var(--n,5) + 1)),80px)}
+/* bảng con — gói 1:2 chỉ các khung ghép · gói thấp điểm chỉ các khung trong gói (ít hàng → hàng cao hơn, đủ chỗ cho tên bạn tập) */
+.wk.sub{--rh:clamp(48px,calc((100dvh - 354px)/(var(--n,5) + 1)),80px)}
 /* ô có bạn cùng coach đang chờ: nhãn "GHÉP" (mono) + tên gọi (sans, chữ thường) · buổi của mình / ô đang chọn đã có bạn: giờ + tên */
 .c .d.jn{display:flex;flex-direction:column;align-items:center;gap:3px;max-width:100%}
 .c .jk{display:flex;align-items:center;gap:5px;white-space:nowrap}
@@ -746,7 +747,7 @@ button.stepn .ic{width:16px;height:16px}
   .c .m.jn{display:flex;flex-direction:column;align-items:center;gap:3px;max-width:100%}
   .c .m.jn .jm{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;max-width:100%;overflow:hidden;white-space:normal;text-align:center;
                font-family:var(--sans);font-size:11px;line-height:13px;letter-spacing:-.01em;text-transform:none;color:var(--muc)}
-  .wk.duo{--rh:clamp(44px,calc((100svh - 560px)/var(--n,5)),58px)}
+  .wk.sub{--rh:clamp(44px,calc((100svh - 560px)/var(--n,5)),58px)}
   .c.inv::after{top:3px;right:3px;width:5px;height:5px}
   .lg-m .sw.k-ghep svg{width:9px;height:9px}
   .prl-w{margin-top:12px}

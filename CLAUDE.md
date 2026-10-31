@@ -149,9 +149,9 @@ Mỗi lần đổi tệp tĩnh: tăng `VER` trong `app.js` **và** `sw.js`, cùn
 
 ```bash
 npm i playwright && npx playwright install chromium   # máy mới; hoặc PW_CHROMIUM=<đường dẫn chrome>
-node test/gas_lt.js                      # luật + Apps Script (267)
+node test/gas_lt.js                      # luật + Apps Script (305)
 cd worker && node test/run_all.mjs       # parity · concurrency · robust · http · realdata
-node test/ui_states.js && node test/ui_qc.js && node test/ui_duo.js && node test/ui_live.js && node test/ui_notice.js && node test/ui_smoke.js && node test/ui_sw.js
+node test/ui_states.js && node test/ui_qc.js && node test/ui_duo.js && node test/ui_live.js && node test/ui_notice.js && node test/ui_smoke.js && node test/ui_sw.js && node test/ui_peak.js
 node test/ui_tk3d.js all && node test/ui_png.js all && node test/b0b_check.js && for f in test/rv_*.js; do node $f; done
 ```
 
@@ -186,10 +186,14 @@ node test/ui_tk3d.js all && node test/ui_png.js all && node test/b0b_check.js &&
 - `Bảng lịch tập`: toàn công thức, 7 cột T2–CN (J2 · L2 · N2 · P2 = buổi · hội viên · khung đầy · chưa đặt). Không gõ tay vào khối lưới.
   Ô H2 "Xem tuần" (người dùng chọn ngày, kiểm định ngày — file locale en_US nên gõ "26/10" bị từ chối, bấm đúp chọn trên lịch) → S2 = thứ Hai
   của tuần đó; trống = tuần này (CN vẫn là tuần này). Dựng lại: `python3 tools/bang_lich_tap.py 0 <ra> <số CF> <số hàng> <số cột>`
-  (đếm bằng `spreadsheets.get`), áp s1 → s2 → s3. Kiểm sau khi dựng: đọc J2:P3 · S2:S4 · đầu cột — **đừng** đọc lưới bằng `includeGridData`
-  (mask `effectiveValue.errorValue` vẫn trả cả `effectiveValue` → lộ tên hội viên).
+  (đếm bằng `spreadsheets.get` **không** kèm `ranges` — có `ranges` thì chỉ trả quy tắc CF chạm vùng đó; 31/10: 5 quy tắc · 63 hàng · 28 cột),
+  áp s1 → s2 → s3. Kiểm sau khi dựng: đọc J2:P3 · S2:S4 · đầu cột — **đừng** đọc lưới bằng `includeGridData`
+  (mask `effectiveValue.errorValue` vẫn trả cả `effectiveValue` → lộ tên hội viên). 31/10 (1.7.0): ca 12:00 lên tab bằng CHÈN 2 hàng
+  (12:00 + khe) trên dải nghỉ trưa, không dựng lại (giữ chỉnh tay: cột ngày 250 px, nhãn H3 — script đã theo); quy tắc CF "Theo coach" có số
+  hàng trong công thức (`ROW()-43`) → chèn / xoá hàng phía trên thì sửa tay quy tắc đó.
 - `Lịch coach` (713): ô tick từng giờ × 7 ngày cho từng coach, chủ studio sửa tay; máy chủ đọc `A1:AD400` (luật đọc: `worker/README.md`).
   Tạo 19/10 bằng `tools/lich_coach.py`, mặc định = luật cũ (T2–T7 đủ, CN trống). Bỏ tick chỉ chặn đặt / đổi mới, buổi đã đặt giữ nguyên.
+  31/10: chèn hàng 12:00 vào cả 5 khối (T2–T7 tick, CN trống), vạch nghỉ trưa dưới 12:00. Khối thiếu hàng 12:00 = coach nghỉ 12:00.
 - `_dữ liệu`: Worker ghi ảnh chụp hội viên còn gói (A tên · B tên ngắn · C coach · D còn lại · E hết hạn · F Mã KH · G hiển thị).
 - Kết quả đọc sheet lớn chứa tên → xử lý bằng script, chỉ in số / so khớp.
 

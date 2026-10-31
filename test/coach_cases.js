@@ -11,10 +11,12 @@ const { dateIn } = require('./gas_env');
 
 /* Tab "Lịch coach" giả (mục 18): lưới giờ × T2 … CN của từng coach. on(i, h): i = 0 (T2) … 6 (CN). timeCells: ô giờ là giá trị giờ
    (như khi gõ tay "14:00" vào ô định dạng tự động) thay vì chữ. */
-const HRS = [6, 7, 8, 9, 10, 11, 14, 15, 16, 17, 18, 19, 20], DAYS7 = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+const HRS = [6, 7, 8, 9, 10, 11, 12, 14, 15, 16, 17, 18, 19, 20], DAYS7 = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+/* lưới Lịch coach trước 31/10 (chưa có hàng 12:00) — tab thật trước khi thêm hàng */
+const HRS_OLD = [6, 7, 8, 9, 10, 11, 14, 15, 16, 17, 18, 19, 20];
 const hh = h => (h < 10 ? '0' : '') + h + ':00';
-function grid(name, on, timeCells) {
-  return [['', name].concat(DAYS7)].concat(HRS.map(h => ['', timeCells ? dateIn('Asia/Saigon', '1899-12-30', hh(h)) : hh(h)].concat(DAYS7.map((_, i) => on(i, h)))));
+function grid(name, on, timeCells, hrs) {
+  return [['', name].concat(DAYS7)].concat((hrs || HRS).map(h => ['', timeCells ? dateIn('Asia/Saigon', '1899-12-30', hh(h)) : hh(h)].concat(DAYS7.map((_, i) => on(i, h)))));
 }
 const SCHED = [['', '— LỊCH COACH'], ['', 'Tick = coach nhận khách giờ đó'], []]
   .concat(grid('Quyết Hán', (i, h) => i === 6 ? h >= 8 && h <= 11 : i === 1 ? false : !(i === 2 && h === 6)), [[]],
@@ -431,6 +433,108 @@ async function coachCases(h) {
     ok('… đặt CN 19:00 → khong_hop_le · dong_dat, không ghi', r.ok === false && r.why === 'dong_dat' && rowsOf(t, 'B921DY').length === 0, r.why);
     nam = await boot(t, nam);
     ok('… H. Đức Nam vẫn thấy phiếu (buổi CN 17:00), không thêm được', nam.mode === 'ticket' && nam.limits.add === 0, [nam.mode, nam.limits]);
+  }
+
+  console.log('\n== 20. Ca 12:00 (nghỉ trưa còn 13:00–14:00) · gói thấp điểm chỉ đặt 09:00–15:00 (chốt 31/10) ==');
+  /* hội viên bịa thêm: [số, họ tên, coach, SĐT, Mã KH, loại, khung giờ] — cột "Khung giờ" của MEMBERS */
+  const OFFM = [['931', 'Khách Thấp Điểm', 'Bích Ngọc', '0900000031', 'B931DY', '1:1', 'Thấp điểm'],
+                ['932', 'Khách Chữ Thường', 'Khải Phan', '0900000032', 'B932DY', '1:1', '  thấp   ĐIỂM '],
+                ['933', 'Khách Toàn Thời', 'Lâm Nguyễn', '0900000033', 'B933DY', '1:1', 'Toàn thời gian'],
+                ['934', 'Khách Đôi Thấp', 'Quyết Hán', '0900000034', 'B934DY', '1:2', 'Thấp điểm'],
+                ['935', 'Khách Gõ Sai', 'Hiền Mai', '0900000035', 'B935DY', '1:1', 'Thấp điểm 9-15']];
+  const OFF_H = '[9,10,11,12,14]';
+  {
+    const t = await setup(vn('2026-10-18', '07:00'), { members: OFFM });
+    /* A · ca 12:00 */
+    const nam = await login(t, 'duc nam', '0001');
+    ok('Khung giờ trả cho trang có 12:00, không có 13:00 (14 khung)', JSON.stringify(nam.slots) === '[6,7,8,9,10,11,12,14,15,16,17,18,19,20]', nam.slots);
+    ok('Ô "Khung giờ" trống → toàn thời gian: không có offpeak', !('offpeak' in nam), Object.keys(nam));
+    let r = await book(t, nam, [['2026-10-19', 12], ['2026-10-21', 12]]);
+    ok('H. Đức Nam đặt T2 12:00 + T4 12:00 → ok, sổ ghi giờ "12:00"', r.ok && rowsAt(t, '2026-10-19', 12).length === 1 && rowsAt(t, '2026-10-21', 12).length === 1, r.error || r.why);
+    const mot = await login(t, 'thu mot', '0021');
+    ok('K. Thứ Một (cùng coach Quyết) thấy T2 12:00 "busy" — ca 12:00 tính suất coach như mọi khung', at(mot, '2026-10-19|12') === 'busy' && mot.taken['2026-10-19|12'] === 1, [at(mot, '2026-10-19|12'), mot.taken['2026-10-19|12']]);
+    r = await book(t, mot, [['2026-10-20', 13], ['2026-10-22', 18]]);
+    ok('Khung 13:00 (nghỉ trưa) vẫn không đặt được → khung', r.ok === false && r.why === 'khung', r.why);
+
+    /* B · gói thấp điểm 1:1 */
+    const td = await login(t, 'thap diem', '0031');
+    ok('K. Thấp Điểm ("Thấp điểm") → state có offpeak.hours = 09 · 10 · 11 · 12 · 14', td.offpeak && JSON.stringify(td.offpeak.hours) === OFF_H, td.offpeak);
+    ok('… giờ ngoài gói không nằm trong coachAt (trang tự ẩn hàng theo offpeak.hours) — chỉ có CN "off" (Ngọc mặc định nghỉ CN)', Object.keys(td.coachAt || {}).every(k => k.indexOf('2026-10-25|') === 0 && td.coachAt[k] === 'off'), td.coachAt);
+    ok('… mode book, tối thiểu 2 / tối đa 4 (6 ngày T2–T7 đều có khung trong gói)', td.mode === 'book' && td.limits.min === 2 && td.limits.max === 4, [td.mode, td.limits]);
+    r = await book(t, td, [['2026-10-19', 15], ['2026-10-20', 9]]);
+    ok('… chọn T2 15:00 (ngoài 09:00–15:00) → khong_hop_le · thap_diem, chỉ ra đúng khung', r.ok === false && r.why === 'thap_diem' && r.date === '2026-10-19' && r.h === 15, r);
+    r = await book(t, td, [['2026-10-19', 8], ['2026-10-20', 9]]);
+    ok('… T2 08:00 (trước 09:00) → thap_diem', r.ok === false && r.why === 'thap_diem' && r.h === 8, r);
+    ok('… không ghi dòng nào', rowsOf(t, 'B931DY').length === 0);
+    r = await book(t, td, [['2026-10-19', 9], ['2026-10-21', 14], ['2026-10-23', 12]]);
+    ok('… T2 09:00 + T4 14:00 (buổi cuối 14:00–15:00) + T6 12:00 → ok', r.ok && rowsOf(t, 'B931DY', 'Đã đặt').length === 3, r.error || r.why);
+    r = await change(t, td, ['2026-10-21', 14], ['2026-10-22', 17]);
+    ok('… đổi T4 14:00 → T5 17:00 → thap_diem, không ghi', r.ok === false && r.why === 'thap_diem' && rowsOf(t, 'B931DY', 'Đã đặt').length === 3, r.why);
+    r = await change(t, td, ['2026-10-21', 14], ['2026-10-22', 10]);
+    ok('… đổi T4 14:00 → T5 10:00 → ok (còn 1 lượt)', r.ok && r.mine.changesLeft === 1, r.error || r.why);
+    const ct = await login(t, 'chu thuong', '0032');
+    ok('"  thấp   ĐIỂM " (hoa thường, khoảng trắng thừa) → vẫn là gói thấp điểm', ct.offpeak && JSON.stringify(ct.offpeak.hours) === OFF_H, ct.offpeak);
+    const tt = await login(t, 'toan thoi', '0033');
+    ok('"Toàn thời gian" → không có offpeak', !('offpeak' in tt), Object.keys(tt));
+    r = await book(t, tt, [['2026-10-19', 6], ['2026-10-20', 20]]);
+    ok('… đặt T2 06:00 + T3 20:00 → ok', r.ok, r.error || r.why);
+    const gs = await login(t, 'go sai', '0035');
+    ok('Giá trị lạ ("Thấp điểm 9-15") → toàn thời gian (chỉ đúng "Thấp điểm" mới giới hạn)', !('offpeak' in gs), gs.offpeak);
+
+    /* C · gói 1:2 thấp điểm: khung ghép ∩ 09:00–15:00 = 09 · 11 */
+    const dt = await login(t, 'doi thap', '0034');
+    ok('K. Đôi Thấp (Quyết · 1:2 · thấp điểm) → duo.duoHours đủ 5 khung ghép + offpeak.hours', JSON.stringify(duo(dt).duoHours) === '[9,11,15,17,19]' && dt.offpeak && JSON.stringify(dt.offpeak.hours) === OFF_H, [duo(dt).duoHours, dt.offpeak]);
+    r = await book(t, dt, [['2026-10-19', 15], ['2026-10-20', 9]]);
+    ok('… T2 15:00 (khung ghép nhưng ngoài gói thấp điểm) → thap_diem', r.ok === false && r.why === 'thap_diem' && r.h === 15, r);
+    r = await book(t, dt, [['2026-10-19', 10], ['2026-10-20', 9]]);
+    ok('… T2 10:00 (trong gói nhưng không phải khung ghép) → gio_ghep', r.ok === false && r.why === 'gio_ghep' && r.h === 10, r);
+    const nn = await login(t, 'ngoc nam', '0002');
+    r = await book(t, nn, [['2026-10-22', 15], ['2026-10-23', 9]]);
+    ok('Ngọc Nam (Quyết · 1:2 · toàn thời gian) đặt T5 15:00 + T6 09:00, đều một mình → ok', r.ok, r.error || r.why);
+    const pDT = (duo(r).peers || []).find(x => x.short === 'K. Đôi Thấp'), pC1 = (duo(r).peers || []).find(x => x.short === 'K. Cặp Một');
+    ok('… danh sách mời: K. Đôi Thấp mang khung giờ gói (hours), K. Cặp Một không — không lộ Mã KH', pDT && JSON.stringify(pDT.hours) === OFF_H && pC1 && !('hours' in pC1) && !('key' in pDT) && !!pDT.id, [pDT, pC1]);
+    const dt2 = await boot(t, dt);
+    ok('K. Đôi Thấp không thấy chờ ghép ở T5 15:00 (ngoài gói), thấy ở T6 09:00', !duo(dt2).wait['2026-10-22|15'] && duo(dt2).wait['2026-10-23|9'] === 'Ngọc Nam', duo(dt2).wait);
+    const c1 = await login(t, 'cap mot', '0025');
+    ok('K. Cặp Một (toàn thời gian) thấy cả hai khung chờ ghép', duo(c1).wait['2026-10-22|15'] === 'Ngọc Nam' && duo(c1).wait['2026-10-23|9'] === 'Ngọc Nam', duo(c1).wait);
+    r = await invite(t, nn, ['2026-10-22', 15], pDT.id);
+    ok('Ngọc Nam mời K. Đôi Thấp vào T5 15:00 (ngoài gói của bạn ấy) → khong_hop_le · nguoi_moi, không ghi dòng Mời', r.ok === false && r.why === 'nguoi_moi' && rowsOf(t, 'B902DY', 'Mời').length === 0, r);
+    r = await invite(t, nn, ['2026-10-23', 9], pDT.id);
+    ok('… mời vào T6 09:00 (trong gói) → ok, một dòng Mời', r.ok && rowsOf(t, 'B902DY', 'Mời').length === 1, r.error || r.why);
+    const dt3 = await boot(t, dt);
+    ok('K. Đôi Thấp thấy lời mời T6 09:00', JSON.stringify(duo(dt3).invIn) === JSON.stringify([{ date: '2026-10-23', h: 9, from: 'Ngọc Nam' }]), duo(dt3).invIn);
+    r = await book(t, dt, [['2026-10-23', 9], ['2026-10-20', 11]]);
+    ok('… nhận: đặt T6 09:00 (vào nhóm) + T3 11:00 → ok, tập đôi cùng Ngọc Nam', r.ok && duo(r).pairs['2026-10-23|9'] === 'Ngọc Nam', r.error || r.why || duo(r));
+  }
+  {
+    /* D · Lịch coach: lưới cũ chưa có hàng 12:00 → coach không nhận 12:00 (Coach nghỉ) cho tới khi thêm hàng · lưới có 12:00 bỏ tick */
+    const SC = [['', '— LỊCH COACH'], []]
+      .concat(grid('Quyết Hán', (i, h) => i < 6, false, HRS_OLD), [[]],
+              grid('Bích Ngọc', (i, h) => i < 6 && h !== 12), [[]],
+              grid('Hiền Mai', (i, h) => i < 6));
+    const t = await setup(vn('2026-10-18', '07:00'), { members: OFFM, sched: SC });
+    const nam = await login(t, 'duc nam', '0001');
+    ok('Quyết (lưới cũ, chưa có hàng 12:00) → 12:00 T2–T7 "off", 11:00 / 14:00 vẫn nhận', ['19', '20', '21', '22', '23', '24'].every(dd => at(nam, '2026-10-' + dd + '|12') === 'off') && !at(nam, '2026-10-19|11') && !at(nam, '2026-10-19|14'), nam.coachAt);
+    let r = await book(t, nam, [['2026-10-19', 12], ['2026-10-21', 18]]);
+    ok('… đặt T2 12:00 → coach_nghi', r.ok === false && r.why === 'coach_nghi', r.why);
+    const td = await login(t, 'thap diem', '0031');
+    ok('Bích Ngọc bỏ tick 12:00 → K. Thấp Điểm thấy 12:00 "off", 09–11 · 14 nhận', at(td, '2026-10-19|12') === 'off' && !at(td, '2026-10-19|9') && !at(td, '2026-10-19|14'), td.coachAt);
+    r = await book(t, td, [['2026-10-19', 12], ['2026-10-20', 9]]);
+    ok('… đặt T2 12:00 → coach_nghi (lịch coach xét trước gói)', r.ok === false && r.why === 'coach_nghi', r.why);
+    const hai = await login(t, 'thu hai', '0022');
+    ok('Hiền Mai (lưới có 12:00, tick T2–T7) → 12:00 nhận, CN nghỉ', !at(hai, '2026-10-19|12') && at(hai, '2026-10-25|12') === 'off', [at(hai, '2026-10-19|12'), at(hai, '2026-10-25|12')]);
+    r = await book(t, hai, [['2026-10-19', 12], ['2026-10-20', 12]]);
+    ok('… đặt T2 12:00 + T3 12:00 → ok', r.ok, r.error || r.why);
+  }
+  {
+    /* E · giữa tuần (đặt muộn 12 giờ) — gói thấp điểm: khung sớm nhất đặt được phải nằm trong gói */
+    const t = await setup(vn('2026-10-21', '20:30'), { members: OFFM });
+    const td = await login(t, 'thap diem', '0031');
+    ok('T4 21.10 20:30 → K. Thấp Điểm đặt muộn: còn T5 · T6 (khung trong gói ≥ 12 giờ: T5 09:00 trở đi; T7 24.10 phòng nghỉ)', td.mode === 'book' && td.limits.max === 2, [td.mode, td.limits]);
+    let r = await book(t, td, [['2026-10-22', 8], ['2026-10-23', 9]]);
+    ok('… T5 08:00 → thap_diem (ngoài gói xét trước "dưới 12 giờ")', r.ok === false && r.why === 'thap_diem', r.why);
+    r = await book(t, td, [['2026-10-22', 9], ['2026-10-23', 14]]);
+    ok('… T5 09:00 (12 giờ 30 nữa) + T6 14:00 → ok', r.ok, r.error || r.why);
   }
 }
 

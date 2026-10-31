@@ -12,11 +12,13 @@ const LA = 'America/Los_Angeles', VN = 'Asia/Ho_Chi_Minh';
 const d = iso => dateIn(LA, iso);                          /* ô ngày của file BA (timezone LA) */
 const vn = (iso, hm) => dateIn(VN, iso, hm).getTime();     /* thời điểm theo giờ Việt Nam */
 
-/** extra: hội viên bịa thêm [số, họ tên, coach, SĐT, Mã KH] (gói 48 buổi còn 20, hạn 2027) — dùng cho phần tìm tên */
+/** extra: hội viên bịa thêm [số, họ tên, coach, SĐT, Mã KH, loại (mặc định 1:1), khung giờ (mặc định trống = toàn thời gian)]
+    (gói 48 buổi còn 20, hạn 2027) — dùng cho phần tìm tên */
 function baSheets(extra, trials) {
-  const H = ['', '#', 'Tên', 'Gói', 'Số buổi', 'Loại', 'Đơn giá buổi', 'Coach', 'SĐT', 'Người bán gói', 'Ngày ký', 'Ghi chú', 'Đã tập', 'Còn lại', 'Trạng thái', 'Ngày bắt đầu', 'Ngày kết thúc', 'Ngày hết hạn', 'Mã KH', '_key'];
-  const m = (no, name, pkg, kind, coach, phone, left, start, exp, code) =>
-    ['', no, name, pkg, parseInt(pkg, 10), kind, 300000, coach, phone, '', '', '', 0, left, '', start ? d(start) : '', '', exp === '' ? '' : (typeof exp === 'string' && exp.indexOf('/') > 0 ? exp : d(exp)), code, name + '|' + start];
+  const H = ['', '#', 'Tên', 'Gói', 'Số buổi', 'Loại', 'Đơn giá buổi', 'Coach', 'SĐT', 'Người bán gói', 'Ngày ký', 'Ghi chú', 'Đã tập', 'Còn lại', 'Trạng thái', 'Ngày bắt đầu', 'Ngày kết thúc', 'Ngày hết hạn', 'Mã KH', '_key', 'Khung giờ'];
+  /* tier: cột "Khung giờ" (31/10) — "Thấp điểm" / "Toàn thời gian" / trống (= toàn thời gian) */
+  const m = (no, name, pkg, kind, coach, phone, left, start, exp, code, tier) =>
+    ['', no, name, pkg, parseInt(pkg, 10), kind, 300000, coach, phone, '', '', '', 0, left, '', start ? d(start) : '', '', exp === '' ? '' : (typeof exp === 'string' && exp.indexOf('/') > 0 ? exp : d(exp)), code, name + '|' + start, tier || ''];
   const members = [
     ['', '— MEMBERS'], ['', 'test'], [], [], H,
     m('901', 'Hoàng Đức Nam', '72 buổi', '1:1', 'Quyết Hán', '0900000001', 20, '2026-07-01', '2027-01-01', 'B901DY'),
@@ -38,7 +40,7 @@ function baSheets(extra, trials) {
     /* hai khách 1:2 nữa của Quyết (cùng N. Ngọc Nam) — ghép cặp 1:2 cùng coach */
     m('925', 'Khách Cặp Một', '48 buổi', '1:2', 'Quyết Hán', '0900000025', 20, '2026-08-01', '2027-01-01', 'B925DY'),
     m('926', 'Khách Cặp Hai', '48 buổi', '1:2', 'Quyết Hán', '0900000026', 20, '2026-08-01', '2027-01-01', 'B926DY')
-  ].concat((extra || []).map(e => m(e[0], e[1], '48 buổi', '1:1', e[2], e[3], 20, '2026-08-01', '2027-01-01', e[4])));
+  ].concat((extra || []).map(e => m(e[0], e[1], '48 buổi', e[5] || '1:1', e[2], e[3], 20, '2026-08-01', '2027-01-01', e[4], e[6])));
   const LH = ['', '#', 'Ngày', 'Thứ', 'Khung giờ', 'Coach', 'Mã coach', 'Học viên', 'Mã HV', 'Loại', 'Khung', 'Trạng thái', '_h', '_tuần', 'Ký điện tử', '_mrow'];
   const log = [['', '— SESSION LOG'], ['', 'test'], [], LH,
     ['', '0001', d('2026-10-19'), 'T2', '', 'Quyết Hán', '', 'Hoàng Đức Nam', '901', '1:1', '', 'Đã tập', '', '', 'app 06:02 · ký: Quyết Hán', 1],
@@ -245,8 +247,8 @@ console.log('\n== 5. Đặt lịch Chủ Nhật (tuần 43) ==');
   ok('… sổ vẫn trống', logRows(t).length === 0);
   r = call(t, { action: 'lt_book', tok, rid: rid(), week: '2026-W43', picks: [{ date: '2026-10-19', h: 6 }, { date: '2026-10-19', h: 18 }] });
   ok('Hai buổi cùng ngày → mot_ngay_mot_buoi', r.why === 'mot_ngay_mot_buoi', r.why);
-  r = call(t, { action: 'lt_book', tok, rid: rid(), week: '2026-W43', picks: [{ date: '2026-10-19', h: 12 }, { date: '2026-10-21', h: 18 }] });
-  ok('Khung 12:00 (nghỉ trưa) → khung', r.why === 'khung', r.why);
+  r = call(t, { action: 'lt_book', tok, rid: rid(), week: '2026-W43', picks: [{ date: '2026-10-19', h: 13 }, { date: '2026-10-21', h: 18 }] });
+  ok('Khung 13:00 (nghỉ trưa của coach từ 31/10) → khung', r.why === 'khung', r.why);
   r = call(t, { action: 'lt_book', tok, rid: rid(), week: '2026-W43', picks: [{ date: '2026-10-25', h: 8 }, { date: '2026-10-21', h: 18 }] });
   ok('Chủ Nhật, coach chưa có Lịch coach (mặc định CN nghỉ) → coach_nghi', r.why === 'coach_nghi', r.why);
   r = call(t, { action: 'lt_book', tok, rid: rid(), week: '2026-W43', picks: [{ date: '2026-10-24', h: 8 }, { date: '2026-10-21', h: 18 }] });

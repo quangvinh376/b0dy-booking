@@ -32,6 +32,16 @@ Máy chủ của trang **booking.b0dy.studio**, thay cho Apps Script để mọi
   ngầm; chưa có tab thì dò lại sau `META_RECHECK` (5 phút), mỗi lần thử cách nhau ≥ `META_TRY` (30 s) — Google lỗi không làm hỏng lượt xem.
   Trang 1.1.0 vẫn chạy với máy chủ cũ (tuần 6 ngày → cột CN cố định như cũ); trang cũ gặp máy chủ mới thì vẽ thừa cột → **đưa trang lên
   trước, deploy Worker sau**.
+- **Ca 12:00 + gói thấp điểm** (1.7.0, chủ studio 31/10; `core.js` · `isOffPeak` / `hourOk` = `LichTuan.gs` · `ltIsOffPeak_` /
+  `ltHourOk_`, parity so từng phản hồi): `LT.SLOTS` thêm 12 (nghỉ trưa còn 13:00–14:00). MEMBERS cột **"Khung giờ"** (đọc theo tên tiêu
+  đề, hiện ở cột Y): "Thấp điểm" (bỏ dấu / hoa thường) → hội viên `off` → chỉ đặt / đổi / được mời vào `LT.OFF_HOURS` = 09 · 10 · 11 · 12 ·
+  14 (buổi nằm trọn trong 09:00–15:00 — cùng cách hiểu với giờ mở cửa 06:00–21:00 ↔ khung 06…20); giá trị khác hoặc trống = toàn thời
+  gian. Nhiều dòng gói: lấy theo dòng chọn gói / loại / coach (bắt đầu muộn nhất ≤ hôm nay). `why` → `thap_diem` (sau `gio_ghep`, nên
+  1:2 thấp điểm chỉ còn 09 · 11); mời bạn thấp điểm vào khung ngoài gói → `khong_hop_le` / `nguoi_moi` (lời mời không bao giờ nhận được
+  thì không ghi); `duo.wait` bỏ khung ngoài gói; `duo.peers` của bạn thấp điểm mang `hours`; state có `offpeak: {hours}` (trang vẽ bảng
+  con theo danh sách này, không giữ bản riêng). Buổi đã đặt trước khi đổi gói giữ nguyên. Ảnh chụp BA `snap:ba` mang `fmt` 2 (dạng cũ
+  → bỏ, đọc BA mới trước lượt đầu); Apps Script đổi khoá cache `lt:mem2` / `lt:sc2`. Tab `Lịch coach` chưa có hàng 12:00 → coach nghỉ
+  12:00 (không ai đặt được cho tới khi có hàng + tick).
 - **Kênh live** (1.2.0, chủ studio duyệt 19/10 "mức 1"; `src/live.js`): trang mở WebSocket `GET /live?dev=<mã máy>` (Worker kiểm
   origin như `ALLOW_ORIGINS` + mã máy đúng dạng, rồi chuyển nguyên request cho DO). DO dùng **WebSocket Hibernation API**
   (`acceptWebSocket`, `'ping'` → `'pong'` tự trả không đánh thức DO) và chỉ gửi `{t:'hi'|'bump', r}` / `{t:'n', n}` — **không có dữ

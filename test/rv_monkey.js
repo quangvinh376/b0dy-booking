@@ -14,13 +14,13 @@ const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed
     page.on('pageerror', e => errs.push('run' + run + ': ' + e.message + ' @' + (e.stack || '').split('\n')[1]));
     await R.login(page, run < 2 ? 'duc nam' : 'khai linh', run < 2 ? '0001' : '0002', run % 2 === 0);
     await page.waitForSelector('.pg-book');
-    const days = ['2026-10-19', '2026-10-20', '2026-10-21', '2026-10-22', '2026-10-23', '2026-10-24'], hs = [6, 7, 8, 9, 10, 11, 14, 15, 16, 17, 18, 19, 20];
+    const days = ['2026-10-19', '2026-10-20', '2026-10-21', '2026-10-22', '2026-10-23', '2026-10-24'], hs = [6, 7, 8, 9, 10, 11, 12, 14, 15, 16, 17, 18, 19, 20];
     for (let i = 0; i < 140; i++) {
       const r = rnd();
       try {
         t.fail = rnd() < 0.15 ? (b => (b.action === 'lt_book' || b.action === 'lt_change') ? (rnd() < 0.5 ? 'net' : 'net-after') : null) : null;
         t.delayFor = rnd() < 0.2 ? (() => Math.floor(rnd() * 900)) : null;
-        if (r < 0.45) { await page.evaluate(([d, h]) => { const c = document.querySelector('#wkb .c[data-d="' + d + '"][data-h="' + h + '"]'); if (c) c.click(); }, [days[Math.floor(rnd() * 6)], hs[Math.floor(rnd() * 13)]]); }
+        if (r < 0.45) { await page.evaluate(([d, h]) => { const c = document.querySelector('#wkb .c[data-d="' + d + '"][data-h="' + h + '"]'); if (c) c.click(); }, [days[Math.floor(rnd() * 6)], hs[Math.floor(rnd() * hs.length)]]); }
         else if (r < 0.8) { const n = await page.evaluate(() => Array.from(document.querySelectorAll('[data-a]')).filter(e => e.offsetParent && !e.disabled && !/notyou|png|ics|remind/.test(e.dataset.a)).length); if (n) await page.evaluate(k => { const els = Array.from(document.querySelectorAll('[data-a]')).filter(e => e.offsetParent && !e.disabled && !/notyou|png|ics|remind/.test(e.dataset.a)); els[k % els.length].click(); }, Math.floor(rnd() * 100)); }
         else if (r < 0.86) { await page.goBack().catch(() => {}); await R.sleep(150); if (!(await page.evaluate(() => !!window.__lt).catch(() => false))) { await page.goForward().catch(() => {}); await R.sleep(300); if (!(await page.evaluate(() => !!window.__lt).catch(() => false))) { await page.goto(R.server.url); await R.sleep(500); } } }
         else if (r < 0.9) await page.keyboard.press(['Escape', 'ArrowDown', 'ArrowRight', 'Enter', 'Tab'][Math.floor(rnd() * 5)]);

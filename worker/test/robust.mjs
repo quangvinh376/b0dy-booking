@@ -26,8 +26,8 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 /* hội viên bịa: [tìm bằng, 4 số cuối, mã KH] */
 const M = [['duc nam', '0001', 'B901DY'], ['minh tam', '0002', 'B902DY'], ['so ba', '0003', 'B903DY'], ['so bon', '0004', 'B904DY'], ['so nam', '0005', 'B905DY'], ['so sau', '0006', 'B906DY']];
 function files() {
-  const H = ['', '#', 'Tên', 'Gói', 'Số buổi', 'Loại', 'Coach', 'SĐT', 'Còn lại', 'Ngày bắt đầu', 'Ngày hết hạn', 'Mã KH'];
-  const mem = (no, name, coach, phone, code) => ['', no, name, '24 buổi', 24, '1:1', coach, phone, 20, d('2026-08-01'), d('2027-01-01'), code];
+  const H = ['', '#', 'Tên', 'Gói', 'Số buổi', 'Loại', 'Coach', 'SĐT', 'Còn lại', 'Ngày bắt đầu', 'Ngày hết hạn', 'Mã KH', 'Khung giờ'];
+  const mem = (no, name, coach, phone, code) => ['', no, name, '24 buổi', 24, '1:1', coach, phone, 20, d('2026-08-01'), d('2027-01-01'), code, 'Toàn thời gian'];
   const ba = {
     /* năm coach khác nhau cho 5 khách đầu (luật 18/10: mỗi coach một suất mỗi khung — 4 khách đầu đủ 4 suất một khung) */
     MEMBERS: [H, mem('1', 'Hoàng Đức Nam', 'Quyết Hán', '0900000001', 'B901DY'), mem('2', 'Phạm Minh Tâm', 'Hiền Mai', '0900000002', 'B902DY'),
@@ -113,10 +113,35 @@ console.log('\n== DO thức dậy từ storage ==');
   await b.idle();
 }
 
+console.log('\n== Ảnh chụp BA dạng cũ (trước cột "Khung giờ" · ca 12:00, 31/10): DO mới bỏ, đọc BA mới trước lượt đầu ==');
+{
+  /* deploy bản có cột "Khung giờ" lên DO đang giữ ảnh chụp BA dạng CŨ (dòng MEMBERS chưa có `off`): không được dùng ảnh đó — không thì
+     lượt ghi ngay sau deploy kiểm bằng dòng chưa biết gói thấp điểm (đặt được giờ ngoài gói) */
+  const w = world(vn('2026-10-18', '07:00'));
+  const mr = w.f.BA.getSheetByName('MEMBERS').rows, kc = mr[0].indexOf('Khung giờ');
+  mr[6][kc] = 'Thấp điểm';                                           /* Khách Số Sáu (Quyết) mua gói thấp điểm */
+  const s6 = await login(w.wk, 5, 'devROBUSTROBUSTROB6');
+  ok('Khách Số Sáu (gói thấp điểm) → state có offpeak.hours', s6.offpeak && JSON.stringify(s6.offpeak.hours) === '[9,10,11,12,14]', s6.offpeak);
+  await w.wk.idle();
+  const sb = await w.storage.get('snap:ba');
+  ok('Ảnh chụp BA lưu storage có dạng 2 (dòng MEMBERS có off)', sb && sb.fmt === 2 && sb.members.some(x => x.off === true) && sb.members.some(x => x.off === false), sb && [sb.fmt, sb.members.map(x => x.off)]);
+  const old = Object.assign({}, sb, { members: sb.members.map(x => { const y = Object.assign({}, x); delete y.off; return y; }) });
+  delete old.fmt;
+  await w.storage.put('snap:ba', old);
+  const b = core(w.f, w.fg, w.storage, w.clock, {}, w.logs);
+  await b.init();
+  ok('Bản DO mới bỏ ảnh chụp BA dạng cũ (không có fmt)', b.ba === null, b.ba && b.ba.fmt);
+  const r = await b.api(BOOK(s6.tok, rid(), [{ date: '2026-10-19', h: 15 }, { date: '2026-10-20', h: 9 }], 'devROBUSTROBUSTROB6'));
+  ok('… lượt ghi đầu tiên đọc BA mới rồi mới kiểm: T2 15:00 ngoài gói thấp điểm → thap_diem, không ghi', r.ok === false && r.why === 'thap_diem' && rows(w.f).filter(x => x[16] === 'B906DY').length === 0, r);
+  const r2 = await b.api(BOOK(s6.tok, rid(), [{ date: '2026-10-19', h: 12 }, { date: '2026-10-20', h: 9 }], 'devROBUSTROBUSTROB6'));
+  await b.idle();
+  ok('… T2 12:00 + T3 09:00 → ok, lên sổ', r2.ok && rows(w.f).filter(x => x[16] === 'B906DY').length === 2, r2.error || r2.why);
+}
+
 console.log('\n== Tab "Lịch coach" (19/10): DO đang giữ meta dạng cũ · chủ studio tạo tab sau khi deploy ==');
 {
   /* lưới giả: Quyết chỉ nhận T2 06:00 và CN 08:00 */
-  const DAYS7 = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'], HRS = [6, 7, 8, 9, 10, 11, 14, 15, 16, 17, 18, 19, 20];
+  const DAYS7 = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'], HRS = [6, 7, 8, 9, 10, 11, 12, 14, 15, 16, 17, 18, 19, 20];
   const grid = [['', 'Quyết Hán'].concat(DAYS7)].concat(HRS.map(h => ['', (h < 10 ? '0' : '') + h + ':00'].concat(DAYS7.map((x, i) => (i === 0 && h === 6) || (i === 6 && h === 8)))));
   const addTab = w => { const sh = new Spreadsheet('tmp', 'Asia/Saigon', { 'Lịch coach': grid }).sheets[0]; sh.ss = w.f.OUT; w.f.OUT.sheets.push(sh); w.fg.ids.set(sh, 999); };
   const boot = (wk, s) => wk.api({ action: 'lt_boot', dev: DEV, tok: s.tok });

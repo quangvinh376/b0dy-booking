@@ -52,6 +52,10 @@ const SNAP_LOG_FMT = 2;
 /* Dạng meta (tên các tab) lưu 'snap:meta'. 2 = có out.sched (tab "Lịch coach", 19/10). Meta dạng cũ → dò lại tên tab. Chưa có tab
    "Lịch coach" thì cứ cfg.META_RECHECK dò lại một lần (chủ studio tạo tab sau khi deploy vẫn được nhận, không cần deploy lại). */
 const META_FMT = 2;
+/* Dạng ảnh chụp BA lưu 'snap:ba' (dòng MEMBERS + lịch coach ĐÃ ĐỌC). 2 = dòng MEMBERS có `off` (cột "Khung giờ" — gói thấp điểm) và
+   lịch coach có khung 12:00 (31/10). DO thức dậy với ảnh chụp dạng cũ thì bỏ, đọc BA mới trước lượt đầu — không thì lượt ghi ngay sau
+   deploy kiểm bằng dòng chưa có khung giờ gói (hội viên thấp điểm đặt được giờ ngoài gói) và coach "nghỉ" ở 12:00. */
+const SNAP_BA_FMT = 2;
 
 function msg(e) { return String(e && e.message || e).slice(0, 120); }
 /** băm FNV-1a 32 bit (dấu nội dung cho kênh live — chỉ so bằng, không bảo mật) */
@@ -187,7 +191,8 @@ export class BookingCore {
       const got = await this.storage.get(['snap:meta', 'snap:ba', 'snap:mk', 'snap:log']);
       const g = k => (got && typeof got.get === 'function') ? got.get(k) : (got ? got[k] : undefined);
       if (g('snap:meta')) this.meta = g('snap:meta');
-      if (g('snap:ba')) this.ba = g('snap:ba');
+      const sb = g('snap:ba');
+      if (sb && sb.fmt === SNAP_BA_FMT) this.ba = sb;
       if (g('snap:mk')) this.mk = g('snap:mk');
       const sl = g('snap:log');
       if (sl && sl.fmt === SNAP_LOG_FMT) this.base = Object.assign({}, sl, { seq: 0 });
@@ -286,6 +291,7 @@ export class BookingCore {
       const [v, sv] = await Promise.all([this.g.batchGet(this.BA, ranges),
         m.out.sched ? this.g.batchGet(this.OUT, [q(m.out.sched) + '!A1:AD400']) : Promise.resolve(null)]);
       const ba = {
+        fmt: SNAP_BA_FMT,
         at: this.now(),
         members: C.memberRows(v[0]),
         layout: idx.log !== undefined ? C.marksLayout(v[idx.log]) : null,
@@ -593,7 +599,11 @@ export class BookingCore {
   async withIds(st) {
     if (st && st.duo && st.duo.peers) {
       const sg = await this.signer(), out = [];
-      for (const x of st.duo.peers) out.push({ id: await sg.idOf(x.key), short: x.short, call: x.call });
+      for (const x of st.duo.peers) {
+        const p = { id: await sg.idOf(x.key), short: x.short, call: x.call };
+        if (x.hours) p.hours = x.hours;                  /* bạn gói thấp điểm: khung giờ của gói (không lộ Mã KH) */
+        out.push(p);
+      }
       st.duo.peers = out;
     }
     return st;

@@ -78,7 +78,10 @@ const PERSONAS = [
   { code: 'B808DY', name: 'Kiều Hữu Tâm', pkg: 24, kind: '1:1', coach: KP, phone: '0900008888', left: 14, start: '2026-07-06', exp: '2027-01-31', test: 'Đã đổi 2 lần · hết lượt đổi' },
   { code: 'B809DY', name: 'Hà Minh Quân', pkg: 36, kind: '1:1', coach: LN, phone: '0900009999', left: 18, start: '2026-07-06', exp: '2027-03-31', test: 'Trùng tên đệm + tên · gõ "minh quân" ra hai người' },
   { code: 'B810DY', name: 'Lục Minh Quân', pkg: 12, kind: '1:1', coach: BN, phone: '0900001010', left: 8, start: '2026-09-07', exp: '2026-12-31', test: 'Trùng tên đệm + tên với Hà Minh Quân' },
-  { code: 'B811DY', name: 'Mẫn Thục Quyên', pkg: 24, kind: '1:2', coach: LN, phone: '0900001212', left: 16, start: '2026-08-03', exp: '2027-02-28', test: 'Gói 1:2 cùng coach Lâm với Tạ Uyển Nhi · đặt một khung ghép rồi mời bạn, hoặc mở trang xem lời mời bạn gửi' }
+  { code: 'B811DY', name: 'Mẫn Thục Quyên', pkg: 24, kind: '1:2', coach: LN, phone: '0900001212', left: 16, start: '2026-08-03', exp: '2027-02-28', test: 'Gói 1:2 cùng coach Lâm với Tạ Uyển Nhi · đặt một khung ghép rồi mời bạn, hoặc mở trang xem lời mời bạn gửi' },
+  /* gói thấp điểm (MEMBERS cột "Khung giờ", từ 31/10): chỉ đặt các khung trong 09:00–15:00 */
+  { code: 'B812DY', name: 'Văn Thục Đoan', pkg: 24, kind: '1:1', coach: BN, phone: '0900001313', left: 20, start: '2026-08-03', exp: '2027-02-28', tier: 'Thấp điểm', test: 'Gói thấp điểm · bảng chỉ có các khung 09 · 10 · 11 · 12 · 14 (09:00–15:00)' },
+  { code: 'B813DY', name: 'Tiêu Hạ Miên', pkg: 24, kind: '1:2', coach: LN, phone: '0900001414', left: 20, start: '2026-08-03', exp: '2027-02-28', tier: 'Thấp điểm', test: 'Gói 1:2 thấp điểm · chỉ khung ghép 09 · 11 · Uyển Nhi, Thục Quyên chỉ mời được bạn này vào 09:00, 11:00' }
 ];
 /* Người tập nền: lấp bảng giờ cho giống ngày mở đặt thật (đã so với file BA thật như trên). Coach xoay vòng Quyết · Mai · Khải ·
    Lâm · Ngọc; hai người của Lâm (Quách Tuấn Kiệt, Bế Thảo Vy) mua gói 1:2 — để thử luật ghép 1:2 cùng coach. */
@@ -103,7 +106,7 @@ const BUSY = [
   [0, 15, ['LN22']]];
 const TAG = { QH: QH, HM: HM, KP: KP, LN: LN, BN: BN };
 /* Đổi dữ liệu thế giới giả (người tập nền, khung bận) → tăng số này: máy đã mở ?qc trước đó dựng lại thế giới mới khi tải trang. */
-const WORLD_V = 5;
+const WORLD_V = 6;                                   /* 6 (31/10): cột "Khung giờ" + 2 hội viên thử gói thấp điểm · Lịch coach có 12:00 */
 /* Lịch coach giả (tab "Lịch coach" của file Lịch tập tuần, từ 19/10): Quyết nghỉ T5 06–07 (ô "Coach nghỉ" một phần ngày) và nhận
    CN 08–11; Mai nhận CN 14–17; coach khác không có lưới → T2–T7 đủ giờ, CN nghỉ (khối "COACH NGHỈ" trọn ngày). */
 function schedRows() {
@@ -194,9 +197,10 @@ function marksBefore(at, writes) {
 function buildFiles(key, nghi) {
   const sc = SCEN[key], writes = sc.booked ? seedWrites() : [];
   const H = ['', '#', 'Tên', 'Gói', 'Số buổi', 'Loại', 'Đơn giá buổi', 'Coach', 'SĐT', 'Người bán gói', 'Ngày ký', 'Ghi chú', 'Đã tập', 'Còn lại', 'Trạng thái',
-    'Ngày bắt đầu', 'Ngày kết thúc', 'Ngày hết hạn', 'Mã KH', '_key'];
+    'Ngày bắt đầu', 'Ngày kết thúc', 'Ngày hết hạn', 'Mã KH', '_key', 'Khung giờ'];
   const members = [['', '— MEMBERS'], ['', 'QC · dữ liệu giả'], [], [], H].concat(PERSONAS.concat(BG).map((m, i) =>
-    ['', i + 1, m.name, m.pkg + ' buổi', m.pkg, m.kind, '', m.coach, m.phone, '', '', '', m.pkg - m.left, m.left, '', serial(m.start), '', serial(m.exp), m.code, m.name + '|' + m.start]));
+    ['', i + 1, m.name, m.pkg + ' buổi', m.pkg, m.kind, '', m.coach, m.phone, '', '', '', m.pkg - m.left, m.left, '', serial(m.start), '', serial(m.exp), m.code, m.name + '|' + m.start,
+     m.tier || 'Toàn thời gian']));
   const LH = ['', '#', 'Ngày', 'Thứ', 'Khung giờ', 'Coach', 'Mã coach', 'Học viên', 'Mã HV', 'Loại', 'Khung', 'Trạng thái', '_h', '_tuần', 'Ký điện tử', '_mrow'];
   const TH = ['', '#', 'Ngày hẹn', 'Giờ hẹn', 'Họ & tên / Username', 'Số điện thoại', 'Ghi chú (không bắt buộc)', 'Trạng thái', 'Coach tiếp nhận'];
   const b0b = [['', '— B0B'], [], ['', 'CA', 'GIỜ', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'], ['', 'A', '08:00', 2, 2, 2, 2, 2, 2, ''],

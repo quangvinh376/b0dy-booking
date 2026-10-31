@@ -17,7 +17,11 @@ export const GEAR = String.fromCharCode(0x2699);
 
 export const LT = {
   OFF: 7 * 3600e3,                                   // giờ Việt Nam, không có giờ mùa hè
-  SLOTS: [6, 7, 8, 9, 10, 11, 14, 15, 16, 17, 18, 19, 20], // 12:00–14:00 coach nghỉ trưa
+  SLOTS: [6, 7, 8, 9, 10, 11, 12, 14, 15, 16, 17, 18, 19, 20], // 13:00–14:00 coach nghỉ trưa (chủ studio mở ca 12:00 ngày 31/10)
+  /* Gói "Thấp điểm" (MEMBERS cột "Khung giờ", chủ studio chốt 31/10): buổi nằm trọn trong 09:00–15:00 — cùng cách hiểu với
+     "Giờ mở cửa 06:00 – 21:00" ↔ khung 06…20 — nên chỉ các khung 09 · 10 · 11 · 12 · 14 (13:00 nghỉ trưa). Ô "Toàn thời gian"
+     hoặc để trống = mọi khung. Trang nhận danh sách này trong state (offpeak.hours), không tự giữ bản riêng. */
+  OFF_HOURS: [9, 10, 11, 12, 14],
   NDAYS: 7,                                          // T2..CN · ngày / giờ nhận khách của từng coach: tab "Lịch coach" (SCHED)
   OPEN_H: 6,                                         // lịch tuần sau mở lúc 06:00 Chủ Nhật
   LEAD: 12 * 3600e3,                                 // đặt muộn / thêm buổi / khung mới khi đổi lịch / mời: cách hiện tại ≥ 12 giờ
@@ -125,6 +129,11 @@ export function coachName(c) { return String(c == null ? '' : c).replace(/\s*\(.
 export function coachKey(c) { return nameKey(coachName(c)); }
 /** Gói 1:2 (một coach kèm hai khách). */
 export function isDuo(kind) { return /^1\s*:\s*2$/.test(String(kind == null ? '' : kind).trim()); }
+/** Ô "Khung giờ" của MEMBERS là gói thấp điểm ("Thấp điểm", bỏ dấu / hoa thường / khoảng trắng thừa vẫn nhận). Mọi giá trị khác,
+    kể cả trống = toàn thời gian (chủ studio 31/10: mặc định toàn thời gian). */
+export function isOffPeak(tier) { return nameKey(tier) === 'thap diem'; }
+/** Khung giờ gói của hội viên được đặt: thấp điểm → LT.OFF_HOURS, còn lại mọi khung. */
+export function hourOk(person, h) { return !person || !person.off || LT.OFF_HOURS.indexOf(h) >= 0; }
 export function initials(c) { return words(coachName(c)).map(x => x.charAt(0).toUpperCase()).join(''); }
 export function pkgLabel(pkg, total) { const m = String(pkg == null ? '' : pkg).match(/\d+/), n = m ? +m[0] : (+total || 0); return n > 0 ? n + 'B' : ''; }
 export function digits(v) { return String(v == null ? '' : v).replace(/\D+/g, ''); }
@@ -270,7 +279,7 @@ export function memberRows(vals) {
   function col() { for (let i = 0; i < arguments.length; i++) { const k = H.indexOf(arguments[i]); if (k >= 0) return k; } return -1; }
   const c = { name: col('ten'), pkg: col('goi'), total: col('so buoi'), kind: col('loai'), coach: col('coach'),
               phone: col('sdt', 'so dien thoai', 'dien thoai'), left: col('con lai'), start: col('ngay bat dau'),
-              exp: col('ngay het han'), code: col('ma kh') };
+              exp: col('ngay het han'), code: col('ma kh'), tier: col('khung gio') };
   const out = [];
   for (let r = hd.r + 1; r < vals.length; r++) {
     const x = vals[r] || [], g = k => cell(x, c[k]);
@@ -279,14 +288,14 @@ export function memberRows(vals) {
     out.push({ name: name, pkg: String(g('pkg') || '').trim(), total: +g('total') || 0,
                kind: String(g('kind') || '').trim(), coach: coachName(g('coach')), phone: digits(g('phone')),
                left: Number(g('left')) || 0, start: cellIso(g('start'), true),
-               exp: cellIso(g('exp'), true), code: String(g('code') || '').trim() });
+               exp: cellIso(g('exp'), true), code: String(g('code') || '').trim(), off: isOffPeak(g('tier')) });
   }
   return out;
 }
 
 /**
  * Gộp các dòng còn hiệu lực thành hội viên (giống ltPersons_): khoá = Mã KH; số buổi còn = tổng;
- * hết hạn = xa nhất; bắt đầu = sớm nhất; gói/loại/coach theo dòng bắt đầu muộn nhất nhưng ≤ hôm nay.
+ * hết hạn = xa nhất; bắt đầu = sớm nhất; gói/loại/coach/khung giờ theo dòng bắt đầu muộn nhất nhưng ≤ hôm nay.
  */
 export function persons(rows, today) {
   const byKey = {}, order = [], phoneOf = {};
@@ -314,7 +323,7 @@ export function persons(rows, today) {
     });
     return { key: k, name: pick.name, toks: nameKey(pick.name).split(' '), short: short(pick.name), call: callName(pick.name),
              coach: pick.coach, kind: pick.kind || '1:1', pkg: pkgLabel(pick.pkg, pick.total), left: left,
-             exp: noExp ? '' : exp, start: start, phone: phoneOf[k] || '', code: pick.code || '' };
+             exp: noExp ? '' : exp, start: start, phone: phoneOf[k] || '', code: pick.code || '', off: !!pick.off };
   });
 }
 
@@ -633,6 +642,7 @@ export function why(ctx, person, env, iso, h, lead) {
   if (person.exp && iso > person.exp) return 'het_han';
   if (offAt(env, person, iso, h)) return 'coach_nghi';                            /* ngoài lịch nhận khách của coach */
   if (isDuo(person.kind) && LT.DUO_HOURS.indexOf(h) < 0) return 'gio_ghep';     /* gói 1:2: chỉ các khung ghép cố định */
+  if (!hourOk(person, h)) return 'thap_diem';                                     /* gói thấp điểm: chỉ LT.OFF_HOURS (09:00–15:00) */
   const t = slotMs(iso, h);
   if (t <= ctx.now) return 'qua';
   if (lead && t - ctx.now < lead) return 'duoi_12h';
@@ -725,6 +735,8 @@ export function checkInvite(ctx, person, env, m, slot, to) {
   const cur = liveInvite(env, person.key, selfAt(env, person, k), k);
   if (to) {
     if (to.key === person.key || !isDuo(to.kind) || coachKey(to.coach) !== coachKey(person.coach)) return { error: 'khong_hop_le', why: 'nguoi_moi' };
+    /* người được mời gói thấp điểm không đặt được khung này → lời mời không bao giờ nhận được: không ghi */
+    if (!hourOk(to, slot.h)) return { error: 'khong_hop_le', why: 'nguoi_moi' };
     if (cur && cur.to === to.key && !declinedOf(env.inv, cur, person.key, k)) return { ok: true, noop: true };
   } else if (!cur) return { ok: true, noop: true };
   return { ok: true };
@@ -789,7 +801,7 @@ export function duoState(ctx, person, env, m, list) {
   m.sessions.forEach(s => { mineAt[s.date + '|' + s.h] = 1; });
   ctx.days.forEach(d => LT.DUO_HOURS.forEach(h => {
     const k = d + '|' + h, o = othersAt(env, person, k);
-    if (mineAt[k] || slotMs(d, h) <= ctx.now || o.length !== 1 || !o[0].duo) return;
+    if (mineAt[k] || !hourOk(person, h) || slotMs(d, h) <= ctx.now || o.length !== 1 || !o[0].duo) return;   /* thấp điểm: chỉ khung trong gói */
     wait[k] = callOf(o[0].kh, o[0].name, list);
     const iv = liveInvite(env, o[0].kh, o[0], k);
     if (iv && iv.to === person.key && !declinedOf(env.inv, iv, o[0].kh, k) && why(ctx, person, env, d, h, ctx.lead) === '') {
@@ -803,8 +815,9 @@ export function duoState(ctx, person, env, m, list) {
     const iv = liveInvite(env, person.key, selfAt(env, person, k), k), p = iv && list ? findPerson(list, iv.to) : null;
     if (p) invOut[k] = { to: p.call, st: declinedOf(env.inv, iv, person.key, k) ? 'no' : 'wait' };
   });
+  /* bạn gói thấp điểm mang theo khung giờ của gói (hours) → trang chỉ mời họ vào khung họ đặt được (máy chủ cũng chặn: checkInvite) */
   const peers = (list || []).filter(p => p.key !== person.key && isDuo(p.kind) && coachKey(p.coach) === ck)
-    .map(p => ({ key: p.key, short: p.short, call: p.call }))
+    .map(p => p.off ? { key: p.key, short: p.short, call: p.call, hours: LT.OFF_HOURS } : { key: p.key, short: p.short, call: p.call })
     .sort((a, b) => a.short.localeCompare(b.short, 'vi') || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
   return { duoHours: LT.DUO_HOURS, wait: wait, pairs: pairs, invOut: invOut, invIn: invIn, peers: peers };
 }
@@ -837,6 +850,9 @@ export function stateOf(ctx, person, env, m, marks, list) {
     limits: { min: lim.min, max: lim.max, add: lim.add }
   };
   if (isDuo(person.kind)) out.duo = duoState(ctx, person, env, m, list);
+  /* gói thấp điểm: các khung được đặt — trang chỉ hiện các hàng này (+ giờ của buổi đã đặt trước khi đổi gói); máy chủ cũ không gửi
+     → trang như trước, máy chủ vẫn chặn (why → thap_diem) */
+  if (person.off) out.offpeak = { hours: LT.OFF_HOURS };
   return out;
 }
 /** Màn công khai (chưa xác minh): thông tin tuần để hiện tìm tên hoặc đếm ngược. sched / list: lịch coach + hội viên còn gói (anyOpen). */

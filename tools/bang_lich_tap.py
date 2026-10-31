@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """
 Tab "Bảng lịch tập" dựng lại theo bảng giờ của UI booking (Figma V2.4 · 03 Đặt lịch · bảng tuần):
-cột giờ 48 · khe 4 · ô ngày viền Kẻ 10 % · dải nghỉ trưa Giấy 2 · đầu cột Thứ (Mono, Than) + ngày (Mono 16 px, Mực).
+cột giờ 48 · khe 4 · ô ngày 250 viền Kẻ 10 % · dải nghỉ trưa Giấy 2 · đầu cột Thứ (Mono, Than) + ngày (Mono 16 px, Mực).
+Khung giờ (1.7.0, chủ studio 31/10): 06:00–12:00 · nghỉ trưa 13:00–14:00 · 14:00–20:00 (= LT.SLOTS).
 7 cột T2–CN (1.1.0: CN đặt được khi coach tick CN ở tab "Lịch coach"). Tuần đang xem: tuần này (CN vẫn là tuần này) hoặc tuần của
 ngày chọn ở ô H2 "Xem tuần" (bấm đúp → lịch chọn ngày; xoá ô = về tuần này).
 Ô = MỖI DÒNG MỘT SUẤT COACH (luật 18/10: mỗi coach một suất mỗi khung): khách 1:1 "H. Đức Nam · Quyết", cặp 1:2 cùng coach
@@ -19,6 +20,11 @@ Bẫy đã gặp (17/10):
     thêm / bớt cột cho đủ NCOL — đoán sai thì còn sót hàng cũ ở dưới hay cột thừa hiện ra bên phải. Quy tắc cũ còn sót thì s2 (copyPaste PASTE_FORMAT) kéo nó giãn ra cả lưới.
   · Chạy lại RIÊNG s2 khi s3 đã có cũng vậy: copyPaste mang theo quy tắc của ô mẫu D8:E9 → luôn chạy lại đủ s1 → s2 → s3.
   · Màu: Sheets cắt (floor) giá trị × 255 → xem rgb().
+  · Đếm quy tắc định dạng có điều kiện: spreadsheets.get KHÔNG kèm `ranges` (có `ranges` thì chỉ trả quy tắc chạm vùng đó — 31/10 đếm
+    nhầm 2 thay vì 5).
+Khớp tab thật 31/10 (chỉnh tay sau lần dựng 19/10, script theo): cột ngày 250 px · nhãn H3 "TUẦN ĐANG CHỌN" / "CHỌN TUẦN".
+Ca 12:00 lên tab thật 31/10 bằng CHÈN 2 hàng (12:00 + khe) trên dải nghỉ trưa (không dựng lại → giữ chỉnh tay) + sửa công thức khối sáng
+(MAKEARRAY 13 hàng), nhãn nghỉ trưa, quy tắc "Theo coach" (ROW()−43); dựng lại bằng script này ra đúng bố cục đó.
 """
 import json, sys
 
@@ -35,28 +41,33 @@ INTER, MONO = 'Inter', 'JetBrains Mono'
 LOG, DAT = "'Sổ đặt lịch'", "'_dữ liệu'"
 
 # ---------------- lưới ----------------
-# cột: A lề 40 · B giờ 48 · C khe 4 · D T2 150 · E khe 4 · F T3 · … · N T7 · O khe · P CN 150 · Q lề 40 · R 40 · S phụ · T:U tên gọi coach · V coach chưa đặt (S…AB ẩn)
+# cột: A lề 40 · B giờ 48 · C khe 4 · D T2 250 · E khe 4 · F T3 · … · N T7 · O khe · P CN 250 · Q lề 40 · R 40 · S phụ · T:U tên gọi coach · V coach chưa đặt (S…AB ẩn)
 DAY_COLS = [3, 5, 7, 9, 11, 13, 15]
 DAYS = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN']
 NDAY, GRID_C2 = len(DAYS), DAY_COLS[-1] + 1     # lưới D..P (cột 3..15) · GRID_C2 = cột ngay sau lưới (Q, lề)
 NCOL, HIDE_FROM = 28, 18
 WIDTHS = {0: 40, 1: 48, 2: 4, 16: 40, 17: 40}
-for c in DAY_COLS: WIDTHS[c] = 150
+for c in DAY_COLS: WIDTHS[c] = 250
 for c in [4, 6, 8, 10, 12, 14]: WIDTHS[c] = 4
-# hàng (0-based): 0 lề · 1 tiêu đề · 2 dòng phụ · 3 khoảng · 4 Thứ · 5 ngày · 6 vạch hôm nay 14 · 7–17 sáng (06–11) · 18 khe · 19 nghỉ trưa · 20 khe · 21–33 chiều (14–20)
-AM_TOP, AM_ROWS = 7, 11                   # 06:00 ở hàng 8, 11:00 ở hàng 18 (khe ở giữa)
-LUNCH_ROW = 19
-PM_TOP, PM_ROWS = 21, 13                  # 14:00 ở hàng 22, 20:00 ở hàng 34
-GRID_TOP, GRID_END = 7, 34
-HOUR_ROWS = [AM_TOP + 2 * k for k in range(6)] + [PM_TOP + 2 * k for k in range(7)]
-HOURS = ['06:00', '07:00', '08:00', '09:00', '10:00', '11:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00']
-R_COACH_T, R_COACH_SUB, R_COACH_HEAD, R_COACH_D0 = 35, 36, 38, 40      # "Theo coach": tiêu đề hàng 36 · đầu cột hàng 39 · T2..CN hàng 41–47
-R_MISS_T, R_MISS_SUB, R_MISS_0 = 48, 49, 51                             # "Chưa đặt lịch": tiêu đề hàng 49 · 8 coach hàng 52–59
+# hàng (0-based): 0 lề · 1 tiêu đề · 2 dòng phụ · 3 khoảng · 4 Thứ · 5 ngày · 6 vạch hôm nay 14 · 7–19 sáng (06–12) · 20 khe · 21 nghỉ trưa
+# · 22 khe · 23–35 chiều (14–20)
+AM_H, PM_H = 7, 7                         # số khung sáng (06–12) · chiều (14–20)
+AM_TOP, AM_ROWS = 7, 2 * AM_H - 1         # 06:00 ở hàng 8, 12:00 ở hàng 20 (khe ở giữa)
+LUNCH_ROW = AM_TOP + AM_ROWS + 1          # 21 (hàng 22): sau khe dưới 12:00
+PM_TOP, PM_ROWS = LUNCH_ROW + 2, 2 * PM_H - 1   # 14:00 ở hàng 24, 20:00 ở hàng 36
+GRID_TOP, GRID_END = AM_TOP, PM_TOP + PM_ROWS   # 7 · 36 (hàng đệm 56 px dưới lưới)
+HOUR_ROWS = [AM_TOP + 2 * k for k in range(AM_H)] + [PM_TOP + 2 * k for k in range(PM_H)]
+HOURS = ['06:00', '07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00']   # = LT.SLOTS
+assert len(HOURS) == len(HOUR_ROWS) and HOURS[AM_H - 1] == '12:00' and HOURS[AM_H] == '14:00'
+R_COACH_T = GRID_END + 1                                                # "Theo coach": tiêu đề hàng 38 · đầu cột hàng 41 · T2..CN hàng 43–49
+R_COACH_SUB, R_COACH_HEAD, R_COACH_D0 = R_COACH_T + 1, R_COACH_T + 3, R_COACH_T + 5
+R_MISS_T = R_COACH_D0 + NDAY + 1                                          # "Chưa đặt lịch": tiêu đề hàng 51 · 8 coach hàng 54–61
+R_MISS_SUB, R_MISS_0 = R_MISS_T + 1, R_MISS_T + 3
 NMISS = 8
 NROW = R_MISS_0 + NMISS + 2
-HEIGHTS = {0: 24, 1: 40, 2: 18, 3: 32, 4: 17, 5: 25, 6: 14, 34: 56, R_COACH_T: 32, R_COACH_SUB: 18, 37: 16, R_COACH_HEAD: 22, 39: 6,
-           R_COACH_D0 + NDAY: 56, R_MISS_T: 32, R_MISS_SUB: 18, R_MISS_0 - 1: 16, NROW - 2: 24, NROW - 1: 40}
-# lưới: khe 4 px, giờ 64 px, nghỉ trưa 24 px · hàng 41–47 và 52–59 để Sheets tự giãn theo số dòng chữ
+HEIGHTS = {0: 24, 1: 40, 2: 18, 3: 32, 4: 17, 5: 25, 6: 14, GRID_END: 56, R_COACH_T: 32, R_COACH_SUB: 18, R_COACH_SUB + 1: 16, R_COACH_HEAD: 22,
+           R_COACH_HEAD + 1: 6, R_COACH_D0 + NDAY: 56, R_MISS_T: 32, R_MISS_SUB: 18, R_MISS_0 - 1: 16, NROW - 2: 24, NROW - 1: 40}
+# lưới: khe 4 px, giờ 64 px, nghỉ trưa 24 px · hàng 43–49 và 54–61 để Sheets tự giãn theo số dòng chữ
 XEM = (1, 7)                              # H2: ô "Xem tuần" (người dùng chọn ngày) · H3 nhãn
 
 def grid(r1, c1, r2=None, c2=None):
@@ -125,9 +136,9 @@ s2 += [
     # một ô mẫu (D8: viền Kẻ, chữ Inter giữa ô, xuống dòng) → nhân ra cả lưới theo khuôn 2×2 (ô · khe cột / khe hàng · khe)
     style(grid(AM_TOP, 3), INTER, 8, MUC, h='CENTER', wrap='WRAP'),
     {'updateBorders': {'range': grid(AM_TOP, 3), 'top': B, 'bottom': B, 'left': B, 'right': B}},
-    {'copyPaste': {'source': grid(AM_TOP, 3, AM_TOP + 2, 5), 'destination': grid(AM_TOP, 3, AM_TOP + 12, GRID_C2 + 1), 'pasteType': 'PASTE_FORMAT'}},
-    {'copyPaste': {'source': grid(AM_TOP, 3, AM_TOP + 2, 5), 'destination': grid(PM_TOP, 3, PM_TOP + 14, GRID_C2 + 1), 'pasteType': 'PASTE_FORMAT'}},
-    # nghỉ trưa: Giấy 2, chữ Mono Tro (sau khi nhân khuôn: hàng 35 nhận định dạng khe — trả lại nền trơn ở dưới)
+    {'copyPaste': {'source': grid(AM_TOP, 3, AM_TOP + 2, 5), 'destination': grid(AM_TOP, 3, AM_TOP + AM_ROWS + 1, GRID_C2 + 1), 'pasteType': 'PASTE_FORMAT'}},
+    {'copyPaste': {'source': grid(AM_TOP, 3, AM_TOP + 2, 5), 'destination': grid(PM_TOP, 3, PM_TOP + PM_ROWS + 1, GRID_C2 + 1), 'pasteType': 'PASTE_FORMAT'}},
+    # nghỉ trưa: Giấy 2, chữ Mono Tro (sau khi nhân khuôn: hàng đệm GRID_END nhận định dạng khe — trả lại nền trơn ở dưới)
     {'mergeCells': {'range': grid(LUNCH_ROW, 3, LUNCH_ROW + 1, GRID_C2), 'mergeType': 'MERGE_ALL'}},
     style(grid(LUNCH_ROW, 3, LUNCH_ROW + 1, GRID_C2), MONO, 8, TRO, h='CENTER', bg=GIAY2),
     style(grid(GRID_END, 0, GRID_END + 1, NCOL), INTER, 8, MUC, h='LEFT', wrap='OVERFLOW_CELL'),
@@ -175,10 +186,10 @@ cells[(1, 1)] = F('="Lịch tập tuần "&ISOWEEKNUM($S$2)')
 cells[(2, 1)] = F(f'=TEXT($S$2,"dd.mm")&" — "&TEXT($S$2+{NDAY - 1},"dd.mm.yyyy")&"  ·  "&IFERROR(LET(s,INDEX(SORT(FILTER({O},{O}<>"",{D}=$S$3),1,FALSE),1),'
                   f'"CẬP NHẬT "&MID(s,9,2)&"."&MID(s,6,2)&" · "&MID(s,12,5)),"CHƯA CÓ LƯỢT ĐẶT")')
 # ô Xem tuần: người dùng ghi (s3 không ghi giá trị vào H2) · nhãn đổi theo ô
-cells[(2, XEM[1])] = F(f'=IF(ISNUMBER({XA}),"XOÁ Ô = VỀ TUẦN NÀY","BẤM ĐÚP · CHỌN TUẦN")')
+cells[(2, XEM[1])] = F(f'=IF(ISNUMBER({XA}),"TUẦN ĐANG CHỌN","CHỌN TUẦN")')
 cells[(1, 9)], cells[(2, 9)] = F(f'=COUNTIFS({WEEK_ON})'), S('BUỔI ĐÃ ĐẶT')
 cells[(1, 11)], cells[(2, 11)] = F(f'=COUNTUNIQUEIFS({Q},{WEEK_ON})'), S('HỘI VIÊN ĐÃ ĐẶT')
-BODY = '$D$8:$P$34'
+BODY = f'$D${GRID_TOP + 1}:$P${GRID_END}'          # $D$8:$P$36
 # số dòng của ô = số suất coach (mỗi coach một dòng, cặp 1:2 chung một dòng) → khung đủ suất
 cells[(1, 13)], cells[(2, 13)] = F(f'=SUMPRODUCT(({BODY}<>"")*((LEN({BODY})-LEN(SUBSTITUTE({BODY},CHAR(10),""))+1)>=$S$4))'), S('KHUNG ĐẦY')
 # _dữ liệu chưa có ảnh chụp danh sách (Worker ghi khi hội viên đầu tiên mở trang) → "—", không hiện 0 sai
@@ -190,7 +201,7 @@ for k, cc in enumerate(DAY_COLS):
 # vạch hôm nay (UI: vạch Mực 20 × 2 px dưới ngày): hàng 7 (14 px — thấp hơn thì Sheets không vẽ chữ) ghi "━━" Mono 16 px = 19,2 px dưới cột của hôm nay
 for k, cc in enumerate(DAY_COLS):
     cells[(6, cc)] = F('=IF($S$2' + ('+' + str(k) if k else '') + '=TODAY(),"━━","")')
-# lưới: MỘT công thức mỗi khối (sáng 11 × 13 từ D8 · chiều 13 × 13 từ D22). Hàng / cột chẵn của khối = khe → "".
+# lưới: MỘT công thức mỗi khối (sáng 13 × 13 từ D8 · chiều 13 × 13 từ D24). Hàng / cột chẵn của khối = khe → "".
 # Mỗi ô: các coach có mặt (UNIQUE, xếp theo tên) → mỗi coach MỘT dòng "tên + tên · coach" (MAP) → số dòng = số suất.
 def block(nrows, h0):
     return F(f'=LET(e,{E},g,{G},l,{L},c,{J},s,{I},'
@@ -201,9 +212,9 @@ def block(nrows, h0):
 cells[(AM_TOP, 3)] = block(AM_ROWS, 6)
 cells[(PM_TOP, 3)] = block(PM_ROWS, 14)
 for i, r in enumerate(HOUR_ROWS): cells[(r, 1)] = S(HOURS[i])
-cells[(LUNCH_ROW, 3)] = S('NGHỈ TRƯA · 12:00–14:00')
+cells[(LUNCH_ROW, 3)] = S('NGHỈ TRƯA · 13:00–14:00')
 # Theo coach: đầu cột = coach (cột khe ""), mỗi ô "06:00   H. Đức Nam" theo giờ, cặp 1:2 một dòng "07:00   K. Cặp Một + N. Ngọc Nam"
-# — một công thức trải 7 × 13 từ D41
+# — một công thức trải 7 × 13 từ D43
 cells[(R_COACH_T, 1)] = S('Theo coach')
 cells[(R_COACH_SUB, 1)] = S('GIỜ VÀ HỘI VIÊN CỦA TỪNG COACH TRONG NGÀY')
 cells[(R_COACH_HEAD, 3)] = F(f'=MAKEARRAY(1,13,LAMBDA(i,j,IF(ISEVEN(j),"",LET(k,INDEX($S$5:$S$11,(j+1)/2),IF(k="","",IFERROR(VLOOKUP(k,{CALL},2,FALSE),k))))))')
@@ -213,7 +224,7 @@ cells[(R_COACH_D0, 3)] = F(f'=LET(e,{E},g,{G},l,{L},n,{I},c,{J},MAKEARRAY({NDAY}
                            f'd,TEXT($S$2+i-1,"yyyy-mm-dd"),IF(k="","",'
                            f'IFERROR(TEXTJOIN(CHAR(10),TRUE,MAP(SORT(UNIQUE(FILTER(g,c=k,e=d,l={ON}))),LAMBDA(t,'
                            f't&"   "&TEXTJOIN(" + ",TRUE,SORT(FILTER(n,c=k,e=d,g=t,l={ON})))))),""))))))')
-# Chưa đặt lịch: coach (trải xuống từ D52) · tên hội viên còn buổi mà chưa có buổi nào trong tuần
+# Chưa đặt lịch: coach (trải xuống từ D54) · tên hội viên còn buổi mà chưa có buổi nào trong tuần
 VM = f'$V${R_MISS_0 + 1}:$V${R_MISS_0 + NMISS}'
 cells[(R_MISS_T, 1)] = S('Chưa đặt lịch')
 cells[(R_MISS_SUB, 1)] = S('HỘI VIÊN CÒN BUỔI NHƯNG CHƯA CÓ BUỔI NÀO TRONG TUẦN')
@@ -248,6 +259,7 @@ s3 += [
     cf(body, f'=AND(ISEVEN(COLUMN()),$B8<>"",{DAY_OF_COL}<TODAY())', {'backgroundColor': GIAY2, 'textFormat': {'foregroundColor': DA}}),
     cf([grid(4, 3, 5, GRID_C2)], f'=AND(ISEVEN(COLUMN()),{DAY_OF_COL}=TODAY())', {'textFormat': {'foregroundColor': MUC}}),
     cf([grid(4, 3, 6, GRID_C2)], f'=AND(ISEVEN(COLUMN()),{DAY_OF_COL}<TODAY())', {'textFormat': {'foregroundColor': TRO}}),
+    # hàng "Theo coach" ngày đã qua: số hàng nằm TRONG công thức (ROW() − hàng T2) → chèn / xoá hàng phía trên phải sửa tay quy tắc này
     cf([grid(R_COACH_D0, 1, R_COACH_D0 + NDAY, 16)], f'=$S$2+ROW()-{R_COACH_D0 + 1}<TODAY()', {'textFormat': {'foregroundColor': DA}}),
     # ô Xem tuần: chỉ nhận ngày (bấm đúp → lịch chọn ngày; locale en_US nên gõ tay "26/10" không phải ngày → bị từ chối)
     {'setDataValidation': {'range': grid(*XEM), 'rule': {'condition': {'type': 'DATE_IS_VALID'}, 'strict': True,

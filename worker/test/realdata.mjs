@@ -48,7 +48,7 @@ const ctx = C.weekCtx(NOW);
 const gP = env.ltPersons_(env.ltMemberRows_(), ctx.today);
 await wk.loadBA();
 const wP = C.persons(wk.ba.members, ctx.today);
-ok('Hội viên còn hiệu lực: ' + wP.length + ' người, giống hệt từng trường (cả SĐT, ngày bắt đầu / hết hạn, gói, coach)', canon(gP) === canon(wP) && wP.length === 54, gP.length + ' vs ' + wP.length);
+ok('Hội viên còn hiệu lực: ' + wP.length + ' người, giống hệt từng trường (cả SĐT, ngày bắt đầu / hết hạn, gói, coach)', canon(gP) === canon(wP) && wP.length > 0, gP.length + ' vs ' + wP.length);   /* số người theo bản BA xuất ra (18/10: 54 · 31/10: 57) */
 ok('Ngày đóng cửa (B0B) giống hệt (' + Object.keys(wk.ba.closed).length + ' ngày)', canon(env.ltClosures_()) === canon(wk.ba.closed));
 ok('Sức chứa / khung = ' + wk.ba.cap + ' giống hệt', env.ltCap_() === wk.ba.cap);
 let trialSame = true, trialN = 0, markSame = true, markN = 0;

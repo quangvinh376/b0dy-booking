@@ -12,6 +12,9 @@ ngày nghỉ trọn ngày thành một khối; coach không có khối trong tab
 Mỗi khung giờ mỗi coach dạy một suất (một khách 1:1, hoặc hai khách gói 1:2 của cùng coach đó); phòng tối đa `Sức chứa` suất (⚙️ 2).
 Gói 1:2 đặt ở các khung ghép 09 · 11 · 15 · 17 · 19, thấy tên gọi bạn cùng coach đang chờ, mời được một bạn vào buổi đang chờ,
 và dời buổi đang chờ vào cặp có sẵn không tính lượt đổi.
+Khung giờ (1.7.0, chủ studio 31/10): 06:00 … 12:00 · nghỉ trưa 13:00–14:00 · 14:00 … 20:00. Hội viên gói **thấp điểm** (cột `Khung giờ`
+của MEMBERS = "Thấp điểm") chỉ đặt trong 09:00–15:00 — khung 09 · 10 · 11 · 12 · 14 (gói 1:2 thấp điểm: 09 · 11); "Toàn thời gian" hoặc
+ô trống = mọi khung. Bảng của khách thấp điểm chỉ hiện các khung trong gói (cùng giờ của buổi đã đặt trước đó, nếu có).
 
 ## Thành phần
 
