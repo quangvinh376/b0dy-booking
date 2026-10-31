@@ -31,10 +31,10 @@ function startServer() {
 
 /* ---------- dữ liệu bịa ---------- */
 const NUMS = ['Một', 'Hai', 'Ba', 'Bốn', 'Năm', 'Sáu', 'Bảy', 'Tám', 'Chín', 'Mười', 'Mười Một', 'Mười Hai', 'Mười Ba', 'Mười Bốn', 'Mười Lăm', 'Mười Sáu'];
-const HEAD_M = ['', '#', 'Tên', 'Gói', 'Số buổi', 'Loại', 'Đơn giá buổi', 'Coach', 'SĐT', 'Người bán gói', 'Ngày ký', 'Ghi chú', 'Đã tập', 'Còn lại', 'Trạng thái', 'Ngày bắt đầu', 'Ngày kết thúc', 'Ngày hết hạn', 'Mã KH', '_key'];
-function mrow(no, name, pkg, kind, coach, phone, left, start, exp, code) {
+const HEAD_M = ['', '#', 'Tên', 'Gói', 'Số buổi', 'Loại', 'Đơn giá buổi', 'Coach', 'SĐT', 'Người bán gói', 'Ngày ký', 'Ghi chú', 'Đã tập', 'Còn lại', 'Trạng thái', 'Ngày bắt đầu', 'Ngày kết thúc', 'Ngày hết hạn', 'Mã KH', '_key', 'Khung giờ'];
+function mrow(no, name, pkg, kind, coach, phone, left, start, exp, code, tier) {
   return ['', no, name, pkg, parseInt(pkg, 10), kind, 300000, coach, phone, '', '', '', 0, left, '', start ? d(start) : '', '',
-    exp === '' ? '' : (typeof exp === 'string' && exp.indexOf('/') > 0 ? exp : d(exp)), code, name + '|' + start];
+    exp === '' ? '' : (typeof exp === 'string' && exp.indexOf('/') > 0 ? exp : d(exp)), code, name + '|' + start, tier || ''];
 }
 function baSheets(opt) {
   opt = opt || {};
@@ -50,6 +50,8 @@ function baSheets(opt) {
   ];
   for (let i = 1; i <= 16; i++) members.push(mrow('9' + (50 + i), 'Khách Thử ' + NUMS[i - 1],
     '48 buổi', '1:1', ['Quyết Hán', 'Hiền Mai', 'Khải Phan', 'Lâm Nguyễn'][i % 4], '09100000' + String(i).padStart(2, '0'), 30, '2026-07-01', '2027-03-01', 'B9' + (50 + i) + 'DY'));
+  /* opt.extra: hội viên bịa thêm {no, name, kind, coach, phone, code, tier} — tier = ô "Khung giờ" (trống = toàn thời gian) */
+  (opt.extra || []).forEach(e => members.push(mrow(e.no, e.name, '48 buổi', e.kind || '1:1', e.coach, e.phone, 30, '2026-07-01', '2027-03-01', e.code, e.tier)));
   const LH = ['', '#', 'Ngày', 'Thứ', 'Khung giờ', 'Coach', 'Mã coach', 'Học viên', 'Mã HV', 'Loại', 'Khung', 'Trạng thái', '_h', '_tuần', 'Ký điện tử', '_mrow'];
   const log = [['', '— SESSION LOG'], ['', 'test'], [], LH].concat(opt.marks || []);
   const TH = ['', '#', 'Ngày hẹn', 'Giờ hẹn', 'Họ & tên / Username', 'Số điện thoại', 'Ghi chú (không bắt buộc)', 'Trạng thái', 'Coach tiếp nhận'];
@@ -60,17 +62,20 @@ function baSheets(opt) {
     [], ['', '— THÔNG SỐ VẬN HÀNH'], ['', 'Sức chứa tối đa / khung', 4], ['', 'Giờ mở cửa', '06:00 – 21:00']];
   return { 'MEMBERS': members, 'SESSION LOG': log, 'TRIAL': trial, 'B0B': b0b, ' ⚙️ 2': cfg };
 }
-function outSheets() {
+/* opt.log: dòng sổ có sẵn (17 cột B..R) · opt.sched: tab "Lịch coach" (mảng hàng) */
+function outSheets(opt) {
+  opt = opt || {};
   const head = ['Mã phiếu', 'Bản', 'Tuần', 'Ngày', 'Thứ', 'Giờ', 'Hội viên', 'Tên ngắn', 'Coach', 'Loại', 'Trạng thái', 'Thao tác', 'Ghi chú', 'Lúc ghi', 'Mã yêu cầu', 'Mã KH', '_hiển thị'];
   return {
     'Bảng lịch tập': [['', '— LỊCH TẬP TUẦN']],
-    'Sổ đặt lịch': [['', '— SỔ ĐẶT LỊCH'], ['', 'mô tả'], [], [''].concat(head)],
-    '_dữ liệu': [['SỨC CHỨA / KHUNG', 4], ['CẬP NHẬT', ''], [], ['Hội viên', 'Tên ngắn', 'Coach', 'Còn lại', 'Hết hạn', 'Mã KH', '_hiển thị']]
+    'Sổ đặt lịch': [['', '— SỔ ĐẶT LỊCH'], ['', 'mô tả'], [], [''].concat(head)].concat((opt.log || []).map(r => [''].concat(r))),
+    '_dữ liệu': [['SỨC CHỨA / KHUNG', 4], ['CẬP NHẬT', ''], [], ['Hội viên', 'Tên ngắn', 'Coach', 'Còn lại', 'Hết hạn', 'Mã KH', '_hiển thị']],
+    ...(opt.sched ? { 'Lịch coach': opt.sched } : {})
   };
 }
 function backend(nowMs, opt) {
   const clock = { now: nowMs };
-  const files = { BA: new Spreadsheet('BA', LA, baSheets(opt)), OUT: new Spreadsheet('OUT', 'Asia/Saigon', outSheets()) };
+  const files = { BA: new Spreadsheet('BA', LA, baSheets(opt)), OUT: new Spreadsheet('OUT', 'Asia/Saigon', outSheets(opt)) };
   files.OUT.title = '[B0DY Studio] Lịch tập tuần';
   const env = makeEnv(files, clock, { props: { BA_ID: 'BA', LT_OUT_ID: 'OUT', LT_SECRET: 'bimat-test-khong-dung-that-0123456789' } });
   const t = { env, clock, files, log: files.OUT.getSheetByName('Sổ đặt lịch'), calls: [], fail: null, delay: 0 };

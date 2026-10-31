@@ -36,7 +36,7 @@ const vn = (iso, hm) => dateIn(VN, iso, hm).getTime();
 const SECRET = 'bimat-chi-dung-cho-test-khong-phai-that-0123456789';
 const SA = fakeServiceAccount();
 
-/** extra: hội viên bịa thêm [số, họ tên, coach, SĐT, Mã KH, loại (mặc định 1:1), khung giờ (mặc định trống = toàn thời gian)]
+/** extra: hội viên bịa thêm [số, họ tên, coach, SĐT, Mã KH, loại (mặc định 1:1), khung giờ (mặc định trống = toàn thời gian), hết hạn, bắt đầu]
     (gói 48 buổi còn 20, hạn 2027) — dùng cho ma trận tìm tên */
 function baSheets(extra, trials) {
   const H = ['', '#', 'Tên', 'Gói', 'Số buổi', 'Loại', 'Đơn giá buổi', 'Coach', 'SĐT', 'Người bán gói', 'Ngày ký', 'Ghi chú', 'Đã tập', 'Còn lại', 'Trạng thái', 'Ngày bắt đầu', 'Ngày kết thúc', 'Ngày hết hạn', 'Mã KH', '_key', 'Khung giờ'];
@@ -64,7 +64,7 @@ function baSheets(extra, trials) {
     /* hai khách 1:2 nữa của Quyết (cùng T. Ngọc Nam) — ghép cặp 1:2 cùng coach */
     m('925', 'Khách Cặp Một', '48 buổi', '1:2', 'Quyết Hán', '0900000025', 20, '2026-08-01', '2027-01-01', 'B925DY'),
     m('926', 'Khách Cặp Hai', '48 buổi', '1:2', 'Quyết Hán', '0900000026', 20, '2026-08-01', '2027-01-01', 'B926DY')
-  ].concat((extra || []).map(e => m(e[0], e[1], '48 buổi', e[5] || '1:1', e[2], e[3], 20, '2026-08-01', '2027-01-01', e[4], e[6])));
+  ].concat((extra || []).map(e => m(e[0], e[1], '48 buổi', e[5] || '1:1', e[2], e[3], 20, e[8] || '2026-08-01', e[7] || '2027-01-01', e[4], e[6])));
   const LH = ['', '#', 'Ngày', 'Thứ', 'Khung giờ', 'Coach', 'Mã coach', 'Học viên', 'Mã HV', 'Loại', 'Khung', 'Trạng thái', '_h', '_tuần', 'Ký điện tử', '_mrow'];
   const log = [['', '— SESSION LOG'], ['', 'test'], [], LH,
     ['', '0001', d('2026-10-19'), 'T2', '', 'Quyết Hán', '', 'Hoàng Đức Nam', '901', '1:1', '', 'Đã tập', '', '', 'app 06:02 · ký: Quyết Hán', 1],

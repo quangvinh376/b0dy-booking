@@ -9,7 +9,7 @@
 'use strict';
 
 /* ============================== CẤU HÌNH ============================== */
-var VER = '1.7.0';
+var VER = '1.7.1';
 var API_URL = 'https://b0dy-booking-api.little-bonus-1d87.workers.dev/';
 var API_SLOW = false;                 /* true khi chạy Apps Script (chậm hơn nhiều) → nới thời gian chờ */
 /* kênh live: Worker chỉ nhận từ trang thật (ALLOW_ORIGINS) → trang chạy chỗ khác (test trên máy) không nối, khỏi gõ cửa máy chủ thật.
@@ -1300,6 +1300,18 @@ function closedReason(st) {
   if (me.exp && me.exp < w.days[0]) return { title: 'Gói đã hết hạn.', body: 'Gói của bạn hết hạn ' + yy(me.exp) + '.' };
   if (me.start && me.start > last) return { title: 'Gói chưa bắt đầu.', body: 'Gói của bạn bắt đầu từ ' + dFull(me.start) + '.' };
   if (me.left <= 0) return { title: 'Gói đã hết buổi.', body: 'Gói của bạn không còn buổi để đặt.' };
+  /* gói thấp điểm: phòng còn khung ngoài 09:00–15:00 nên "không còn khung nào" là sai — nói đúng phần của gói. Coach không nhận
+     khách ở mọi khung trong gói còn lại của tuần (tab Lịch coach) → nói là coach nghỉ, khác với kín chỗ (khách khác đã đặt) */
+  var o = offSt();
+  if (o) {
+    var n = now(), left = 0, off = 0;
+    w.days.forEach(function (d) {
+      if (w.closed && w.closed[d] !== undefined) return;
+      o.hours.forEach(function (h) { if (slotMs(d, h) > n) { left++; if (coachAt(d, h) === 'off') off++; } });
+    });
+    if (left && off === left) return { title: 'Coach nghỉ trong giờ thấp điểm.', body: 'Tuần này coach của bạn không nhận khách trong ' + offRange() + '.' };
+    return { title: 'Tuần này đã kín lịch.', body: 'Các khung trong gói thấp điểm (' + offRange() + ') đã kín.' };
+  }
   return { title: 'Tuần này đã kín lịch.', body: 'Không còn khung trống nào đặt được trong tuần.' };
 }
 
