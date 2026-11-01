@@ -60,8 +60,8 @@ for c in DAY_COLS: WIDTHS[c] = 250
 for c in [4, 6, 8, 10, 12, 14]: WIDTHS[c] = 4
 # hàng (0-based): 0 lề · 1 tiêu đề · 2 dòng phụ · 3 khoảng · 4 Thứ · 5 ngày · 6 vạch hôm nay 14 · từ 7: mỗi khung SUB hàng con + 1 khe,
 # sáng 06–12 · khe · nghỉ trưa · khe · chiều 14–20
-SUB, SUB_H = 5, 13                        # suất / khung (= sức chứa 5 coach) · cao mỗi ô con (5 × 13 = 65 px ≈ ô 64 px cũ)
-KC, KC_H = 8, 14                          # Theo coach: buổi / coach / ngày (dữ liệu 01/11 nhiều nhất 6) · cao mỗi ô con
+SUB, SUB_H = 5, 18                        # suất / khung (= sức chứa 5 coach) · cao mỗi ô con (01/11: 13 px cắt chân chữ g · y · ọ)
+KC, KC_H = 8, 18                          # Theo coach: buổi / coach / ngày (dữ liệu 01/11 nhiều nhất 6) · cao mỗi ô con (Inter 8 vừa 18 px)
 AM_H, PM_H = 7, 7                         # số khung sáng (06–12) · chiều (14–20)
 AM_TOP, AM_ROWS = 7, (SUB + 1) * AM_H - 1         # 06:00 ở hàng 8–12, 12:00 ở hàng 44–48 (khe giữa các khung)
 LUNCH_ROW = AM_TOP + AM_ROWS + 1                  # sau khe dưới 12:00

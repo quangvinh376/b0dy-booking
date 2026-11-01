@@ -33,10 +33,13 @@ ID hai file Google Sheets: `BA_ID` (file BA: MEMBERS · SESSION LOG · TRIAL · 
 6. Sau mỗi lần đẩy: xác minh commit bằng hash và SHA-256 từng tệp trên `raw.githubusercontent.com/quangvinh376/b0dy-booking/<commit>/…`.
 7. Chỉ MỘT tiến trình Playwright / Chromium một lúc (máy test nhỏ từng hết RAM).
 
-## Đang ở đâu (01/11/2026, 16:11)
+## Đang ở đâu (01/11/2026, 16:50)
 
+- **`Bảng lịch tập` · hàng ô con 13 / 14 → 18 px** (chủ studio 16:41: "đang bị cắt xén mất text"): 13 px cắt chân chữ g · y · ọ (Inter 8).
+  Chỉ đổi chiều cao 70 hàng lưới + 56 hàng Theo coach (`SUB_H` = `KC_H` = 18 trong script), không đụng công thức / màu. Đọc ngược
+  `rowMetadata` đúng bố cục script; nhìn trên Chrome đủ chân chữ, dấu; rộng nhất 185 / 244 px (đo bằng phông Inter) → không cắt ngang.
 - **Lịch tập tuần · `Bảng lịch tập` dựng lại: mỗi suất coach một ô, chữ đỏ #c2182b đúng ô khách 1:2 đang lẻ** (chủ studio 01/11 15:53:
-  "tô đỏ toàn bộ ô … khá misleading" → chọn "Mỗi coach một ô"; thay bản 14:47 tô đỏ cả ô). Lưới: mỗi khung giờ = 5 ô con cao 13 px (một
+  "tô đỏ toàn bộ ô … khá misleading" → chọn "Mỗi coach một ô"; thay bản 14:47 tô đỏ cả ô). Lưới: mỗi khung giờ = 5 ô con cao 18 px (một
   suất coach mỗi ô, xếp theo coach; hơn 5 suất dồn vào ô cuối), khe 4 px giữa các giờ, viền hộp quanh từng giờ. Theo coach: mỗi ngày 8 ô con
   (một buổi mỗi ô, theo giờ). Bảng cờ ẩn **AD:AP** cùng hình lưới (cột + 26; 0 · 1 = lẻ · +2 = khung đủ suất), quy tắc đọc ô cờ cùng hàng
   (`=AD8=1` …); KHUNG ĐẦY = `COUNTIF(AD8:AP92,">=2")/5`. Tab 168 hàng × 42 cột · 8 quy tắc · 30 ô gộp; H2 giữ 02.11. Đối chiếu tuần 45
