@@ -18,10 +18,11 @@ export const GEAR = String.fromCharCode(0x2699);
 export const LT = {
   OFF: 7 * 3600e3,                                   // giờ Việt Nam, không có giờ mùa hè
   SLOTS: [6, 7, 8, 9, 10, 11, 12, 14, 15, 16, 17, 18, 19, 20], // 13:00–14:00 coach nghỉ trưa (chủ studio mở ca 12:00 ngày 31/10)
-  /* Gói "Thấp điểm" (MEMBERS cột "Khung giờ", chủ studio chốt 31/10): buổi nằm trọn trong 09:00–15:00 — cùng cách hiểu với
-     "Giờ mở cửa 06:00 – 21:00" ↔ khung 06…20 — nên chỉ các khung 09 · 10 · 11 · 12 · 14 (13:00 nghỉ trưa). Ô "Toàn thời gian"
-     hoặc để trống = mọi khung. Trang nhận danh sách này trong state (offpeak.hours), không tự giữ bản riêng. */
-  OFF_HOURS: [9, 10, 11, 12, 14],
+  /* Gói "Ban ngày" (MEMBERS cột "Khung giờ"; 31/10 tên "Thấp điểm" 09:00–15:00 → chủ studio đổi 01/11): buổi nằm trọn trong
+     06:00–16:00 — cùng cách hiểu với "Giờ mở cửa 06:00 – 21:00" ↔ khung 06…20 — nên các khung 06 · 07 · 08 · 09 · 10 · 11 · 12 · 14 · 15
+     (13:00 nghỉ trưa). Ô "Toàn thời gian" hoặc để trống = mọi khung. Trang nhận danh sách này trong state (offpeak.hours — tên khoá
+     nội bộ giữ nguyên để trang cũ còn trong bộ nhớ đệm vẫn hiểu), không tự giữ bản riêng. */
+  OFF_HOURS: [6, 7, 8, 9, 10, 11, 12, 14, 15],
   NDAYS: 7,                                          // T2..CN · ngày / giờ nhận khách của từng coach: tab "Lịch coach" (SCHED)
   OPEN_H: 6,                                         // lịch tuần sau mở lúc 06:00 Chủ Nhật
   LEAD: 12 * 3600e3,                                 // đặt muộn / thêm buổi / khung mới khi đổi lịch / mời: cách hiện tại ≥ 12 giờ
@@ -34,10 +35,11 @@ export const LT = {
   FIND_TOP: 6,                                       // tối đa 6 người mỗi lượt tìm; nhiều hơn → more: true
   LOG: 'Sổ đặt lịch', DATA: '_dữ liệu', SCHED: 'Lịch coach',
   ON: 'Đã đặt', MOVED: 'Đã đổi',
-  /* Ghép lớp 1:2 (chủ studio chốt 18/10 14:13): gói 1:2 chỉ đặt ở các khung ghép cố định; người đặt trước mời được một bạn 1:2
-     cùng coach (dòng sổ "Mời"), bạn kia nhận (đặt / thêm / dời vào) hoặc từ chối (dòng "Từ chối"); dời một buổi ĐANG LẺ vào cặp
-     đang chờ = "Ghép" — không tính lượt đổi, được dời trong cùng ngày */
-  DUO_HOURS: [9, 11, 15, 17, 19],
+  /* Ghép lớp 1:2 (chủ studio chốt 18/10 14:13): người đặt trước mời được một bạn 1:2 cùng coach (dòng sổ "Mời"), bạn kia nhận
+     (đặt / thêm / dời vào) hoặc từ chối (dòng "Từ chối"); dời một buổi ĐANG LẺ vào cặp đang chờ = "Ghép" — không tính lượt đổi, được
+     dời trong cùng ngày. Khung ghép: 18/10 chỉ 09 · 11 · 15 · 17 · 19 → chủ studio bỏ luật này 01/11: gói 1:2 đặt MỌI khung như gói
+     1:1, ghép / mời ở khung nào cũng được → DUO_HOURS = đúng SLOTS (trang dựng bảng đủ 14 hàng khi duoHours đủ SLOTS). */
+  DUO_HOURS: [6, 7, 8, 9, 10, 11, 12, 14, 15, 16, 17, 18, 19, 20],
   INVITE: 'Mời', DECLINE: 'Từ chối', PAIR: 'Ghép',
   INVITE_MAX: 20,                                    // dòng mời + từ chối / hội viên / tuần (chặn bấm liên tục)
   LOG_HEAD: ['Mã phiếu', 'Bản', 'Tuần', 'Ngày', 'Thứ', 'Giờ', 'Hội viên', 'Tên ngắn', 'Coach', 'Loại',
@@ -129,10 +131,11 @@ export function coachName(c) { return String(c == null ? '' : c).replace(/\s*\(.
 export function coachKey(c) { return nameKey(coachName(c)); }
 /** Gói 1:2 (một coach kèm hai khách). */
 export function isDuo(kind) { return /^1\s*:\s*2$/.test(String(kind == null ? '' : kind).trim()); }
-/** Ô "Khung giờ" của MEMBERS là gói thấp điểm ("Thấp điểm", bỏ dấu / hoa thường / khoảng trắng thừa vẫn nhận). Mọi giá trị khác,
-    kể cả trống = toàn thời gian (chủ studio 31/10: mặc định toàn thời gian). */
-export function isOffPeak(tier) { return nameKey(tier) === 'thap diem'; }
-/** Khung giờ gói của hội viên được đặt: thấp điểm → LT.OFF_HOURS, còn lại mọi khung. */
+/** Ô "Khung giờ" của MEMBERS là gói ban ngày ("Ban ngày"; tên cũ "Thấp điểm" trước 01/11 vẫn nhận; bỏ dấu / hoa thường / khoảng
+    trắng thừa vẫn nhận). Mọi giá trị khác, kể cả trống = toàn thời gian (chủ studio 31/10: mặc định toàn thời gian). */
+export const DAY_TIERS = ['ban ngay', 'thap diem'];
+export function isOffPeak(tier) { return DAY_TIERS.indexOf(nameKey(tier)) >= 0; }
+/** Khung giờ gói của hội viên được đặt: ban ngày → LT.OFF_HOURS, còn lại mọi khung. */
 export function hourOk(person, h) { return !person || !person.off || LT.OFF_HOURS.indexOf(h) >= 0; }
 export function initials(c) { return words(coachName(c)).map(x => x.charAt(0).toUpperCase()).join(''); }
 export function pkgLabel(pkg, total) { const m = String(pkg == null ? '' : pkg).match(/\d+/), n = m ? +m[0] : (+total || 0); return n > 0 ? n + 'B' : ''; }
@@ -641,8 +644,7 @@ export function why(ctx, person, env, iso, h, lead) {
   if (person.start && iso < person.start) return 'chua_bat_dau';
   if (person.exp && iso > person.exp) return 'het_han';
   if (offAt(env, person, iso, h)) return 'coach_nghi';                            /* ngoài lịch nhận khách của coach */
-  if (isDuo(person.kind) && LT.DUO_HOURS.indexOf(h) < 0) return 'gio_ghep';     /* gói 1:2: chỉ các khung ghép cố định */
-  if (!hourOk(person, h)) return 'thap_diem';                                     /* gói thấp điểm: chỉ LT.OFF_HOURS (09:00–15:00) */
+  if (!hourOk(person, h)) return 'thap_diem';                                     /* gói ban ngày: chỉ LT.OFF_HOURS (06:00–16:00) */
   const t = slotMs(iso, h);
   if (t <= ctx.now) return 'qua';
   if (lead && t - ctx.now < lead) return 'duoi_12h';
@@ -718,7 +720,7 @@ export function checkChange(ctx, person, env, m, from, to) {
   return { ok: true, cur: cur, pair: pair };
 }
 /**
- * Kiểm lời mời: người mời (gói 1:2) có buổi ở khung ghép `slot`, đang chờ một mình, khung còn đặt được; to = hội viên được mời
+ * Kiểm lời mời: người mời (gói 1:2) có buổi ở khung `slot`, đang chờ một mình, khung còn đặt được; to = hội viên được mời
  * (gói 1:2, cùng coach, không phải chính mình) hoặc null = huỷ lời mời. noop: không cần ghi gì (mời lại đúng người đang được
  * mời, hay huỷ khi chưa mời ai).
  */
@@ -735,7 +737,7 @@ export function checkInvite(ctx, person, env, m, slot, to) {
   const cur = liveInvite(env, person.key, selfAt(env, person, k), k);
   if (to) {
     if (to.key === person.key || !isDuo(to.kind) || coachKey(to.coach) !== coachKey(person.coach)) return { error: 'khong_hop_le', why: 'nguoi_moi' };
-    /* người được mời gói thấp điểm không đặt được khung này → lời mời không bao giờ nhận được: không ghi */
+    /* người được mời gói ban ngày không đặt được khung này → lời mời không bao giờ nhận được: không ghi */
     if (!hourOk(to, slot.h)) return { error: 'khong_hop_le', why: 'nguoi_moi' };
     if (cur && cur.to === to.key && !declinedOf(env.inv, cur, person.key, k)) return { ok: true, noop: true };
   } else if (!cur) return { ok: true, noop: true };
@@ -791,7 +793,7 @@ function callOf(kh, name, list) { const p = list ? findPerson(list, kh) : null; 
 export function shortOf(kh, name, list) { const p = list ? findPerson(list, kh) : null; return p ? p.short : short(name); }
 /**
  * Phần riêng gói 1:2 trong state (chủ studio chốt 18/10 14:13 — khách 1:2 thấy tên bạn tập cùng coach):
- *  duoHours: các khung ghép · wait: {khung: tên gọi người đang chờ ghép} (khung còn tới, coach của mình, chưa có mình) ·
+ *  duoHours: các khung gói 1:2 đặt được (từ 01/11 = mọi khung) · wait: {khung: tên gọi người đang chờ ghép} (khung còn tới, coach của mình, chưa có mình) ·
  *  pairs: {buổi của mình: tên gọi bạn tập} · invOut: {buổi đang lẻ của mình: {to: tên gọi người được mời, st: 'wait' | 'no'}} ·
  *  invIn: [{date, h, from: tên gọi}] lời mời gửi mình còn nhận được · peers: [{key, short, call}] khách 1:2 cùng coach để mời
  *  (máy chủ đổi key → id trước khi trả, không bao giờ lộ Mã KH).
@@ -801,7 +803,7 @@ export function duoState(ctx, person, env, m, list) {
   m.sessions.forEach(s => { mineAt[s.date + '|' + s.h] = 1; });
   ctx.days.forEach(d => LT.DUO_HOURS.forEach(h => {
     const k = d + '|' + h, o = othersAt(env, person, k);
-    if (mineAt[k] || !hourOk(person, h) || slotMs(d, h) <= ctx.now || o.length !== 1 || !o[0].duo) return;   /* thấp điểm: chỉ khung trong gói */
+    if (mineAt[k] || !hourOk(person, h) || slotMs(d, h) <= ctx.now || o.length !== 1 || !o[0].duo) return;   /* ban ngày: chỉ khung trong gói */
     wait[k] = callOf(o[0].kh, o[0].name, list);
     const iv = liveInvite(env, o[0].kh, o[0], k);
     if (iv && iv.to === person.key && !declinedOf(env.inv, iv, o[0].kh, k) && why(ctx, person, env, d, h, ctx.lead) === '') {
@@ -815,7 +817,7 @@ export function duoState(ctx, person, env, m, list) {
     const iv = liveInvite(env, person.key, selfAt(env, person, k), k), p = iv && list ? findPerson(list, iv.to) : null;
     if (p) invOut[k] = { to: p.call, st: declinedOf(env.inv, iv, person.key, k) ? 'no' : 'wait' };
   });
-  /* bạn gói thấp điểm mang theo khung giờ của gói (hours) → trang chỉ mời họ vào khung họ đặt được (máy chủ cũng chặn: checkInvite) */
+  /* bạn gói ban ngày mang theo khung giờ của gói (hours) → trang chỉ mời họ vào khung họ đặt được (máy chủ cũng chặn: checkInvite) */
   const peers = (list || []).filter(p => p.key !== person.key && isDuo(p.kind) && coachKey(p.coach) === ck)
     .map(p => p.off ? { key: p.key, short: p.short, call: p.call, hours: LT.OFF_HOURS } : { key: p.key, short: p.short, call: p.call })
     .sort((a, b) => a.short.localeCompare(b.short, 'vi') || (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
@@ -850,7 +852,7 @@ export function stateOf(ctx, person, env, m, marks, list) {
     limits: { min: lim.min, max: lim.max, add: lim.add }
   };
   if (isDuo(person.kind)) out.duo = duoState(ctx, person, env, m, list);
-  /* gói thấp điểm: các khung được đặt — trang chỉ hiện các hàng này (+ giờ của buổi đã đặt trước khi đổi gói); máy chủ cũ không gửi
+  /* gói ban ngày: các khung được đặt — trang chỉ hiện các hàng này (+ giờ của buổi đã đặt trước khi đổi gói); máy chủ cũ không gửi
      → trang như trước, máy chủ vẫn chặn (why → thap_diem) */
   if (person.off) out.offpeak = { hours: LT.OFF_HOURS };
   return out;

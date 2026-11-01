@@ -16,7 +16,7 @@ const { vn } = R.H;
   await p1.locator('.chk').click();   /* untick "Ghi nhớ máy này" */
   await p1.locator('#vgoM >> visible=true').click();
   await p1.waitForSelector('.pg-book');
-  /* N. Khải Linh mua gói 1:2 → chỉ các khung ghép 09 · 11 · 15 · 17 · 19 (từ 1.0.9) */
+  /* N. Khải Linh mua gói 1:2 (khung ghép 09 · 11 · 15 · 17 · 19 thời 1.0.9 – 1.7.1; từ 1.8.0 mọi khung) */
   await p1.locator('#wkb .c[data-d="2026-10-19"][data-h="9"]').click(); await p1.locator('#wkb .c[data-d="2026-10-22"][data-h="9"]').click();
   t.fail = b => (b.action === 'lt_book' ? 'net' : null);
   await p1.locator('#ctaM >> visible=true').click();

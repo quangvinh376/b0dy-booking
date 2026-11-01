@@ -308,7 +308,7 @@ async function deskLong() {
   const t = R.H.backend(vn('2026-10-18', '20:15')); addLongMember(t);
   const page = await openPage(t, R.DESK, 'png-dl');
   await R.login(page, 'phuong bao ngoc', '0099', true);
-  await book(page, [['2026-10-20', 9], ['2026-10-24', 15]]);      /* gói 1:2: chỉ các khung ghép 09 · 11 · 15 · 17 · 19 (từ 1.0.9) */
+  await book(page, [['2026-10-20', 9], ['2026-10-24', 15]]);      /* gói 1:2: khung ghép 09 · 11 · 15 · 17 · 19 (1.0.9 – 1.7.1; từ 1.8.0 mọi khung) */
   await settled(page, 'đặt lịch');
   const nm = await page.evaluate(() => [window.__lt.S.st.me.coach, window.__lt.S.st.me.short]);
   R.info('tên trên vé', nm);
@@ -345,7 +345,7 @@ async function mobLong() {
   const t = R.H.backend(vn('2026-10-18', '20:15')); addLongMember(t);
   const page = await openPage(t, R.MOB, 'png-ml');
   await R.login(page, 'phuong bao ngoc', '0099', false);
-  await book(page, [['2026-10-20', 9], ['2026-10-24', 15]]);      /* gói 1:2: chỉ các khung ghép (từ 1.0.9) */
+  await book(page, [['2026-10-20', 9], ['2026-10-24', 15]]);      /* gói 1:2: khung ghép (1.0.9 – 1.7.1; từ 1.8.0 mọi khung) */
   await settled(page, 'đặt lịch');
   await checkSave(page, 'm-long-2', { via: 'download', mustHave: ['coach', 'member'] });
   await page._ctx.close();

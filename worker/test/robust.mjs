@@ -119,9 +119,9 @@ console.log('\n== Ảnh chụp BA dạng cũ (trước cột "Khung giờ" · ca
      lượt ghi ngay sau deploy kiểm bằng dòng chưa biết gói thấp điểm (đặt được giờ ngoài gói) */
   const w = world(vn('2026-10-18', '07:00'));
   const mr = w.f.BA.getSheetByName('MEMBERS').rows, kc = mr[0].indexOf('Khung giờ');
-  mr[6][kc] = 'Thấp điểm';                                           /* Khách Số Sáu (Quyết) mua gói thấp điểm */
+  mr[6][kc] = 'Ban ngày';                                            /* Khách Số Sáu (Quyết) mua gói ban ngày */
   const s6 = await login(w.wk, 5, 'devROBUSTROBUSTROB6');
-  ok('Khách Số Sáu (gói thấp điểm) → state có offpeak.hours', s6.offpeak && JSON.stringify(s6.offpeak.hours) === '[9,10,11,12,14]', s6.offpeak);
+  ok('Khách Số Sáu (gói ban ngày) → state có offpeak.hours', s6.offpeak && JSON.stringify(s6.offpeak.hours) === '[6,7,8,9,10,11,12,14,15]', s6.offpeak);
   await w.wk.idle();
   const sb = await w.storage.get('snap:ba');
   ok('Ảnh chụp BA lưu storage có dạng 2 (dòng MEMBERS có off)', sb && sb.fmt === 2 && sb.members.some(x => x.off === true) && sb.members.some(x => x.off === false), sb && [sb.fmt, sb.members.map(x => x.off)]);
@@ -131,8 +131,8 @@ console.log('\n== Ảnh chụp BA dạng cũ (trước cột "Khung giờ" · ca
   const b = core(w.f, w.fg, w.storage, w.clock, {}, w.logs);
   await b.init();
   ok('Bản DO mới bỏ ảnh chụp BA dạng cũ (không có fmt)', b.ba === null, b.ba && b.ba.fmt);
-  const r = await b.api(BOOK(s6.tok, rid(), [{ date: '2026-10-19', h: 15 }, { date: '2026-10-20', h: 9 }], 'devROBUSTROBUSTROB6'));
-  ok('… lượt ghi đầu tiên đọc BA mới rồi mới kiểm: T2 15:00 ngoài gói thấp điểm → thap_diem, không ghi', r.ok === false && r.why === 'thap_diem' && rows(w.f).filter(x => x[16] === 'B906DY').length === 0, r);
+  const r = await b.api(BOOK(s6.tok, rid(), [{ date: '2026-10-19', h: 16 }, { date: '2026-10-20', h: 9 }], 'devROBUSTROBUSTROB6'));
+  ok('… lượt ghi đầu tiên đọc BA mới rồi mới kiểm: T2 16:00 ngoài gói ban ngày → thap_diem, không ghi', r.ok === false && r.why === 'thap_diem' && rows(w.f).filter(x => x[16] === 'B906DY').length === 0, r);
   const r2 = await b.api(BOOK(s6.tok, rid(), [{ date: '2026-10-19', h: 12 }, { date: '2026-10-20', h: 9 }], 'devROBUSTROBUSTROB6'));
   await b.idle();
   ok('… T2 12:00 + T3 09:00 → ok, lên sổ', r2.ok && rows(w.f).filter(x => x[16] === 'B906DY').length === 2, r2.error || r2.why);

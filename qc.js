@@ -72,16 +72,16 @@ const PERSONAS = [
   { code: 'B802DY', name: 'Vũ Thanh Hằng', pkg: 24, kind: '1:1', coach: HM, phone: '0900002222', left: 1, start: '2026-06-01', exp: '2026-12-31', test: 'Còn 1 buổi · chỉ đặt được 1 buổi' },
   { code: 'B803DY', name: 'Đặng Quốc Bảo', pkg: 24, kind: '1:1', coach: KP, phone: '0900003333', left: 6, start: '2026-07-01', exp: '2026-10-21', test: 'Gói hết hạn T4 21.10 · từ T5 bị khoá' },
   { code: 'B804DY', name: 'Lương Thùy Dung', pkg: 36, kind: '1:1', coach: BN, phone: '0900004444', left: 36, start: '2026-10-21', exp: '2027-04-30', test: 'Gói bắt đầu T4 21.10 · T2, T3 bị khoá' },
-  { code: 'B805DY', name: 'Tạ Uyển Nhi', pkg: 48, kind: '1:2', coach: LN, phone: '0900005555', left: 20, start: '2026-08-03', exp: '2027-02-28', test: 'Gói 1:2 · chỉ khung ghép 09 · 11 · 15 · 17 · 19 · Tuấn Kiệt mời tập đôi T3 17:00 (phòng đầy vẫn ghép được) · Thảo Vy mời T7 15:00 · T2 15:00 cặp đã đủ → "Coach bận"' },
+  { code: 'B805DY', name: 'Tạ Uyển Nhi', pkg: 48, kind: '1:2', coach: LN, phone: '0900005555', left: 20, start: '2026-08-03', exp: '2027-02-28', test: 'Gói 1:2 · đặt mọi khung (từ 01/11) · Tuấn Kiệt mời tập đôi T3 17:00 (phòng đầy vẫn ghép được) · Thảo Vy mời T7 15:00 · T2 15:00 cặp đã đủ → "Coach bận"' },
   { code: 'B806DY', name: 'Châu Gia Huy', pkg: 24, kind: '1:1', coach: QH, phone: '', left: 12, start: '2026-08-03', exp: '2027-01-31', test: 'Hồ sơ chưa có số điện thoại' },
   { code: 'B807DY', name: 'Phùng Diệu Linh', pkg: 48, kind: '1:1', coach: HM, phone: '0900007777', left: 25, start: '2026-07-06', exp: '2027-02-28', test: 'Đã đặt sẵn 3 buổi · mở thẳng phiếu, đổi, thêm buổi' },
   { code: 'B808DY', name: 'Kiều Hữu Tâm', pkg: 24, kind: '1:1', coach: KP, phone: '0900008888', left: 14, start: '2026-07-06', exp: '2027-01-31', test: 'Đã đổi 2 lần · hết lượt đổi' },
   { code: 'B809DY', name: 'Hà Minh Quân', pkg: 36, kind: '1:1', coach: LN, phone: '0900009999', left: 18, start: '2026-07-06', exp: '2027-03-31', test: 'Trùng tên đệm + tên · gõ "minh quân" ra hai người' },
   { code: 'B810DY', name: 'Lục Minh Quân', pkg: 12, kind: '1:1', coach: BN, phone: '0900001010', left: 8, start: '2026-09-07', exp: '2026-12-31', test: 'Trùng tên đệm + tên với Hà Minh Quân' },
-  { code: 'B811DY', name: 'Mẫn Thục Quyên', pkg: 24, kind: '1:2', coach: LN, phone: '0900001212', left: 16, start: '2026-08-03', exp: '2027-02-28', test: 'Gói 1:2 cùng coach Lâm với Tạ Uyển Nhi · đặt một khung ghép rồi mời bạn, hoặc mở trang xem lời mời bạn gửi' },
-  /* gói thấp điểm (MEMBERS cột "Khung giờ", từ 31/10): chỉ đặt các khung trong 09:00–15:00 */
-  { code: 'B812DY', name: 'Văn Thục Đoan', pkg: 24, kind: '1:1', coach: BN, phone: '0900001313', left: 20, start: '2026-08-03', exp: '2027-02-28', tier: 'Thấp điểm', test: 'Gói thấp điểm · bảng chỉ có các khung 09 · 10 · 11 · 12 · 14 (09:00–15:00)' },
-  { code: 'B813DY', name: 'Tiêu Hạ Miên', pkg: 24, kind: '1:2', coach: LN, phone: '0900001414', left: 20, start: '2026-08-03', exp: '2027-02-28', tier: 'Thấp điểm', test: 'Gói 1:2 thấp điểm · chỉ khung ghép 09 · 11 · Uyển Nhi, Thục Quyên chỉ mời được bạn này vào 09:00, 11:00' }
+  { code: 'B811DY', name: 'Mẫn Thục Quyên', pkg: 24, kind: '1:2', coach: LN, phone: '0900001212', left: 16, start: '2026-08-03', exp: '2027-02-28', test: 'Gói 1:2 cùng coach Lâm với Tạ Uyển Nhi · đặt một khung rồi mời bạn, hoặc mở trang xem lời mời bạn gửi' },
+  /* gói ban ngày (MEMBERS cột "Khung giờ", từ 31/10; tên "Ban ngày" từ 01/11): chỉ đặt các khung trong 06:00–16:00 */
+  { code: 'B812DY', name: 'Văn Thục Đoan', pkg: 24, kind: '1:1', coach: BN, phone: '0900001313', left: 20, start: '2026-08-03', exp: '2027-02-28', tier: 'Ban ngày', test: 'Gói ban ngày · bảng chỉ có các khung 06 · 07 · 08 · 09 · 10 · 11 · 12 · 14 · 15 (06:00–16:00)' },
+  { code: 'B813DY', name: 'Tiêu Hạ Miên', pkg: 24, kind: '1:2', coach: LN, phone: '0900001414', left: 20, start: '2026-08-03', exp: '2027-02-28', tier: 'Ban ngày', test: 'Gói 1:2 ban ngày · chỉ các khung 06:00–16:00 · Uyển Nhi, Thục Quyên chỉ mời được bạn này vào các khung đó' }
 ];
 /* Người tập nền: lấp bảng giờ cho giống ngày mở đặt thật (đã so với file BA thật như trên). Coach xoay vòng Quyết · Mai · Khải ·
    Lâm · Ngọc; hai người của Lâm (Quách Tuấn Kiệt, Bế Thảo Vy) mua gói 1:2 — để thử luật ghép 1:2 cùng coach. */
@@ -94,7 +94,7 @@ const BG = ['Âu Bảo Châu', 'Bạch Gia Hân', 'Doãn Khánh Ly', 'Hứa Tư�
 /* Khung bận lúc 07:00 CN (giống Figma 03): [thứ (0 = T2), giờ, các suất] — mỗi coach một suất mỗi khung (luật 18/10); 4 suất = đầy,
    3 suất = còn 1. Suất: 'QH' 'HM' 'KP' 'LN' 'BN' = một khách 1:1 của coach đó · 'LN2' = một khách 1:2 của Lâm (còn ghép được) ·
    'LN22' = cặp 1:2 của Lâm (hai người, một suất). Không đụng khung của hội viên thử đã đặt sẵn (Diệu Linh, Hữu Tâm) và các khung
-   test/ui_qc.js đặt. Khách 1:2 chỉ đặt khung ghép 09 · 11 · 15 · 17 · 19 (chủ studio chốt 18/10) nên suất 1:2 nằm ở các giờ đó.
+   test/ui_qc.js đặt. Suất 1:2 nằm ở 09 · 11 · 15 · 17 · 19 (thời khung ghép 18/10 – 01/11; nay 1:2 đặt mọi khung, các suất nền giữ nguyên).
    Chỗ để thử: T3 17:00 đầy nhưng Tạ Uyển Nhi (1:2 · Lâm) ghép được với Tuấn Kiệt · T7 15:00 ghép với Thảo Vy không tốn suất ·
    T2 15:00 cặp của Lâm đã đủ → "Coach bận" · T6 15:00 Lâm đang dạy 1:1 (phòng đầy) · T6 07:00 Quyết bận với Trịnh Minh Khôi.
    Khách tập thử T3 07:00 (tab TRIAL) do Quyết tiếp nhận → khung đó Quyết cũng bận (luật 18/10). */
@@ -106,7 +106,7 @@ const BUSY = [
   [0, 15, ['LN22']]];
 const TAG = { QH: QH, HM: HM, KP: KP, LN: LN, BN: BN };
 /* Đổi dữ liệu thế giới giả (người tập nền, khung bận) → tăng số này: máy đã mở ?qc trước đó dựng lại thế giới mới khi tải trang. */
-const WORLD_V = 6;                                   /* 6 (31/10): cột "Khung giờ" + 2 hội viên thử gói thấp điểm · Lịch coach có 12:00 */
+const WORLD_V = 7;                                   /* 6 (31/10): cột "Khung giờ" + 2 hội viên thử gói thấp điểm · Lịch coach có 12:00 · 7 (01/11): "Ban ngày" 06–16 */
 /* Lịch coach giả (tab "Lịch coach" của file Lịch tập tuần, từ 19/10): Quyết nghỉ T5 06–07 (ô "Coach nghỉ" một phần ngày) và nhận
    CN 08–11; Mai nhận CN 14–17; coach khác không có lưới → T2–T7 đủ giờ, CN nghỉ (khối "COACH NGHỈ" trọn ngày). */
 function schedRows() {

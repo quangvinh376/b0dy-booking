@@ -9,7 +9,7 @@
 'use strict';
 
 /* ============================== CẤU HÌNH ============================== */
-var VER = '1.7.1';
+var VER = '1.8.0';
 var API_URL = 'https://b0dy-booking-api.little-bonus-1d87.workers.dev/';
 var API_SLOW = false;                 /* true khi chạy Apps Script (chậm hơn nhiều) → nới thời gian chờ */
 /* kênh live: Worker chỉ nhận từ trang thật (ALLOW_ORIGINS) → trang chạy chỗ khác (test trên máy) không nối, khỏi gõ cửa máy chủ thật.
@@ -1230,13 +1230,14 @@ function mNoteHTML(n) {
   return '<button class="mnt' + (n.tone === 'warn' ? ' warn' : '') + (n.mw ? ' w' : '') + '" type="button" data-a="note"' + (n.type === 'inv' ? BEAM : '') + '>' +
     pcIn(noteIco(n), 'mnt-t', n.mw ? n.mt : n.mtitle || n.title, n.mw, n.mw ? 'Xem' : '') + '</button>';
 }
-/* luật hiện trong Gói & luật: gói 1:2 thêm luật khung ghép (máy chủ cũ không gửi duo → như trước) · gói thấp điểm thêm luật khung giờ */
+/* luật hiện trong Gói & luật: gói 1:2 thêm luật tập đôi (máy chủ cũ không gửi duo → như trước) · gói ban ngày thêm luật khung giờ */
 function rulesOf() {
-  var d = duoSt(), o = offSt(), op = o ? ['Gói thấp điểm đặt trong ' + offRange() + ': khung ' + hoursTxt(o.hours) + '.'] : [];
+  var d = duoSt(), o = offSt(), op = o ? ['Gói ban ngày đặt trong ' + offRange() + ': khung ' + hoursTxt(o.hours) + '.'] : [];
   if (!d) return o ? RULES.slice(0, 2).concat(op, RULES.slice(2)) : RULES;
   var r = RULES.slice();
   r[4] = 'Chỉ đổi sang ngày khác trong cùng tuần, trừ khi dời vào nhóm.';
-  return r.slice(0, 2).concat(op, ['Gói 1:2 đặt vào các khung ghép ' + hoursTxt() + '. Bạn tập cùng coach đã đặt hiện tên trên bảng.',
+  return r.slice(0, 2).concat(op, [(duoAll() ? 'Gói 1:2 đặt được mọi khung' + (o ? ' trong gói' : ' như gói 1:1') : 'Gói 1:2 đặt vào các khung ghép ' + hoursTxt()) +
+    '. Bạn tập cùng coach đã đặt hiện tên trên bảng.',
     'Chưa có bạn tập thì buổi vẫn diễn ra. Bạn có thể mời một bạn cùng coach; bạn ấy thấy lời mời khi mở trang đặt lịch.',
     'Dời buổi đang chờ ghép vào nhóm có sẵn sẽ không bị tính lượt đổi, kể cả trong ngày.']).concat(r.slice(2));
 }
@@ -1300,7 +1301,7 @@ function closedReason(st) {
   if (me.exp && me.exp < w.days[0]) return { title: 'Gói đã hết hạn.', body: 'Gói của bạn hết hạn ' + yy(me.exp) + '.' };
   if (me.start && me.start > last) return { title: 'Gói chưa bắt đầu.', body: 'Gói của bạn bắt đầu từ ' + dFull(me.start) + '.' };
   if (me.left <= 0) return { title: 'Gói đã hết buổi.', body: 'Gói của bạn không còn buổi để đặt.' };
-  /* gói thấp điểm: phòng còn khung ngoài 09:00–15:00 nên "không còn khung nào" là sai — nói đúng phần của gói. Coach không nhận
+  /* gói ban ngày: phòng còn khung ngoài 06:00–16:00 nên "không còn khung nào" là sai — nói đúng phần của gói. Coach không nhận
      khách ở mọi khung trong gói còn lại của tuần (tab Lịch coach) → nói là coach nghỉ, khác với kín chỗ (khách khác đã đặt) */
   var o = offSt();
   if (o) {
@@ -1309,8 +1310,8 @@ function closedReason(st) {
       if (w.closed && w.closed[d] !== undefined) return;
       o.hours.forEach(function (h) { if (slotMs(d, h) > n) { left++; if (coachAt(d, h) === 'off') off++; } });
     });
-    if (left && off === left) return { title: 'Coach nghỉ trong giờ thấp điểm.', body: 'Tuần này coach của bạn không nhận khách trong ' + offRange() + '.' };
-    return { title: 'Tuần này đã kín lịch.', body: 'Các khung trong gói thấp điểm (' + offRange() + ') đã kín.' };
+    if (left && off === left) return { title: 'Coach nghỉ trong giờ ban ngày.', body: 'Tuần này coach của bạn không nhận khách trong ' + offRange() + '.' };
+    return { title: 'Tuần này đã kín lịch.', body: 'Các khung trong gói ban ngày (' + offRange() + ') đã kín.' };
   }
   return { title: 'Tuần này đã kín lịch.', body: 'Không còn khung trống nào đặt được trong tuần.' };
 }
@@ -1685,7 +1686,7 @@ function why(iso, h, lead) {
   if (me.exp && iso > me.exp) return 'het_han';
   if (coachAt(iso, h) === 'off') return 'coach_nghi';                       /* ngoài lịch nhận khách của coach (tab "Lịch coach") */
   if (st.duo && st.duo.duoHours.indexOf(h) < 0) return 'gio_ghep';          /* gói 1:2: chỉ các khung ghép (máy chủ cũ không gửi duo → như trước) */
-  if (st.offpeak && st.offpeak.hours.indexOf(h) < 0) return 'thap_diem';     /* gói thấp điểm: chỉ các khung trong gói (máy chủ gửi offpeak.hours) */
+  if (st.offpeak && st.offpeak.hours.indexOf(h) < 0) return 'thap_diem';     /* gói ban ngày: chỉ các khung trong gói (máy chủ gửi offpeak.hours) */
   var t = slotMs(iso, h), n = now();
   if (t <= n) return 'qua';
   if (lead && t - n < lead) return 'duoi_12h';
@@ -1706,9 +1707,11 @@ function offDays() {
 }
 /* ---------- gói 1:2 · ghép lớp (chủ studio chốt 18/10 14:13) — máy chủ gửi st.duo; máy chủ cũ không gửi → mọi thứ như trước ---------- */
 function duoSt() { return S.st && S.st.duo ? S.st.duo : null; }
-/* gói thấp điểm (máy chủ gửi st.offpeak.hours; máy chủ cũ không gửi → mọi khung như trước) */
+/* gói 1:2 đặt được mọi khung (chủ studio bỏ luật khung ghép 01/11: máy chủ gửi duoHours = mọi khung); máy chủ trước 01/11 gửi 5 khung ghép */
+function duoAll() { var d = duoSt(); return !!d && SLOTS.every(function (h) { return d.duoHours.indexOf(h) >= 0; }); }
+/* gói ban ngày (máy chủ gửi st.offpeak.hours; máy chủ cũ không gửi → mọi khung như trước) */
 function offSt() { var o = S.st && S.st.offpeak; return o && Array.isArray(o.hours) && o.hours.length ? o : null; }
-/* các khung hội viên đặt được theo gói: mọi khung · gói 1:2 chỉ khung ghép · gói thấp điểm chỉ khung trong gói (cả hai: giao nhau) */
+/* các khung hội viên đặt được theo gói: mọi khung · gói 1:2 theo duoHours (từ 01/11 mọi khung) · gói ban ngày chỉ khung trong gói (cả hai: giao nhau) */
 function bookHours() {
   var d = duoSt(), o = offSt();
   return SLOTS.filter(function (h) { return (!d || d.duoHours.indexOf(h) >= 0) && (!o || o.hours.indexOf(h) >= 0); });
@@ -1727,7 +1730,7 @@ function invFor(iso, h) { var d = duoSt(); return d && d.invIn ? d.invIn.filter(
 /* tên gọi = 2 chữ cuối (luật tên 18/10; máy chủ cũ còn gửi "Gia Bảo Linh" cho tên 4 chữ) */
 function call2(n) { return String(n || '').trim().split(/\s+/).slice(-2).join(' '); }
 function hoursTxt(hs) { hs = hs || (duoSt() || offSt() ? bookHours() : []); return hs.map(hm).join(', ').replace(/, ([^,]*)$/, ' hoặc $1'); }
-/* "09:00–15:00": từ đầu khung sớm nhất tới hết khung muộn nhất của gói thấp điểm */
+/* "06:00–16:00": từ đầu khung sớm nhất tới hết khung muộn nhất của gói ban ngày */
 function offRange() { var o = offSt(); return o ? hm(o.hours[0]) + '–' + hm(o.hours[o.hours.length - 1] + 1) : ''; }
 /* dời buổi `from` (đang lẻ) vào khung `to` có một khách 1:2 cùng coach đang chờ → "Ghép": không tính lượt đổi, dời được trong ngày */
 function pairMove(from, to) { return !!(duoSt() && from && to && coachAt(to.date, to.h) === 'join' && coachAt(from.date, from.h) === ''); }
@@ -1760,7 +1763,7 @@ function gridHTML() {
   days.forEach(function (d, i) { h += '<div class="dh" data-i="' + i + '"><span class="dh-d">' + DOW[dowOf(d)] + '</span><span class="dh-n"><span class="d">' + esc(ddmm(d)) + '</span><span class="m">' + esc(d.slice(8)) + '</span></span><i class="dh-bar"></i></div>'; });
   if (sun) h += '<div class="dh off"><span class="dh-d">CN</span><span class="dh-n"><span class="d">' + esc(ddmm(sun)) + '</span><span class="m">' + esc(sun.slice(8)) + '</span></span></div>';
   h += '</div>';
-  /* bảng con (gói 1:2 chỉ khung ghép · gói thấp điểm chỉ khung trong gói): số hàng sáng / chiều theo giờ thật, dải nghỉ trưa nằm giữa */
+  /* bảng con (gói 1:2 chỉ khung ghép · gói ban ngày chỉ khung trong gói): số hàng sáng / chiều theo giờ thật, dải nghỉ trưa nằm giữa */
   var tpl = sub ? ' data-gtr="' + (am ? 'repeat(' + am + ',var(--rh)) ' : '') + 'var(--lh)' + (pm ? ' repeat(' + pm + ',var(--rh))' : '') + '"' : '';
   h += '<div class="wk-body" id="wkb" role="group" aria-label="Bảng khung giờ tuần ' + esc(w.no) + '"' + tpl + '>' + (sun ? '<div class="cn" aria-hidden="true"><span>Coach<br>nghỉ</span></div>' : '') +
        '<div class="lunch" aria-hidden="true"' + (sub ? ' data-gr="' + (am + 1) + '"' : '') + '>Nghỉ trưa · ' + hm(LUNCH) + '–' + hm(LUNCH + 1) + '</div>';
@@ -1947,7 +1950,7 @@ function nowLine() {
   if (w.days.indexOf(today) < 0) { el.hidden = true; return; }
   var col = $$('.c[data-d="' + today + '"]', wkb); if (!col.length) { el.hidden = true; return; }
   /* các đoạn theo thứ tự trên bảng: mỗi hàng giờ [h, h + 1) + dải nghỉ trưa [13, 14). Giờ nằm trong một đoạn → theo phút ·
-     nằm ở khe giữa hai đoạn (bảng con bỏ bớt hàng: gói 1:2 / thấp điểm) → giữa khe · trước đoạn đầu / sau đoạn cuối → mép đoạn đó */
+     nằm ở khe giữa hai đoạn (bảng con bỏ bớt hàng: gói 1:2 / ban ngày) → giữa khe · trước đoạn đầu / sau đoạn cuối → mép đoạn đó */
   var r0 = col[0], lu = $('.lunch', wkb), seg = [], t = p.hh + p.mi / 60, y = null;
   rows.forEach(function (hr, k) { if (col[k]) seg.push({ a: hr, b: hr + 1, el: col[k] }); });
   if (lu) seg.push({ a: LUNCH, b: LUNCH + 1, el: lu });
@@ -2049,12 +2052,16 @@ function bookNotice() {
     if (first) return { tone: 'info', title: 'Đặt muộn: khung cách bây giờ ít nhất 12 giờ.', body: 'Sớm nhất ' + dFull(first.date) + ' · ' + hm(first.h) + '. Còn ' + fd + ' ngày đặt được, mỗi ngày tối đa 1 buổi.',
                         mtitle: 'Đặt muộn · sớm nhất ' + dShort(first.date).split(' ')[0] + ' ' + hm(first.h) + '.' };
   }
-  /* gói 1:2 / gói thấp điểm: bảng chỉ có các khung của gói (gói 1:2 thấp điểm: khung ghép trong 09:00–15:00) */
+  /* gói 1:2: mọi khung (từ 01/11) — thông báo nói cách tập đôi · gói ban ngày: bảng chỉ có các khung trong gói (cả hai: gói 1:2 ban ngày) ·
+     máy chủ trước 01/11: gói 1:2 chỉ khung ghép */
   var op = offSt();
-  if (duoSt()) return { tone: 'info', title: 'Gói 1:2' + (op ? ' thấp điểm' : '') + ' · tập theo khung ghép.', body: 'Đặt ở ' + hoursTxt() + '. Ô có tên là bạn cùng coach đang chờ: chọn ô đó để tập đôi.',
+  if (duoSt() && duoAll()) return { tone: 'info', title: 'Gói 1:2' + (op ? ' ban ngày · ' + offRange() : ' · đặt mọi khung') + '.',
+                        body: (op ? 'Đặt ở ' + hoursTxt() + '. ' : '') + 'Ô có tên là bạn cùng coach đang chờ: chọn ô đó để tập đôi.',
+                        mtitle: op ? 'Gói 1:2 ban ngày · ' + offRange() + '.' : 'Gói 1:2 · chọn ô có tên để tập đôi.' };
+  if (duoSt()) return { tone: 'info', title: 'Gói 1:2' + (op ? ' ban ngày' : '') + ' · tập theo khung ghép.', body: 'Đặt ở ' + hoursTxt() + '. Ô có tên là bạn cùng coach đang chờ: chọn ô đó để tập đôi.',
                         mtitle: 'Gói 1:2 · khung ghép ' + bookHours().map(pad2).join(' · ') + '.' };
   if (me.kind === '1:2') return { tone: 'info', title: 'Gói 1:2 · mỗi người tự đặt lịch.', body: 'Muốn tập cùng nhau, hai bạn chọn cùng khung giờ. Mỗi người có phiếu và lượt đổi riêng.' };
-  if (op) return { tone: 'info', title: 'Gói thấp điểm · ' + offRange() + '.', body: 'Đặt ở ' + hoursTxt() + '. Bảng chỉ hiện các khung trong gói của bạn.' };
+  if (op) return { tone: 'info', title: 'Gói ban ngày · ' + offRange() + '.', body: 'Đặt ở ' + hoursTxt() + '. Bảng chỉ hiện các khung trong gói của bạn.' };
   return null;
 }
 /* lời mời tập đôi gửi mình (sớm nhất, chưa nằm trong lựa chọn): "Tập cùng" (Acid) · "Không, cảm ơn" */
@@ -2343,7 +2350,7 @@ function whyText(w, d, h) {
     het_han: ['Gói không dùng được ngày ' + (d ? ddmm(d) : 'đó') + '.', 'Gói của bạn hết hạn trước ngày này.'],
     chua_bat_dau: ['Gói chưa bắt đầu vào ngày ' + (d ? ddmm(d) : 'đó') + '.', 'Chọn ngày từ khi gói bắt đầu.'],
     gio_ghep: ['Gói 1:2 đặt ở khung ghép.', 'Chọn ' + (hoursTxt() || '09:00, 11:00, 15:00, 17:00 hoặc 19:00') + '.'],
-    thap_diem: ['Gói thấp điểm đặt trong ' + (offRange() || '09:00–15:00') + '.', 'Chọn ' + (hoursTxt() || '09:00, 10:00, 11:00, 12:00 hoặc 14:00') + '.'],
+    thap_diem: ['Gói ban ngày đặt trong ' + (offRange() || '06:00–16:00') + '.', 'Chọn ' + (hoursTxt() || '06:00, 07:00, 08:00, 09:00, 10:00, 11:00, 12:00, 14:00 hoặc 15:00') + '.'],
     coach_nghi: [at + ' coach nghỉ.', 'Chọn một ô trống khác trên bảng.']
   };
   var x = M[w] || ['Lịch chọn chưa hợp lệ.', 'Bảng vừa được cập nhật. Chọn lại rồi gửi.'];
@@ -3186,7 +3193,7 @@ function pairsHTML(isSheet) {
   var idT = isSheet ? 'sheetT' : 'drawerT', pick = S.invPick;
   var h = (isSheet ? '<div class="sh-grip" data-a="closesheet"><i></i></div>' : '') +
     '<div class="' + (isSheet ? 'sh-h' : 'dr-h') + '"><h2 id="' + idT + '">Tập đôi tuần ' + esc(st.week.no) + '</h2><button class="ib' + (isSheet ? ' ib-32' : '') + '" type="button" data-a="' + (isSheet ? 'closesheet' : 'closedrawer') + '" aria-label="Đóng">' + ico('close') + '</button></div>' +
-    '<p class="pr-sub">Coach ' + esc(st.me.coach) + ' · khung ghép ' + esc(bookHours().map(pad2).join(' · ')) + '</p>';
+    '<p class="pr-sub">Coach ' + esc(st.me.coach) + (duoAll() ? (offSt() ? ' · ban ngày ' + esc(offRange()) : '') : ' · khung ghép ' + esc(bookHours().map(pad2).join(' · '))) + '</p>';
   var busyA = DUO.busy ? ' disabled aria-busy="true"' : '';
   if (d.invIn && d.invIn.length) {
     h += '<div class="dr-sec"><span class="k">Lời mời cho bạn</span><div class="pr-list">' + d.invIn.map(function (x) {
@@ -3205,7 +3212,7 @@ function pairsHTML(isSheet) {
     h += '<div class="pr-row' + (pn ? ' on' : '') + '"><div class="pr-l"><span class="pr-t">' + esc(dShort(x.date) + ' · ' + hm(x.h)) + '</span><span class="pr-s">' + esc(stx) + '</span></div>' +
       (can && !open ? '<div class="pr-a"><button class="btn btn-s ' + (io && io.st !== 'no' ? 'btn-phu' : 'btn-toi') + '" type="button" data-a="invpick" data-d="' + esc(x.date) + '" data-h="' + esc(x.h) + '"' + busyA + '><span>' + (!io ? 'Mời bạn' : io.st === 'no' ? 'Mời bạn khác' : 'Đổi người') + '</span></button></div>' : '') + '</div>';
     if (open) {
-      /* bạn gói thấp điểm (máy chủ gửi hours) chỉ mời được vào khung trong gói của họ */
+      /* bạn gói ban ngày (máy chủ gửi hours) chỉ mời được vào khung trong gói của họ */
       var all = d.peers || [], peers = all.filter(function (q) { return !Array.isArray(q.hours) || q.hours.indexOf(x.h) >= 0; });
       h += '<div class="pr-pick"><p class="pr-q" id="prQ">Mời một bạn cùng coach tập ' + esc(dShort(x.date) + ' ' + hm(x.h)) + '</p>' +
         (peers.length ? '<div class="pr-opts" role="radiogroup" aria-labelledby="prQ">' + peers.map(function (q) {
@@ -3348,7 +3355,7 @@ var LASTF = null;
 function infoHTML(isSheet) {
   var st = S.st, me = st ? st.me : null, idT = isSheet ? 'sheetT' : 'drawerT';
   var rows = me ? [['Coach', me.coach], ['Gói', (me.pkg ? me.pkg + ' · ' : '') + me.kind], ['Còn lại', me.left + ' buổi'], ['Hết hạn', me.exp ? yy(me.exp) : '—']] : [];
-  if (me && offSt()) rows.splice(2, 0, ['Khung giờ', 'Thấp điểm · ' + offRange()]);        /* gói thấp điểm (cột "Khung giờ" của BA) */
+  if (me && offSt()) rows.splice(2, 0, ['Khung giờ', 'Ban ngày · ' + offRange()]);        /* gói ban ngày (cột "Khung giờ" của BA) */
   return (isSheet ? '<div class="sh-grip" data-a="closesheet"><i></i></div>' : '') +
     '<div class="' + (isSheet ? 'sh-h' : 'dr-h') + '"><h2 id="' + idT + '">Gói & luật đặt lịch</h2><button class="ib' + (isSheet ? ' ib-32' : '') + '" type="button" data-a="' + (isSheet ? 'closesheet' : 'closedrawer') + '" aria-label="Đóng">' + ico('close') + '</button></div>' +
     (me ? '<div class="dr-sec"><span class="k">Gói của bạn</span><div class="dr-rows">' + rows.map(function (r) { return '<div class="dr-row"><span class="k">' + esc(r[0]) + '</span><span class="v">' + esc(r[1]) + '</span></div>'; }).join('') + '</div></div>' : '') +

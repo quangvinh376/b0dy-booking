@@ -55,7 +55,7 @@ async function run(browser, server, mobile) {
   const host = mobile ? '#sheet' : '#drawer';
 
   /* 0 · state lưu trên máy từ trước khi máy chủ có gói 1:2 (lần mở đầu sau khi deploy Worker): bảng đủ 14 giờ từ bộ nhớ, làm mới xong
-       phải dựng lại 5 khung ghép (tô lại ô thôi là còn thừa hàng) — mạng chậm 2 s để thấy được cả hai lúc */
+       có phần gói 1:2 mà bảng vẫn đủ 14 giờ (gói 1:2 đặt mọi khung từ 01/11, trước đó dựng lại 5 khung ghép) — mạng chậm 2 s */
   await login('uyen nhi', '5555'); await waitView(page, 'book');
   await page.evaluate(() => { for (const s of [localStorage, sessionStorage]) { const v = s.getItem('qc:lt_st'); if (v) { const o = JSON.parse(v); delete o.st.duo; s.setItem('qc:lt_st', JSON.stringify(o)); } } });
   const qcSlow = async () => { await page.click('.qc-tab'); await page.waitForSelector('#qcp:not([hidden])'); await page.click('#qcp [data-qc="slow"]'); await page.focus('#qcT'); await page.keyboard.press('Escape'); await page.waitForSelector('#qcp', { state: 'hidden' }); };
@@ -63,9 +63,10 @@ async function run(browser, server, mobile) {
   await page.reload(); await page.waitForSelector('.qc-tab'); await waitView(page, 'book');
   const hrs = () => page.evaluate(() => Array.from(new Set(Array.from(document.querySelectorAll('#wkb .c')).map(c => +c.dataset.h))).join(','));
   const rows0 = await hrs();
-  await page.waitForFunction(() => Array.from(new Set(Array.from(document.querySelectorAll('#wkb .c')).map(c => +c.dataset.h))).join(',') === '9,11,15,17,19', null, { timeout: 8000 }).catch(() => {});
-  const rows1 = await hrs();
-  ok('State cũ trên máy (chưa có gói 1:2): bảng đủ 14 giờ → làm mới xong dựng lại đúng 5 khung ghép', rows0.split(',').length === 14 && rows1 === '9,11,15,17,19', [rows0, rows1]);
+  await page.waitForFunction(() => !!(window.__lt.S.st && window.__lt.S.st.duo), null, { timeout: 8000 }).catch(() => {});
+  await sleep(300);
+  const rows1 = await hrs(), sub1 = await page.evaluate(() => document.querySelector('#wk').classList.contains('sub'));
+  ok('State cũ trên máy (chưa có gói 1:2): bảng đủ 14 giờ → làm mới xong có phần gói 1:2, bảng vẫn đủ 14 giờ, không phải bảng con', rows0.split(',').length === 14 && rows1 === '6,7,8,9,10,11,12,14,15,16,17,18,19,20' && !sub1 && await page.evaluate(() => !!window.__lt.S.st.duo), [rows0, rows1, sub1]);
   await qcSlow();
   await signOut();
   /* 1 */
