@@ -491,7 +491,7 @@ button.stepn .ic{width:16px;height:16px}
   .c.sel:not(:disabled):hover::before{background:var(--ke-giay)}
 }
 .c .m{display:none}
-/* bảng con — gói 1:2 chỉ các khung ghép · gói thấp điểm chỉ các khung trong gói (ít hàng → hàng cao hơn, đủ chỗ cho tên bạn tập) */
+/* bảng con — gói ban ngày chỉ các khung trong gói (ít hàng → hàng cao hơn, đủ chỗ cho tên bạn tập); gói 1:2 đặt mọi khung từ 01/11 */
 .wk.sub{--rh:clamp(48px,calc((100dvh - 354px)/(var(--n,5) + 1)),80px)}
 /* ô có bạn cùng coach đang chờ: nhãn "GHÉP" (mono) + tên gọi (sans, chữ thường) · buổi của mình / ô đang chọn đã có bạn: giờ + tên */
 .c .d.jn{display:flex;flex-direction:column;align-items:center;gap:3px;max-width:100%}
@@ -501,6 +501,12 @@ button.stepn .ic{width:16px;height:16px}
 .c.sel .jt{color:var(--giay)}
 .c.sel .d.jn .jk,.c.mine .d.jn .jk{font-size:14px;line-height:17px;letter-spacing:0}
 .c.join{color:var(--muc)}
+/* bảng đủ 14 hàng (từ 01/11 gói 1:2 toàn thời gian dùng bảng này, hàng thấp): icon ghép + tên trên một dòng như mobile (chữ "Ghép"
+   ẩn, trình đọc màn hình vẫn đọc "đang chờ ghép" từ aria), tên cắt "…" khi ô hẹp */
+.wk:not(.sub) .c .d.jn{flex-direction:row;gap:6px}
+.wk:not(.sub) .c .d.jn .jk{font-size:0;gap:0}
+.wk:not(.sub) .c .d.jn .jt{min-width:0;flex:0 1 auto}
+.wk:not(.sub) .c.inv .d.jn{padding-right:8px}                     /* chừa chỗ cho chấm lời mời ở góc phải trên */
 /* lời mời gửi mình ở ô này: chấm Acid (dữ liệu sống), viền Mực mảnh để thấy trên nền Giấy */
 .c.inv::after{content:'';position:absolute;top:5px;right:5px;width:7px;height:7px;border-radius:50%;background:var(--acid);box-shadow:0 0 0 1px var(--muc);pointer-events:none}
 .sw.k-ghep svg{width:11px;height:11px;stroke:var(--muc);stroke-width:2;fill:none}
@@ -769,6 +775,12 @@ button.stepn .ic{width:16px;height:16px}
   .c{padding:0 2px;gap:3px;font-size:9px;line-height:11px;letter-spacing:.06em}
   .c.sel,.c.moving,.c.mine.tm{font-size:10px;line-height:12px;letter-spacing:.08em}
   .c .ic{width:11px;height:11px}
+  /* bảng nhiều hàng (.cmp: bảng đủ 14 hàng, hoặc bảng con ≥ 8 hàng như gói 1:2 ban ngày): ô Ghép gọn = icon + tên một dòng (≈ 22 px, vừa
+     hàng 26 px) · bảng con nhiều hàng hạ chiều cao tối thiểu để không dài hơn bảng đủ */
+  .wk.cmp .c .m.jn{gap:1px}
+  .wk.cmp .c .m.jn .ic{width:10px;height:10px}
+  .wk.cmp .c .m.jn .jm{display:block;-webkit-line-clamp:unset;white-space:nowrap;text-overflow:ellipsis;font-size:9px;line-height:11px}
+  .wk.sub.cmp{--rh:clamp(30px,calc((100svh - 560px)/var(--n,5)),44px)}
   .cn span{font-size:9px;line-height:14px;letter-spacing:.06em}
   .lunch{font-size:9px;line-height:11px;letter-spacing:.06em}
   .now span{display:none}

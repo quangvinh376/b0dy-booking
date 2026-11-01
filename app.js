@@ -1759,11 +1759,11 @@ function gridHTML() {
   /* tuần 7 ngày (T2 → CN, từ 19/10): ngày coach nghỉ trọn ngày = khối "COACH NGHỈ" cả cột, không có ô. Máy chủ cũ gửi 6 ngày → cột CN cố định */
   var w = S.st.week, days = w.days, sun = days.length < 7 ? addD(days[0], 6) : '', off = offDays(), rows = gridRows(), sub = rows !== SLOTS;
   var am = rows.filter(function (x) { return x < LUNCH; }).length, pm = rows.length - am;
-  var h = '<div class="wk' + (sub ? ' sub' : '') + (sun ? ' d6' : '') + '" id="wk" data-rows="' + rows.join(',') + '" data-off="' + off.join(',') + '"' + (sub ? ' data-n="' + rows.length + '"' : '') + '><div class="wk-head" aria-hidden="true"><div></div>';
+  var h = '<div class="wk' + (sub ? ' sub' : '') + (!sub || rows.length >= 8 ? ' cmp' : '') + (sun ? ' d6' : '') + '" id="wk" data-rows="' + rows.join(',') + '" data-off="' + off.join(',') + '"' + (sub ? ' data-n="' + rows.length + '"' : '') + '><div class="wk-head" aria-hidden="true"><div></div>';
   days.forEach(function (d, i) { h += '<div class="dh" data-i="' + i + '"><span class="dh-d">' + DOW[dowOf(d)] + '</span><span class="dh-n"><span class="d">' + esc(ddmm(d)) + '</span><span class="m">' + esc(d.slice(8)) + '</span></span><i class="dh-bar"></i></div>'; });
   if (sun) h += '<div class="dh off"><span class="dh-d">CN</span><span class="dh-n"><span class="d">' + esc(ddmm(sun)) + '</span><span class="m">' + esc(sun.slice(8)) + '</span></span></div>';
   h += '</div>';
-  /* bảng con (gói 1:2 chỉ khung ghép · gói ban ngày chỉ khung trong gói): số hàng sáng / chiều theo giờ thật, dải nghỉ trưa nằm giữa */
+  /* bảng con (gói ban ngày chỉ khung trong gói; máy chủ trước 01/11: gói 1:2 chỉ khung ghép): số hàng sáng / chiều theo giờ thật, dải nghỉ trưa nằm giữa */
   var tpl = sub ? ' data-gtr="' + (am ? 'repeat(' + am + ',var(--rh)) ' : '') + 'var(--lh)' + (pm ? ' repeat(' + pm + ',var(--rh))' : '') + '"' : '';
   h += '<div class="wk-body" id="wkb" role="group" aria-label="Bảng khung giờ tuần ' + esc(w.no) + '"' + tpl + '>' + (sun ? '<div class="cn" aria-hidden="true"><span>Coach<br>nghỉ</span></div>' : '') +
        '<div class="lunch" aria-hidden="true"' + (sub ? ' data-gr="' + (am + 1) + '"' : '') + '>Nghỉ trưa · ' + hm(LUNCH) + '–' + hm(LUNCH + 1) + '</div>';

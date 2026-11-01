@@ -893,7 +893,7 @@ function ltCached_(key, ttl, fn) {
   return v;
 }
 function ltPersonsNow_(ctx, fresh) {
-  var rows = fresh ? ltMemberRows_() : ltCached_('lt:mem2', 60, ltMemberRows_);   /* mem2 (31/10): dòng có `off` (cột Khung giờ) */
+  var rows = fresh ? ltMemberRows_() : ltCached_('lt:mem3', 60, ltMemberRows_);   /* mem3 (01/11): `off` nhận "Ban ngày" (mem2 31/10: dòng có `off`) */
   return ltPersons_(rows, ctx.today);
 }
 function ltClosedNow_() { return ltCached_('lt:closed', 600, ltClosures_); }

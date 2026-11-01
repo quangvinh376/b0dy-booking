@@ -55,7 +55,7 @@ const META_FMT = 2;
 /* Dạng ảnh chụp BA lưu 'snap:ba' (dòng MEMBERS + lịch coach ĐÃ ĐỌC). 2 = dòng MEMBERS có `off` (cột "Khung giờ" — gói thấp điểm) và
    lịch coach có khung 12:00 (31/10). DO thức dậy với ảnh chụp dạng cũ thì bỏ, đọc BA mới trước lượt đầu — không thì lượt ghi ngay sau
    deploy kiểm bằng dòng chưa có khung giờ gói (hội viên thấp điểm đặt được giờ ngoài gói) và coach "nghỉ" ở 12:00. */
-const SNAP_BA_FMT = 2;
+const SNAP_BA_FMT = 3;                                  // 3 (01/11): `off` nhận "Ban ngày" — ảnh chụp cũ tính `off` theo luật cũ → bỏ, đọc BA mới
 
 function msg(e) { return String(e && e.message || e).slice(0, 120); }
 /** băm FNV-1a 32 bit (dấu nội dung cho kênh live — chỉ so bằng, không bảo mật) */

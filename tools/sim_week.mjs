@@ -1,7 +1,7 @@
 /* Mô phỏng cả phòng đặt lịch tuần tới từ lịch tập THẬT của tuần trước — chạy đúng luật máy chủ (worker/src/core.js).
    Mỗi buổi "Đã tập" của tuần nguồn được đặt lại cùng thứ ở tuần đích; giờ = giờ check-in app làm tròn (≤ :39 giữ giờ,
    ≥ :40 sang giờ sau; 12 → 11, 13 → 14, sau 20 → 20); buổi CN → T7. Thứ tự đặt = thứ tự trong SESSION LOG. Khung không hợp luật
-   → giờ gần nhất trong ngày (hoà → sớm hơn), hết thì ngày gần nhất. Gói 1:2 → khung ghép gần nhất, có bạn cùng coach đang chờ
+   → giờ gần nhất trong ngày (hoà → sớm hơn), hết thì ngày gần nhất. Gói 1:2 → khung gần nhất (từ 01/11 mọi khung), có bạn cùng coach đang chờ
    (khung đó, hoặc ±2 giờ khi khung đó bận) thì vào cặp. Số buổi theo limits (tối đa min(4, còn lại, ngày mở), tối thiểu 2 → thêm
    một buổi cùng giờ). Mỗi lượt qua checkBook; sổ cuối kiểm roomOf + stateOf. Lần chạy thật đầu tiên: 18/10/2026 (tuần 43).
 
@@ -214,7 +214,7 @@ for (const k in room) for (const ck in room[k].c) {
   if (g.length === 2) pairsBy[k + '|' + ck] = 1;
   if (g.length === 1) singles.push({ k: k, ck: ck, kh: g[0].kh });
 }
-/* đơn lẻ còn có thể ghép nếu dời: cùng coach, cùng ngày, khung ghép khác cách ≤ 2 giờ */
+/* đơn lẻ còn có thể ghép nếu dời: cùng coach, cùng ngày, khung khác cách ≤ 2 giờ */
 let mayPair = 0; const usedS = new Set();
 singles.sort((a, b) => a.k < b.k ? -1 : 1);
 for (let i = 0; i < singles.length; i++) for (let j = i + 1; j < singles.length; j++) {
