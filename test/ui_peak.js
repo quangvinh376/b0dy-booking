@@ -1,8 +1,8 @@
-/* Ca 12:00 (nghỉ trưa còn 13:00–14:00) + gói ban ngày (MEMBERS cột "Khung giờ", chủ studio chốt 31/10 "Thấp điểm" 09–15 → 01/11 "Ban ngày" 06–16) — trang thật + máy chủ giả
+/* Ca 12:00 (nghỉ trưa còn 13:00–14:00) + gói ban ngày (MEMBERS cột "Khung giờ", chủ studio chốt 31/10 "Thấp điểm" 09–15 → 01/11 "Ban ngày" 06–17) — trang thật + máy chủ giả
    của chế độ QC (qc.js = mã Worker), desktop + mobile. node test/ui_peak.js
    1. Trịnh Minh Khôi (toàn thời gian): bảng đủ 14 khung, có 12:00, dải "Nghỉ trưa · 13:00–14:00" nằm giữa hàng 12:00 và 14:00,
       đặt T2 12:00 + T3 12:00 → sổ giả ghi "12:00"
-   2. Văn Thục Đoan (ban ngày 1:1): bảng chỉ 06 … 12 · 14 · 15, thông báo + Gói & luật nói rõ 06:00–16:00, đặt T2 12:00 + T3 15:00
+   2. Văn Thục Đoan (ban ngày 1:1): bảng chỉ 06 … 12 · 14 · 15, thông báo + Gói & luật nói rõ 06:00–17:00, đặt T2 12:00 + T3 15:00
    3. Tiêu Hạ Miên (1:2 · Lâm · ban ngày): bảng như gói ban ngày 1:1 (1:2 đặt mọi khung từ 01/11)
    4. Tạ Uyển Nhi (1:2 · Lâm · toàn thời gian) đặt T4 19:00 + T5 09:00: mời ở 19:00 không có Hạ Miên, ở 09:00 có → mời được,
       Hạ Miên thấy lời mời */
@@ -67,34 +67,34 @@ async function run(browser, server, mobile) {
   /* 2 · gói ban ngày 1:1 */
   await login('thuc doan', '1313'); await waitView(page, 'book');
   g = await grid();
-  ok('Thục Đoan (ban ngày): bảng con chỉ 06 … 12 · 14 · 15 (state offpeak.hours)', g.rows === '6,7,8,9,10,11,12,14,15' && g.sub && g.offpeak && g.offpeak.hours.join(',') === '6,7,8,9,10,11,12,14,15', g);
+  ok('Thục Đoan (ban ngày): bảng con chỉ 06 … 12 · 14 · 15 · 16 (state offpeak.hours)', g.rows === '6,7,8,9,10,11,12,14,15,16' && g.sub && g.offpeak && g.offpeak.hours.join(',') === '6,7,8,9,10,11,12,14,15,16', g);
   ok('… dải nghỉ trưa vẫn nằm giữa 12:00 và 14:00', /13:00–14:00/.test(g.lunch) && g.lunchOk, g);
   let tx = await pageText();
-  ok('… thông báo "Gói ban ngày · 06:00–16:00." (không còn chữ "thấp điểm")', /Gói ban ngày · 06:00–16:00\./.test(tx) && !/thấp điểm/i.test(tx), tx.slice(0, 400));
+  ok('… thông báo "Gói ban ngày · 06:00–17:00." (không còn chữ "thấp điểm")', /Gói ban ngày · 06:00–17:00\./.test(tx) && !/thấp điểm/i.test(tx), tx.slice(0, 400));
   ok('… không cuộn ngang', !g.hscroll, g);
   if (mobile) {
     /* mobile: chạm thẻ thông báo → cửa sổ chi tiết (thân thông báo) → nút chữ "Gói & luật đặt lịch" */
     await page.locator('.mnt >> visible=true').first().click(); await page.waitForSelector('#sheet.on'); await sleep(300);
     const nb = await page.evaluate(() => document.querySelector('#sheet').innerText);
-    ok('… cửa sổ thông báo: "Đặt ở 06:00, 07:00, 08:00, 09:00, 10:00, 11:00, 12:00, 14:00 hoặc 15:00."', /Đặt ở 06:00, 07:00, 08:00, 09:00, 10:00, 11:00, 12:00, 14:00 hoặc 15:00\./.test(nb), nb.slice(0, 300));
+    ok('… cửa sổ thông báo: "Đặt ở 06:00, 07:00, 08:00, 09:00, 10:00, 11:00, 12:00, 14:00, 15:00 hoặc 16:00."', /Đặt ở 06:00, 07:00, 08:00, 09:00, 10:00, 11:00, 12:00, 14:00, 15:00 hoặc 16:00\./.test(nb), nb.slice(0, 300));
     await page.locator('#sheet [data-a="info"]').click();
     await page.waitForFunction(() => /Gói & luật/.test((document.querySelector('#sheetT') || {}).textContent || '')); await sleep(300);
   } else { await page.locator('#floor [data-a="info"]').click(); await page.waitForSelector('#drawer.on'); await sleep(300); }
   const info = await page.evaluate(m => document.querySelector(m ? '#sheet' : '#drawer').innerText, mobile);
-  ok('… Gói & luật: dòng "Khung giờ · Ban ngày · 06:00–16:00" + luật gói ban ngày', /Khung giờ\s*Ban ngày · 06:00–16:00/i.test(info) && /Gói ban ngày đặt trong 06:00–16:00: khung 06:00, 07:00, 08:00, 09:00, 10:00, 11:00, 12:00, 14:00 hoặc 15:00\./.test(info) && !/thấp điểm/i.test(info), info.slice(0, 600));
+  ok('… Gói & luật: dòng "Khung giờ · Ban ngày · 06:00–17:00" + luật gói ban ngày', /Khung giờ\s*Ban ngày · 06:00–17:00/i.test(info) && /Gói ban ngày đặt trong 06:00–17:00: khung 06:00, 07:00, 08:00, 09:00, 10:00, 11:00, 12:00, 14:00, 15:00 hoặc 16:00\./.test(info) && !/thấp điểm/i.test(info), info.slice(0, 600));
   if (mobile) { await page.locator('#sheet .sh-h [data-a="closesheet"]').click(); await page.waitForFunction(() => document.querySelector('#sheet').hidden); }
   else { await page.keyboard.press('Escape'); await page.waitForFunction(() => document.querySelector('#drawer').hidden); }
   await sleep(300);
-  await book([['2026-10-19', 12], ['2026-10-20', 15]]);
-  ok('Đặt T2 12:00 + T3 15:00 (buổi cuối 15:00–16:00) → phiếu, sổ giả đúng 2 dòng', JSON.stringify(await so('B812DY')) === JSON.stringify(['2026-10-19 12:00', '2026-10-20 15:00']), await so('B812DY'));
+  await book([['2026-10-19', 12], ['2026-10-20', 16]]);
+  ok('Đặt T2 12:00 + T3 16:00 (buổi cuối 16:00–17:00) → phiếu, sổ giả đúng 2 dòng', JSON.stringify(await so('B812DY')) === JSON.stringify(['2026-10-19 12:00', '2026-10-20 16:00']), await so('B812DY'));
   await signOut();
 
   /* 3 · gói 1:2 ban ngày: mọi khung trong gói (khung ghép bỏ 01/11) */
   await login('ha mien', '1414'); await waitView(page, 'book');
   g = await grid();
-  ok('Hạ Miên (1:2 · ban ngày): bảng con 06 … 12 · 14 · 15 như gói ban ngày 1:1, dải nghỉ trưa giữa 12:00 và 14:00', g.rows === '6,7,8,9,10,11,12,14,15' && g.sub && /13:00–14:00/.test(g.lunch) && g.lunchOk, g);
+  ok('Hạ Miên (1:2 · ban ngày): bảng con 06 … 12 · 14 · 15 · 16 như gói ban ngày 1:1, dải nghỉ trưa giữa 12:00 và 14:00', g.rows === '6,7,8,9,10,11,12,14,15,16' && g.sub && /13:00–14:00/.test(g.lunch) && g.lunchOk, g);
   tx = await pageText();
-  ok('… thông báo "Gói 1:2 ban ngày · 06:00–16:00.", không còn chữ "khung ghép"', /Gói 1:2 ban ngày · 06:00–16:00\./.test(tx) && !/khung ghép/.test(tx), tx.slice(0, 400));
+  ok('… thông báo "Gói 1:2 ban ngày · 06:00–17:00.", không còn chữ "khung ghép"', /Gói 1:2 ban ngày · 06:00–17:00\./.test(tx) && !/khung ghép/.test(tx), tx.slice(0, 400));
   await signOut();
 
   /* 4 · mời tập đôi: bạn gói ban ngày chỉ hiện ở khung trong gói của bạn ấy */
@@ -136,7 +136,7 @@ let rn = 0;
 const srow = (kh, name, short, date, h) => [kh + '-W43', 1, '2026-W43', date, THU[date], (h < 10 ? '0' : '') + h + ':00', name, short, 'Bích Ngọc', '1:1', 'Đã đặt', 'Đặt', '',
   '2026-10-18 06:30:00', 'riduipeak' + String(++rn).padStart(4, '0'), kh, short + ' · BN'];
 const other = (n, date, h) => srow('B7' + n + 'DY', 'Khách Sổ ' + n, 'K. Sổ ' + n, date, h);
-const OFFH = [6, 7, 8, 9, 10, 11, 12, 14, 15], WD = ['2026-10-19', '2026-10-20', '2026-10-21', '2026-10-22', '2026-10-23'];
+const OFFH = [6, 7, 8, 9, 10, 11, 12, 14, 15, 16], WD = ['2026-10-19', '2026-10-20', '2026-10-21', '2026-10-22', '2026-10-23'];
 const D7 = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'], HRS = [6, 7, 8, 9, 10, 11, 12, 14, 15, 16, 17, 18, 19, 20];
 const schedNgoc = on => [['', '— LỊCH COACH'], [], ['', 'Bích Ngọc'].concat(D7)].concat(HRS.map(h => ['', (h < 10 ? '0' : '') + h + ':00'].concat(D7.map((_, i) => on(i, h)))));
 
@@ -159,12 +159,12 @@ async function runMix(browser, server, mobile) {
     return { view: S.view, rows: wk ? wk.getAttribute('data-rows') : '', mode: S.st && S.st.mode, limits: S.st && S.st.limits }; });
   const cls = (page, d, h) => page.evaluate(k => { const c = document.querySelector('#wkb .c[data-d="' + k[0] + '"][data-h="' + k[1] + '"]'); return c ? c.className + (c.getAttribute('aria-disabled') === 'true' ? ' dis' : '') : null; }, [d, h]);
 
-  /* 1 · coach bận 3 / 9 khung trong gói của T2 → ô X trên bảng con; vừa bị lấy T2 12:00 → chỉ gợi ý khung trong gói còn trống */
+  /* 1 · coach bận 3 / 10 khung trong gói của T2 → ô X trên bảng con; vừa bị lấy T2 12:00 → chỉ gợi ý khung trong gói còn trống */
   {
     const { t, ctx, page } = await open({ log: [other(51, '2026-10-19', 9), other(52, '2026-10-19', 10), other(53, '2026-10-19', 11)] });
     await waitView(page, 'book');
     let s = await st(page);
-    ok('Giờ Thấp (Ngọc · ban ngày): bảng con 06 … 12 · 14 · 15', s.rows === '6,7,8,9,10,11,12,14,15', s);
+    ok('Giờ Thấp (Ngọc · ban ngày): bảng con 06 … 12 · 14 · 15 · 16', s.rows === '6,7,8,9,10,11,12,14,15,16', s);
     const c = await Promise.all([9, 10, 11, 12, 14, 15, 6].map(h => cls(page, '2026-10-19', h)));
     ok('… T2 09 · 10 · 11 (coach bận) là ô X, T2 12 · 14 · 15 · 06 chọn được', c.slice(0, 3).every(x => /\bfull\b/.test(x)) && c.slice(3).every(x => x !== null && !/\bfull\b|dis/.test(x)), c);
     await page.locator('#wkb .c[data-d="2026-10-19"][data-h="12"] >> visible=true').first().click();
@@ -177,19 +177,19 @@ async function runMix(browser, server, mobile) {
     await page.locator(mobile ? '#ctaM' : '#cta').first().click();
     await page.waitForFunction(() => window.__lt.S.notice && window.__lt.S.notice.type === 'gone', null, { timeout: 8000 });
     const sugs = await page.evaluate(() => window.__lt.S.notice.sugs);
-    ok('… bấm đặt → "vừa có người đặt trước": gợi ý 3 khung trong gói còn trống gần nhất (08:00 · 14:00 · 15:00), không gợi ý 16:00 (ngoài gói) / 09–11 (coach bận)', JSON.stringify(sugs) === JSON.stringify([{ date: '2026-10-19', h: 8 }, { date: '2026-10-19', h: 14 }, { date: '2026-10-19', h: 15 }]), sugs);
+    ok('… bấm đặt → "vừa có người đặt trước": gợi ý 3 khung trong gói còn trống gần nhất (14:00 · 15:00 · 16:00, cách đều thì ưu tiên giờ muộn), không gợi ý 17:00 (ngoài gói) / 09–11 (coach bận)', JSON.stringify(sugs) === JSON.stringify([{ date: '2026-10-19', h: 14 }, { date: '2026-10-19', h: 15 }, { date: '2026-10-19', h: 16 }]), sugs);
     await page.waitForSelector('[data-a="sug"] >> visible=true', { timeout: 5000 }); await sleep(300);
     const sb = await page.$$eval('[data-a="sug"]', els => els.filter(e => e.offsetParent).map(e => e.textContent));
-    ok('… nút gợi ý trên màn: "08:00" · "14:00" · "15:00"', JSON.stringify(sb) === JSON.stringify(['08:00', '14:00', '15:00']), sb);
+    ok('… nút gợi ý trên màn: "14:00" · "15:00" · "16:00"', JSON.stringify(sb) === JSON.stringify(['14:00', '15:00', '16:00']), sb);
     await page.locator('[data-a="sug"][data-h="14"] >> visible=true').first().click(); await sleep(400);
     await page.locator(mobile ? '#ctaM' : '#cta').first().click(); await waitView(page, 'ticket');
     const rows = t.rows().filter(r => r[16] === 'B981DY' && r[11] === 'Đã đặt').map(r => r[4] + ' ' + r[6]).sort();
     ok('… chọn 14:00 rồi đặt → phiếu, sổ: T2 14:00 + T3 09:00', JSON.stringify(rows) === JSON.stringify(['2026-10-19 14:00', '2026-10-20 09:00']), rows);
     await ctx.close();
   }
-  /* 2 · Ngọc kín cả 9 khung trong gói T2–T5 → còn T6: tối thiểu / tối đa 1, đặt được một buổi */
+  /* 2 · Ngọc kín cả 10 khung trong gói T2–T5 → còn T6: tối thiểu / tối đa 1, đặt được một buổi */
   {
-    const log = []; WD.slice(0, 4).forEach((d, i) => OFFH.forEach((h, j) => log.push(other(100 + i * 9 + j, d, h))));
+    const log = []; WD.slice(0, 4).forEach((d, i) => OFFH.forEach((h, j) => log.push(other(100 + i * 10 + j, d, h))));
     const { t, ctx, page } = await open({ log });
     await waitView(page, 'book');
     const s = await st(page);
@@ -202,21 +202,21 @@ async function runMix(browser, server, mobile) {
     ok('… đặt → phiếu, sổ đúng 1 dòng T6 11:00', JSON.stringify(t.rows().filter(r => r[16] === 'B981DY' && r[11] === 'Đã đặt').map(r => r[4] + ' ' + r[6])) === JSON.stringify(['2026-10-23 11:00']));
     await ctx.close();
   }
-  /* 3 · Ngọc kín cả 9 khung trong gói T2–T6 → màn "kín lịch" nói đúng gói ban ngày (phòng vẫn còn khung khác) */
+  /* 3 · Ngọc kín cả 10 khung trong gói T2–T6 → màn "kín lịch" nói đúng gói ban ngày (phòng vẫn còn khung khác) */
   {
-    const log = []; WD.forEach((d, i) => OFFH.forEach((h, j) => log.push(other(100 + i * 9 + j, d, h))));
+    const log = []; WD.forEach((d, i) => OFFH.forEach((h, j) => log.push(other(100 + i * 10 + j, d, h))));
     const { ctx, page } = await open({ log });
     await waitView(page, 'closed');
     const tx = await page.evaluate(() => document.querySelector('.pg-closed').innerText);
-    ok('Ngọc kín mọi khung trong gói cả tuần → màn "Tuần này đã kín lịch." + "Các khung trong gói ban ngày (06:00–16:00) đã kín."', /Tuần này đã kín lịch\./.test(tx) && /Các khung trong gói ban ngày \(06:00–16:00\) đã kín\./.test(tx) && !/Không còn khung trống nào/.test(tx), tx.slice(0, 300));
+    ok('Ngọc kín mọi khung trong gói cả tuần → màn "Tuần này đã kín lịch." + "Các khung trong gói ban ngày (06:00–17:00) đã kín."', /Tuần này đã kín lịch\./.test(tx) && /Các khung trong gói ban ngày \(06:00–17:00\) đã kín\./.test(tx) && !/Không còn khung trống nào/.test(tx), tx.slice(0, 300));
     await ctx.close();
   }
-  /* 4 · Lịch coach: Ngọc không nhận khách 06–16 (T2–T7 chỉ chiều tối, CN nghỉ) → màn nói coach nghỉ, không nói "kín" */
+  /* 4 · Lịch coach: Ngọc không nhận khách 06–17 (T2–T7 chỉ chiều tối, CN nghỉ) → màn nói coach nghỉ, không nói "kín" */
   {
-    const { ctx, page } = await open({ sched: schedNgoc((i, h) => i < 6 && h >= 16) });
+    const { ctx, page } = await open({ sched: schedNgoc((i, h) => i < 6 && h >= 17) });
     await waitView(page, 'closed');
     const tx = await page.evaluate(() => document.querySelector('.pg-closed').innerText);
-    ok('Ngọc không nhận 06:00–16:00 cả tuần → "Coach nghỉ trong giờ ban ngày." + "Tuần này coach của bạn không nhận khách trong 06:00–16:00."', /Coach nghỉ trong giờ ban ngày\./.test(tx) && /Tuần này coach của bạn không nhận khách trong 06:00–16:00\./.test(tx) && !/kín lịch/.test(tx), tx.slice(0, 300));
+    ok('Ngọc không nhận 06:00–17:00 cả tuần → "Coach nghỉ trong giờ ban ngày." + "Tuần này coach của bạn không nhận khách trong 06:00–17:00."', /Coach nghỉ trong giờ ban ngày\./.test(tx) && /Tuần này coach của bạn không nhận khách trong 06:00–17:00\./.test(tx) && !/kín lịch/.test(tx), tx.slice(0, 300));
     await ctx.close();
   }
   /* 5 · buổi đặt trước khi chuyển sang gói ban ngày (T2 18:00, T3 17:00): phiếu giữ, bảng đổi lịch có thêm 2 hàng đó, dời được vào gói */
@@ -227,7 +227,7 @@ async function runMix(browser, server, mobile) {
     await page.waitForSelector('[data-a="gochg"] >> visible=true'); await sleep(400);
     await page.locator('[data-a="gochg"] >> visible=true').first().click(); await waitView(page, 'change');
     let s = await st(page);
-    ok('Buổi cũ ngoài gói (T2 18:00, T3 17:00) → bảng đổi lịch: 06 … 12 · 14 · 15 · 17 · 18 (không có 16, 19–20)', s.rows === '6,7,8,9,10,11,12,14,15,17,18', s);
+    ok('Buổi cũ ngoài gói (T2 18:00, T3 17:00) → bảng đổi lịch: 06 … 12 · 14 · 15 · 16 · 17 · 18 (không có 19–20)', s.rows === '6,7,8,9,10,11,12,14,15,16,17,18', s);
     const own = await Promise.all([cls(page, '2026-10-19', 18), cls(page, '2026-10-20', 17)]);
     ok('… hai buổi đó hiện đúng ô của mình', own.every(x => x !== null && !/\bfull\b/.test(x)), own);
     const from = await page.evaluate(() => window.__lt.S.chg && window.__lt.S.chg.from);

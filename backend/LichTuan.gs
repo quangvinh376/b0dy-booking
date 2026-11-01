@@ -17,11 +17,11 @@
 var LT = {
   OFF: 7 * 3600e3,                                   // giờ Việt Nam, không có giờ mùa hè
   SLOTS: [6, 7, 8, 9, 10, 11, 12, 14, 15, 16, 17, 18, 19, 20], // 13:00–14:00 coach nghỉ trưa (chủ studio mở ca 12:00 ngày 31/10)
-  /* Gói "Ban ngày" (MEMBERS cột "Khung giờ"; 31/10 tên "Thấp điểm" 09:00–15:00 → chủ studio đổi 01/11): buổi nằm trọn trong
-     06:00–16:00 — cùng cách hiểu với "Giờ mở cửa 06:00 – 21:00" ↔ khung 06…20 — nên các khung 06 · 07 · 08 · 09 · 10 · 11 · 12 · 14 · 15
+  /* Gói "Ban ngày" (MEMBERS cột "Khung giờ"; 31/10 tên "Thấp điểm" 09:00–15:00 → chủ studio đổi 01/11): đặt từ khung 06:00 tới HẾT
+     khung 16:00 (buổi cuối 16:00–17:00, chủ studio nói rõ 01/11 11:42) → các khung 06 · 07 · 08 · 09 · 10 · 11 · 12 · 14 · 15 · 16
      (13:00 nghỉ trưa). Ô "Toàn thời gian" hoặc để trống = mọi khung. Trang nhận danh sách này trong state (offpeak.hours — tên khoá
      nội bộ giữ nguyên để trang cũ còn trong bộ nhớ đệm vẫn hiểu), không tự giữ bản riêng. */
-  OFF_HOURS: [6, 7, 8, 9, 10, 11, 12, 14, 15],
+  OFF_HOURS: [6, 7, 8, 9, 10, 11, 12, 14, 15, 16],
   NDAYS: 7,                                          // T2..CN · ngày / giờ nhận khách của từng coach: tab "Lịch coach" (SCHED)
   OPEN_H: 6,                                         // lịch tuần sau mở lúc 06:00 Chủ Nhật
   LEAD: 12 * 3600e3,                                 // đặt muộn / thêm buổi / khung mới khi đổi lịch / mời: cách hiện tại ≥ 12 giờ
@@ -633,7 +633,7 @@ function ltWhy_(ctx, person, env, iso, h, lead) {
   if (person.start && iso < person.start) return 'chua_bat_dau';
   if (person.exp && iso > person.exp) return 'het_han';
   if (ltOffAt_(env, person, iso, h)) return 'coach_nghi';                          /* ngoài lịch nhận khách của coach */
-  if (!ltHourOk_(person, h)) return 'thap_diem';                                    /* gói ban ngày: chỉ LT.OFF_HOURS (06:00–16:00) */
+  if (!ltHourOk_(person, h)) return 'thap_diem';                                    /* gói ban ngày: chỉ LT.OFF_HOURS (06:00–17:00) */
   var t = ltSlotMs_(iso, h);
   if (t <= ctx.now) return 'qua';
   if (lead && t - ctx.now < lead) return 'duoi_12h';

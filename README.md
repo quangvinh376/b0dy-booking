@@ -13,8 +13,8 @@ Mỗi khung giờ mỗi coach dạy một suất (một khách 1:1, hoặc hai k
 Gói 1:2 đặt mọi khung như gói 1:1 (1.8.0, chủ studio bỏ luật khung ghép 09 · 11 · 15 · 17 · 19 ngày 01/11), thấy tên gọi bạn cùng coach
 đang chờ, mời được một bạn vào buổi đang chờ, và dời buổi đang chờ vào cặp có sẵn không tính lượt đổi.
 Khung giờ (1.7.0, chủ studio 31/10): 06:00 … 12:00 · nghỉ trưa 13:00–14:00 · 14:00 … 20:00. Hội viên gói **ban ngày** (cột `Khung giờ`
-của MEMBERS = "Ban ngày"; tên cũ "Thấp điểm" 09:00–15:00 đổi 01/11, máy chủ vẫn nhận) chỉ đặt trong 06:00–16:00 — khung 06 · 07 · 08 ·
-09 · 10 · 11 · 12 · 14 · 15; "Toàn thời gian" hoặc ô trống = mọi khung. Bảng của khách ban ngày chỉ hiện các khung trong gói (cùng giờ
+của MEMBERS = "Ban ngày"; tên cũ "Thấp điểm" 09:00–15:00 đổi 01/11, máy chủ vẫn nhận) chỉ đặt từ khung 06:00 tới hết khung 16:00 (06:00–17:00) — khung 06 · 07 · 08 ·
+09 · 10 · 11 · 12 · 14 · 15 · 16; "Toàn thời gian" hoặc ô trống = mọi khung. Bảng của khách ban ngày chỉ hiện các khung trong gói (cùng giờ
 của buổi đã đặt trước đó, nếu có).
 
 ## Thành phần

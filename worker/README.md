@@ -32,10 +32,10 @@ Máy chủ của trang **booking.b0dy.studio**, thay cho Apps Script để mọi
   ngầm; chưa có tab thì dò lại sau `META_RECHECK` (5 phút), mỗi lần thử cách nhau ≥ `META_TRY` (30 s) — Google lỗi không làm hỏng lượt xem.
   Trang 1.1.0 vẫn chạy với máy chủ cũ (tuần 6 ngày → cột CN cố định như cũ); trang cũ gặp máy chủ mới thì vẽ thừa cột → **đưa trang lên
   trước, deploy Worker sau**.
-- **Ca 12:00 + gói ban ngày** (1.7.0 "Thấp điểm" 09–15, chủ studio 31/10 → 1.8.0 "Ban ngày" 06–16, 01/11; `core.js` · `isOffPeak` / `hourOk` = `LichTuan.gs` · `ltIsOffPeak_` /
+- **Ca 12:00 + gói ban ngày** (1.7.0 "Thấp điểm" 09–15, chủ studio 31/10 → 1.8.0 "Ban ngày" 06–17, 01/11; `core.js` · `isOffPeak` / `hourOk` = `LichTuan.gs` · `ltIsOffPeak_` /
   `ltHourOk_`, parity so từng phản hồi): `LT.SLOTS` thêm 12 (nghỉ trưa còn 13:00–14:00). MEMBERS cột **"Khung giờ"** (đọc theo tên tiêu
   đề, hiện ở cột Y): "Ban ngày" hoặc tên cũ "Thấp điểm" (bỏ dấu / hoa thường) → hội viên `off` → chỉ đặt / đổi / được mời vào
-  `LT.OFF_HOURS` = 06 · 07 · 08 · 09 · 10 · 11 · 12 · 14 · 15 (buổi nằm trọn trong 06:00–16:00 — cùng cách hiểu với giờ mở cửa
+  `LT.OFF_HOURS` = 06 · 07 · 08 · 09 · 10 · 11 · 12 · 14 · 15 · 16 (chủ studio 01/11 11:42: tới hết khung 16:00, buổi cuối 16:00–17:00 — cùng cách hiểu với giờ mở cửa
   06:00–21:00 ↔ khung 06…20); giá trị khác hoặc trống = toàn thời gian. Khoá nội bộ giữ tên cũ (`thap_diem`, `offpeak`) để trang cũ
   còn trong bộ nhớ đệm vẫn hiểu. Nhiều dòng gói: lấy theo dòng chọn gói / loại / coach (bắt đầu muộn nhất ≤ hôm nay). `why` → `thap_diem` (gói 1:2 ban ngày:
   cùng các khung như 1:1); mời bạn ban ngày vào khung ngoài gói → `khong_hop_le` / `nguoi_moi` (lời mời không bao giờ nhận được

@@ -79,9 +79,9 @@ const PERSONAS = [
   { code: 'B809DY', name: 'Hà Minh Quân', pkg: 36, kind: '1:1', coach: LN, phone: '0900009999', left: 18, start: '2026-07-06', exp: '2027-03-31', test: 'Trùng tên đệm + tên · gõ "minh quân" ra hai người' },
   { code: 'B810DY', name: 'Lục Minh Quân', pkg: 12, kind: '1:1', coach: BN, phone: '0900001010', left: 8, start: '2026-09-07', exp: '2026-12-31', test: 'Trùng tên đệm + tên với Hà Minh Quân' },
   { code: 'B811DY', name: 'Mẫn Thục Quyên', pkg: 24, kind: '1:2', coach: LN, phone: '0900001212', left: 16, start: '2026-08-03', exp: '2027-02-28', test: 'Gói 1:2 cùng coach Lâm với Tạ Uyển Nhi · đặt một khung rồi mời bạn, hoặc mở trang xem lời mời bạn gửi' },
-  /* gói ban ngày (MEMBERS cột "Khung giờ", từ 31/10; tên "Ban ngày" từ 01/11): chỉ đặt các khung trong 06:00–16:00 */
-  { code: 'B812DY', name: 'Văn Thục Đoan', pkg: 24, kind: '1:1', coach: BN, phone: '0900001313', left: 20, start: '2026-08-03', exp: '2027-02-28', tier: 'Ban ngày', test: 'Gói ban ngày · bảng chỉ có các khung 06 · 07 · 08 · 09 · 10 · 11 · 12 · 14 · 15 (06:00–16:00)' },
-  { code: 'B813DY', name: 'Tiêu Hạ Miên', pkg: 24, kind: '1:2', coach: LN, phone: '0900001414', left: 20, start: '2026-08-03', exp: '2027-02-28', tier: 'Ban ngày', test: 'Gói 1:2 ban ngày · chỉ các khung 06:00–16:00 · Uyển Nhi, Thục Quyên chỉ mời được bạn này vào các khung đó' }
+  /* gói ban ngày (MEMBERS cột "Khung giờ", từ 31/10; tên "Ban ngày" từ 01/11): chỉ đặt các khung 06:00 → hết khung 16:00 (06:00–17:00) */
+  { code: 'B812DY', name: 'Văn Thục Đoan', pkg: 24, kind: '1:1', coach: BN, phone: '0900001313', left: 20, start: '2026-08-03', exp: '2027-02-28', tier: 'Ban ngày', test: 'Gói ban ngày · bảng chỉ có các khung 06 · 07 · 08 · 09 · 10 · 11 · 12 · 14 · 15 · 16 (06:00–17:00)' },
+  { code: 'B813DY', name: 'Tiêu Hạ Miên', pkg: 24, kind: '1:2', coach: LN, phone: '0900001414', left: 20, start: '2026-08-03', exp: '2027-02-28', tier: 'Ban ngày', test: 'Gói 1:2 ban ngày · chỉ các khung 06:00–17:00 · Uyển Nhi, Thục Quyên chỉ mời được bạn này vào các khung đó' }
 ];
 /* Người tập nền: lấp bảng giờ cho giống ngày mở đặt thật (đã so với file BA thật như trên). Coach xoay vòng Quyết · Mai · Khải ·
    Lâm · Ngọc; hai người của Lâm (Quách Tuấn Kiệt, Bế Thảo Vy) mua gói 1:2 — để thử luật ghép 1:2 cùng coach. */
@@ -106,7 +106,7 @@ const BUSY = [
   [0, 15, ['LN22']]];
 const TAG = { QH: QH, HM: HM, KP: KP, LN: LN, BN: BN };
 /* Đổi dữ liệu thế giới giả (người tập nền, khung bận) → tăng số này: máy đã mở ?qc trước đó dựng lại thế giới mới khi tải trang. */
-const WORLD_V = 7;                                   /* 6 (31/10): cột "Khung giờ" + 2 hội viên thử gói thấp điểm · Lịch coach có 12:00 · 7 (01/11): "Ban ngày" 06–16 */
+const WORLD_V = 7;                                   /* 6 (31/10): cột "Khung giờ" + 2 hội viên thử gói thấp điểm · Lịch coach có 12:00 · 7 (01/11): "Ban ngày" 06–17 */
 /* Lịch coach giả (tab "Lịch coach" của file Lịch tập tuần, từ 19/10): Quyết nghỉ T5 06–07 (ô "Coach nghỉ" một phần ngày) và nhận
    CN 08–11; Mai nhận CN 14–17; coach khác không có lưới → T2–T7 đủ giờ, CN nghỉ (khối "COACH NGHỈ" trọn ngày). */
 function schedRows() {

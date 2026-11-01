@@ -9,7 +9,7 @@
 'use strict';
 
 /* ============================== CẤU HÌNH ============================== */
-var VER = '1.8.0';
+var VER = '1.8.1';
 var API_URL = 'https://b0dy-booking-api.little-bonus-1d87.workers.dev/';
 var API_SLOW = false;                 /* true khi chạy Apps Script (chậm hơn nhiều) → nới thời gian chờ */
 /* kênh live: Worker chỉ nhận từ trang thật (ALLOW_ORIGINS) → trang chạy chỗ khác (test trên máy) không nối, khỏi gõ cửa máy chủ thật.
@@ -1301,7 +1301,7 @@ function closedReason(st) {
   if (me.exp && me.exp < w.days[0]) return { title: 'Gói đã hết hạn.', body: 'Gói của bạn hết hạn ' + yy(me.exp) + '.' };
   if (me.start && me.start > last) return { title: 'Gói chưa bắt đầu.', body: 'Gói của bạn bắt đầu từ ' + dFull(me.start) + '.' };
   if (me.left <= 0) return { title: 'Gói đã hết buổi.', body: 'Gói của bạn không còn buổi để đặt.' };
-  /* gói ban ngày: phòng còn khung ngoài 06:00–16:00 nên "không còn khung nào" là sai — nói đúng phần của gói. Coach không nhận
+  /* gói ban ngày: phòng còn khung ngoài 06:00–17:00 nên "không còn khung nào" là sai — nói đúng phần của gói. Coach không nhận
      khách ở mọi khung trong gói còn lại của tuần (tab Lịch coach) → nói là coach nghỉ, khác với kín chỗ (khách khác đã đặt) */
   var o = offSt();
   if (o) {
@@ -1730,7 +1730,7 @@ function invFor(iso, h) { var d = duoSt(); return d && d.invIn ? d.invIn.filter(
 /* tên gọi = 2 chữ cuối (luật tên 18/10; máy chủ cũ còn gửi "Gia Bảo Linh" cho tên 4 chữ) */
 function call2(n) { return String(n || '').trim().split(/\s+/).slice(-2).join(' '); }
 function hoursTxt(hs) { hs = hs || (duoSt() || offSt() ? bookHours() : []); return hs.map(hm).join(', ').replace(/, ([^,]*)$/, ' hoặc $1'); }
-/* "06:00–16:00": từ đầu khung sớm nhất tới hết khung muộn nhất của gói ban ngày */
+/* "06:00–17:00": từ đầu khung sớm nhất tới hết khung muộn nhất của gói ban ngày */
 function offRange() { var o = offSt(); return o ? hm(o.hours[0]) + '–' + hm(o.hours[o.hours.length - 1] + 1) : ''; }
 /* dời buổi `from` (đang lẻ) vào khung `to` có một khách 1:2 cùng coach đang chờ → "Ghép": không tính lượt đổi, dời được trong ngày */
 function pairMove(from, to) { return !!(duoSt() && from && to && coachAt(to.date, to.h) === 'join' && coachAt(from.date, from.h) === ''); }
@@ -2350,7 +2350,7 @@ function whyText(w, d, h) {
     het_han: ['Gói không dùng được ngày ' + (d ? ddmm(d) : 'đó') + '.', 'Gói của bạn hết hạn trước ngày này.'],
     chua_bat_dau: ['Gói chưa bắt đầu vào ngày ' + (d ? ddmm(d) : 'đó') + '.', 'Chọn ngày từ khi gói bắt đầu.'],
     gio_ghep: ['Gói 1:2 đặt ở khung ghép.', 'Chọn ' + (hoursTxt() || '09:00, 11:00, 15:00, 17:00 hoặc 19:00') + '.'],
-    thap_diem: ['Gói ban ngày đặt trong ' + (offRange() || '06:00–16:00') + '.', 'Chọn ' + (hoursTxt() || '06:00, 07:00, 08:00, 09:00, 10:00, 11:00, 12:00, 14:00 hoặc 15:00') + '.'],
+    thap_diem: ['Gói ban ngày đặt trong ' + (offRange() || '06:00–17:00') + '.', 'Chọn ' + (hoursTxt() || '06:00, 07:00, 08:00, 09:00, 10:00, 11:00, 12:00, 14:00, 15:00 hoặc 16:00') + '.'],
     coach_nghi: [at + ' coach nghỉ.', 'Chọn một ô trống khác trên bảng.']
   };
   var x = M[w] || ['Lịch chọn chưa hợp lệ.', 'Bảng vừa được cập nhật. Chọn lại rồi gửi.'];
