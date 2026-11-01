@@ -33,7 +33,17 @@ ID hai file Google Sheets: `BA_ID` (file BA: MEMBERS · SESSION LOG · TRIAL · 
 6. Sau mỗi lần đẩy: xác minh commit bằng hash và SHA-256 từng tệp trên `raw.githubusercontent.com/quangvinh376/b0dy-booking/<commit>/…`.
 7. Chỉ MỘT tiến trình Playwright / Chromium một lúc (máy test nhỏ từng hết RAM).
 
-## Đang ở đâu (01/11/2026, 11:40)
+## Đang ở đâu (01/11/2026, 11:55)
+
+- **1.8.1 (chủ studio 01/11 11:42: "được đặt từ 6:00 đến HẾT khung 16:00, tức tới 17:00 là kết thúc")** — gói ban ngày thêm khung
+  16:00: `LT.OFF_HOURS` = 06 · 07 · 08 · 09 · 10 · 11 · 12 · 14 · 15 · **16** (cửa sổ hiển thị 06:00–17:00). **Bài học**: "giờ A–B" của chủ
+  studio = khung bắt đầu A tới khung bắt đầu B (B là khung cuối được đặt), KHÔNG phải buổi kết thúc trước B như cách hiểu 31/10 / 1.8.0.
+  Chỉ đổi hằng số + chữ dự phòng của trang + test (khung "ngoài gói" trong test = 17:00). Worker `fba48ff` deploy 11:4x (7 module SHA khớp,
+  `OK etag=dc1dccca57`, 5 binding, cron) → `lt_ping` pending 0 · `lt_boot` tuần 45 — trang 1.8.0 đang chạy lấy khung từ `offpeak.hours`
+  của máy chủ nên khách thấy khung 16:00 ngay sau Worker · Apps Script **V42** 11:47 ("… goi Ban ngay 06-17 (het khung 16:00) + 1:2 moi
+  khung, 01/11", LichTuan.gs SHA `508484de…` sau khi tải lại) → `/exec` `lt_boot` tuần 45 · trang 1.8.1 (VER, `?v=`). Test: `gas_lt` 367 ·
+  parity 420 (994 lượt giống hệt) · robust 86 · realdata 17 · ui_peak 71 (gợi ý khi vừa mất T2 12:00 = 14 · 15 · 16, cách đều ưu tiên
+  giờ muộn).
 
 - **1.8.0 live 01/11 11:32** (chủ studio 10:24 + 10:31, "đẩy lên live ngay") — (1) gói **"Thấp điểm" đổi tên "Ban ngày"**, khung đặt **06:00–16:00**:
   `LT.OFF_HOURS` = 06 · 07 · 08 · 09 · 10 · 11 · 12 · 14 · 15 (buổi 60 phút nằm trọn trong cửa sổ, như cách hiểu 31/10; 13:00 nghỉ trưa).
