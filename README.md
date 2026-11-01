@@ -35,7 +35,7 @@ của buổi đã đặt trước đó, nếu có).
 
 Dữ liệu vào: file BA (MEMBERS, TRIAL, B0B, ⚙️ 2, SESSION LOG) + tab `Lịch coach` của sheet *[B0DY Studio] Lịch tập tuần*.
 Dữ liệu ra (cùng sheet đó): tab `Sổ đặt lịch` (mỗi buổi một dòng) và `Bảng lịch tập` (bảng tuần T2–CN cho coach, tự tính;
-ô H2 "Xem tuần" chọn ngày để xem tuần khác, xoá ô = tuần này).
+ô H2 "Xem tuần" chọn ngày để xem tuần khác, xoá ô = tuần này; mỗi suất coach một ô, khách 1:2 chưa có người ghép cùng → chữ đỏ).
 
 Repo công khai: không có PIN, khoá, số điện thoại hay dữ liệu hội viên thật. Test chỉ dùng dữ liệu bịa.
 

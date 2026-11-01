@@ -33,14 +33,17 @@ ID hai file Google Sheets: `BA_ID` (file BA: MEMBERS · SESSION LOG · TRIAL · 
 6. Sau mỗi lần đẩy: xác minh commit bằng hash và SHA-256 từng tệp trên `raw.githubusercontent.com/quangvinh376/b0dy-booking/<commit>/…`.
 7. Chỉ MỘT tiến trình Playwright / Chromium một lúc (máy test nhỏ từng hết RAM).
 
-## Đang ở đâu (01/11/2026, 15:10)
+## Đang ở đâu (01/11/2026, 16:11)
 
-- **Lịch tập tuần · `Bảng lịch tập`: tô đỏ #c2182b ô có khách 1:2 đang lẻ** (chủ studio 01/11 14:47; chọn "tô đỏ cả ô" vì Sheets không tô
-  riêng một dòng trong ô bằng công thức). Bảng phụ ẩn S14:Y27 (14 giờ × T2–CN) · S30:Y36 (T2–CN × coach S5:S11), 1 = có khách 1:2 mà
-  coach chỉ có một người ở khung đó; 3 quy tắc mới (lưới lẻ · lưới đầy + lẻ giữ nền Sương · Theo coach lẻ), ngày đã qua vẫn xám (quy tắc
-  ngày đã qua ở trên). Đối chiếu tuần 45 với tính độc lập từ sổ (script, chỉ đếm): 8 khung + 9 ô coach × ngày khớp 100 %; màu thật đọc
-  bằng `effectiveFormat` đúng 8 + 9 ô. `tools/bang_lich_tap.py` theo (dựng lại ra đúng 8 quy tắc + 2 công thức như tab thật, so từng chữ).
-  Bẫy: trong LAMBDA, `SUM(--(mảng=x))` chỉ lấy phần tử đầu → dùng `SUMPRODUCT`. Không đổi mã trang / máy chủ.
+- **Lịch tập tuần · `Bảng lịch tập` dựng lại: mỗi suất coach một ô, chữ đỏ #c2182b đúng ô khách 1:2 đang lẻ** (chủ studio 01/11 15:53:
+  "tô đỏ toàn bộ ô … khá misleading" → chọn "Mỗi coach một ô"; thay bản 14:47 tô đỏ cả ô). Lưới: mỗi khung giờ = 5 ô con cao 13 px (một
+  suất coach mỗi ô, xếp theo coach; hơn 5 suất dồn vào ô cuối), khe 4 px giữa các giờ, viền hộp quanh từng giờ. Theo coach: mỗi ngày 8 ô con
+  (một buổi mỗi ô, theo giờ). Bảng cờ ẩn **AD:AP** cùng hình lưới (cột + 26; 0 · 1 = lẻ · +2 = khung đủ suất), quy tắc đọc ô cờ cùng hàng
+  (`=AD8=1` …); KHUNG ĐẦY = `COUNTIF(AD8:AP92,">=2")/5`. Tab 168 hàng × 42 cột · 8 quy tắc · 30 ô gộp; H2 giữ 02.11. Đối chiếu tuần 45
+  với tính độc lập từ sổ (xuất xlsx, script chỉ đếm): 98 khung × 7 ngày đúng chữ + thứ tự + cờ, 21/21 coach × ngày Theo coach đúng, 0 ô lỗi;
+  màu thật (`effectiveFormat`): đỏ đúng 13/13 ô lưới + 13/13 ô Theo coach, 0 ô đỏ thừa. **Bẫy**: Sheets nhận công thức lệch ngoặc mà API
+  không báo lỗi (ô D99 thừa ")" → `#ERROR!`, Theo coach trống) → `bang_lich_tap.py` nay tự kiểm cân ngoặc mọi công thức trước khi ghi.
+  Không đổi mã trang / máy chủ.
 
 - **1.8.1 live 01/11 11:58** (chủ studio 11:42: "được đặt từ 6:00 đến HẾT khung 16:00, tức tới 17:00 là kết thúc") — gói ban ngày thêm khung
   16:00: `LT.OFF_HOURS` = 06 · 07 · 08 · 09 · 10 · 11 · 12 · 14 · 15 · **16** (cửa sổ hiển thị 06:00–17:00). **Bài học**: "giờ A–B" của chủ
@@ -274,18 +277,17 @@ node test/ui_tk3d.js all && node test/ui_png.js all && node test/b0b_check.js &&
   (stringValue / pasteData vào ô định dạng TEXT) — đừng dùng USER_ENTERED: '1:2' thành giờ, '2026-10-19' thành ngày.
   Kiểm bằng `userEnteredValue`, không bằng giá trị hiển thị.
 - `Bảng lịch tập`: toàn công thức, 7 cột T2–CN (J2 · L2 · N2 · P2 = buổi · hội viên · khung đầy · chưa đặt). Không gõ tay vào khối lưới.
+  Bố cục 01/11: mỗi khung giờ 5 ô con (một suất coach mỗi ô) · Theo coach 8 ô con / ngày · bảng cờ ẩn AD:AP (cột + 26) cho quy tắc màu.
   Ô H2 "Xem tuần" (người dùng chọn ngày, kiểm định ngày — file locale en_US nên gõ "26/10" bị từ chối, bấm đúp chọn trên lịch) → S2 = thứ Hai
   của tuần đó; trống = tuần này (CN vẫn là tuần này). Dựng lại: `python3 tools/bang_lich_tap.py 0 <ra> <số CF> <số hàng> <số cột>`
-  (đếm bằng `spreadsheets.get` **không** kèm `ranges` — có `ranges` thì chỉ trả quy tắc CF chạm vùng đó; 31/10: 5 quy tắc · 63 hàng · 28 cột),
-  áp s1 → s2 → s3. Kiểm sau khi dựng: đọc J2:P3 · S2:S4 · đầu cột — **đừng** đọc lưới bằng `includeGridData`
-  (mask `effectiveValue.errorValue` vẫn trả cả `effectiveValue` → lộ tên hội viên). 31/10 (1.7.0): ca 12:00 lên tab bằng CHÈN 2 hàng
-  (12:00 + khe) trên dải nghỉ trưa, không dựng lại (giữ chỉnh tay: cột ngày 250 px, nhãn H3 — script đã theo); quy tắc CF "Theo coach" có số
-  hàng trong công thức (`ROW()-43`) → chèn / xoá hàng phía trên thì sửa tay quy tắc đó.
+  (đếm bằng `spreadsheets.get` **không** kèm `ranges` — có `ranges` thì chỉ trả quy tắc CF chạm vùng đó; 01/11: 8 quy tắc · 168 hàng · 42 cột),
+  áp s1 → s2 → s3, rồi ghi lại H2 (s1 xoá hết hàng cũ → mất ngày đang chọn). Kiểm sau khi dựng: đọc J2:P3 · S2:S4 · đầu cột — **đừng** đọc
+  lưới bằng `includeGridData` (mask `effectiveValue.errorValue` vẫn trả cả `effectiveValue` → lộ tên hội viên); so lưới với sổ: xuất cả file
+  dạng xlsx (Drive `download_file_content`, kết quả tự lưu ra tệp) rồi script so, chỉ in số. Quy tắc CF "Theo coach" ngày đã qua có số hàng
+  trong công thức (`ROW()-99`) → chèn / xoá hàng phía trên thì sửa tay quy tắc đó (hoặc dựng lại).
 - `Lịch coach` (713): ô tick từng giờ × 7 ngày cho từng coach, chủ studio sửa tay; máy chủ đọc `A1:AD400` (luật đọc: `worker/README.md`).
   Tạo 19/10 bằng `tools/lich_coach.py`, mặc định = luật cũ (T2–T7 đủ, CN trống). Bỏ tick chỉ chặn đặt / đổi mới, buổi đã đặt giữ nguyên.
   31/10: chèn hàng 12:00 vào cả 5 khối (T2–T7 tick, CN trống), vạch nghỉ trưa dưới 12:00. Khối thiếu hàng 12:00 = coach nghỉ 12:00.
-- `Bảng lịch tập` · khách 1:2 đang lẻ (01/11): bảng phụ ẩn S13:Y27 + S29:Y36 → 3 quy tắc tô đỏ; dựng lại tab = `bang_lich_tap.py` (đã có) với
-  số quy tắc cũ 8.
 - `_dữ liệu`: Worker ghi ảnh chụp hội viên còn gói (A tên · B tên ngắn · C coach · D còn lại · E hết hạn · F Mã KH · G hiển thị).
 - Kết quả đọc sheet lớn chứa tên → xử lý bằng script, chỉ in số / so khớp.
 
