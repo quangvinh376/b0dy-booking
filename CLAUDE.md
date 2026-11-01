@@ -33,7 +33,28 @@ ID hai file Google Sheets: `BA_ID` (file BA: MEMBERS · SESSION LOG · TRIAL · 
 6. Sau mỗi lần đẩy: xác minh commit bằng hash và SHA-256 từng tệp trên `raw.githubusercontent.com/quangvinh376/b0dy-booking/<commit>/…`.
 7. Chỉ MỘT tiến trình Playwright / Chromium một lúc (máy test nhỏ từng hết RAM).
 
-## Đang ở đâu (31/10/2026, 15:55)
+## Đang ở đâu (01/11/2026)
+
+- **1.8.0 (chủ studio 01/11 10:24 + 10:31, "đẩy lên live ngay")** — (1) gói **"Thấp điểm" đổi tên "Ban ngày"**, khung đặt **06:00–16:00**:
+  `LT.OFF_HOURS` = 06 · 07 · 08 · 09 · 10 · 11 · 12 · 14 · 15 (buổi 60 phút nằm trọn trong cửa sổ, như cách hiểu 31/10; 13:00 nghỉ trưa).
+  Máy chủ nhận cả "Ban ngày" lẫn tên cũ "Thấp điểm" (`isOffPeak` / `ltIsOffPeak_`); khoá nội bộ giữ tên cũ (`thap_diem`, `offpeak`) để trang cũ
+  còn trong bộ nhớ đệm vẫn hiểu. (2) **Bỏ luật khung ghép 1:2**: gói 1:2 đặt mọi khung như 1:1, ghép / mời / "Ghép" ở khung bất kỳ —
+  `LT.DUO_HOURS` = đúng `LT.SLOTS`, `why` không còn `gio_ghep` (trang vẫn hiểu mã này). Trang: `duoAll()` → thông báo / luật / bảng Tập đôi
+  không còn "khung ghép"; khách 1:2 toàn thời gian dùng bảng đủ 14 hàng → lớp `.cmp` (bảng đủ, hoặc bảng con ≥ 8 hàng): ô Ghép gọn = icon +
+  tên một dòng (vừa hàng 26 px mobile / 30 px desktop, đo 6 cỡ màn hình), bảng con nhiều hàng trên mobile hạ hàng tối thiểu 44 → 30 px.
+  `snap:ba` fmt 3 / Apps Script `lt:mem3` (ảnh chụp cũ tính `off` theo luật cũ → bỏ). QC `WORLD_V` 7.
+  **BA · MEMBERS cột Y "Khung giờ"**: danh sách chọn "Toàn thời gian / Ban ngày" (Y6:Y1013), 36 ô "Thấp điểm" → "Ban ngày" (đọc ngược:
+  1.008/1.008 ô danh sách mới, 36 Ban ngày · 48 Toàn thời gian · 0 Thấp điểm). **Bẫy**: tab MEMBERS có bộ lọc ẩn hàng —
+  `setDataValidation` theo dải BỎ QUA hàng bị lọc (24 ô giữ danh sách cũ) → ghi từng ô bằng `updateCells` (`fields: dataValidation`);
+  `findReplace` thì vẫn đổi giá trị hàng bị lọc. Không đổi CAPACITY!H10 (chữ chú thích "thấp điểm" của bảng độ đầy, không phải tên gói).
+  Deploy: Worker `14ed554` (7 module SHA khớp, `OK etag=bd8a63c2d4`, 5 binding, cron) → `lt_ping` pending 0 · `lt_boot` tuần 45 7 ngày ·
+  Apps Script **V41** 11:24 ("Lich tap tuan (booking.b0dy.studio) - goi Ban ngay 06-16 + 1:2 dat moi khung, 01/11", ID giữ; LichTuan.gs
+  SHA `23640fae…` cả sau khi tải lại, Code.gs / Discord.gs không đổi) → `/exec` `lt_boot` tuần 45 · BA → trang.
+  Test: `gas_lt` 367 · parity 420 (994 lượt giống hệt) · concurrency 37 · robust 86 · http 13 · live 25 · realdata 17 (BA xuất 01/11 sau
+  khi đổi: 36 hội viên ban ngày) · `coach_cases` mục 20–21 viết lại cho 06–16 + mục 22 mới (1:2 mọi khung: đặt 06 / 10 / 14 / 20, vào nhóm,
+  mời, "Ghép" khác ngày) · ui_states 107 · ui_qc 84 · ui_duo 48 · ui_live 28 · ui_notice 110 · ui_smoke 24 · ui_sw 8 · ui_peak 71 ·
+  ui_tk3d 81 · ui_png 93 · rv_* PASS · `b0b_check` trượt ca "Idle ~30 fps" như ghi chú dưới (b0b.js không đổi). Rà soát độc lập 1 vòng
+  (agent riêng): không lỗi logic; bắt được ô Ghép tràn hàng trên bảng 14 hàng → đã sửa.
 
 - **1.7.1 live 31/10 15:52** (`df69040` trên `main`, chỉ trang — Worker / Apps Script không đổi, vẫn `aee113b` / V40): Pages success 15:52:53,
   9 tệp đổi SHA-256 khớp trên raw, trang thật index · app.js · sw.js khớp, `lt_ping` `pending 0`. Chủ studio hỏi giao thoa "khách thấp
