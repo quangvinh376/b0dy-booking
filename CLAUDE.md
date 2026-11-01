@@ -33,9 +33,9 @@ ID hai file Google Sheets: `BA_ID` (file BA: MEMBERS · SESSION LOG · TRIAL · 
 6. Sau mỗi lần đẩy: xác minh commit bằng hash và SHA-256 từng tệp trên `raw.githubusercontent.com/quangvinh376/b0dy-booking/<commit>/…`.
 7. Chỉ MỘT tiến trình Playwright / Chromium một lúc (máy test nhỏ từng hết RAM).
 
-## Đang ở đâu (01/11/2026)
+## Đang ở đâu (01/11/2026, 11:40)
 
-- **1.8.0 (chủ studio 01/11 10:24 + 10:31, "đẩy lên live ngay")** — (1) gói **"Thấp điểm" đổi tên "Ban ngày"**, khung đặt **06:00–16:00**:
+- **1.8.0 live 01/11 11:32** (chủ studio 10:24 + 10:31, "đẩy lên live ngay") — (1) gói **"Thấp điểm" đổi tên "Ban ngày"**, khung đặt **06:00–16:00**:
   `LT.OFF_HOURS` = 06 · 07 · 08 · 09 · 10 · 11 · 12 · 14 · 15 (buổi 60 phút nằm trọn trong cửa sổ, như cách hiểu 31/10; 13:00 nghỉ trưa).
   Máy chủ nhận cả "Ban ngày" lẫn tên cũ "Thấp điểm" (`isOffPeak` / `ltIsOffPeak_`); khoá nội bộ giữ tên cũ (`thap_diem`, `offpeak`) để trang cũ
   còn trong bộ nhớ đệm vẫn hiểu. (2) **Bỏ luật khung ghép 1:2**: gói 1:2 đặt mọi khung như 1:1, ghép / mời / "Ghép" ở khung bất kỳ —
@@ -49,7 +49,10 @@ ID hai file Google Sheets: `BA_ID` (file BA: MEMBERS · SESSION LOG · TRIAL · 
   `findReplace` thì vẫn đổi giá trị hàng bị lọc. Không đổi CAPACITY!H10 (chữ chú thích "thấp điểm" của bảng độ đầy, không phải tên gói).
   Deploy: Worker `14ed554` (7 module SHA khớp, `OK etag=bd8a63c2d4`, 5 binding, cron) → `lt_ping` pending 0 · `lt_boot` tuần 45 7 ngày ·
   Apps Script **V41** 11:24 ("Lich tap tuan (booking.b0dy.studio) - goi Ban ngay 06-16 + 1:2 dat moi khung, 01/11", ID giữ; LichTuan.gs
-  SHA `23640fae…` cả sau khi tải lại, Code.gs / Discord.gs không đổi) → `/exec` `lt_boot` tuần 45 · BA → trang.
+  SHA `23640fae…` cả sau khi tải lại, Code.gs / Discord.gs không đổi) → `/exec` `lt_boot` tuần 45 · BA → trang: `main` fast-forward
+  `534c343` → `19030ba`, Pages success 11:32:23; 11 tệp SHA-256 khớp trên raw tại commit; trang thật `/index.html` khớp, `__lt.ver`
+  1.8.0, 4 thẻ `?v=1.8.0`, bộ đệm SW chỉ còn `lt-1.8.0`, không lỗi console của trang (`/` trong Chrome còn trả HTML 1.7.1 từ bộ đệm vài phút
+  trước khi SW mới nhận — như 1.7.0).
   Test: `gas_lt` 367 · parity 420 (994 lượt giống hệt) · concurrency 37 · robust 86 · http 13 · live 25 · realdata 17 (BA xuất 01/11 sau
   khi đổi: 36 hội viên ban ngày) · `coach_cases` mục 20–21 viết lại cho 06–16 + mục 22 mới (1:2 mọi khung: đặt 06 / 10 / 14 / 20, vào nhóm,
   mời, "Ghép" khác ngày) · ui_states 107 · ui_qc 84 · ui_duo 48 · ui_live 28 · ui_notice 110 · ui_smoke 24 · ui_sw 8 · ui_peak 71 ·
