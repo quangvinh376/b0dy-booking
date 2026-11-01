@@ -33,7 +33,14 @@ ID hai file Google Sheets: `BA_ID` (file BA: MEMBERS · SESSION LOG · TRIAL · 
 6. Sau mỗi lần đẩy: xác minh commit bằng hash và SHA-256 từng tệp trên `raw.githubusercontent.com/quangvinh376/b0dy-booking/<commit>/…`.
 7. Chỉ MỘT tiến trình Playwright / Chromium một lúc (máy test nhỏ từng hết RAM).
 
-## Đang ở đâu (01/11/2026, 12:00)
+## Đang ở đâu (01/11/2026, 15:10)
+
+- **Lịch tập tuần · `Bảng lịch tập`: tô đỏ #c2182b ô có khách 1:2 đang lẻ** (chủ studio 01/11 14:47; chọn "tô đỏ cả ô" vì Sheets không tô
+  riêng một dòng trong ô bằng công thức). Bảng phụ ẩn S14:Y27 (14 giờ × T2–CN) · S30:Y36 (T2–CN × coach S5:S11), 1 = có khách 1:2 mà
+  coach chỉ có một người ở khung đó; 3 quy tắc mới (lưới lẻ · lưới đầy + lẻ giữ nền Sương · Theo coach lẻ), ngày đã qua vẫn xám (quy tắc
+  ngày đã qua ở trên). Đối chiếu tuần 45 với tính độc lập từ sổ (script, chỉ đếm): 8 khung + 9 ô coach × ngày khớp 100 %; màu thật đọc
+  bằng `effectiveFormat` đúng 8 + 9 ô. `tools/bang_lich_tap.py` theo (dựng lại ra đúng 8 quy tắc + 2 công thức như tab thật, so từng chữ).
+  Bẫy: trong LAMBDA, `SUM(--(mảng=x))` chỉ lấy phần tử đầu → dùng `SUMPRODUCT`. Không đổi mã trang / máy chủ.
 
 - **1.8.1 live 01/11 11:58** (chủ studio 11:42: "được đặt từ 6:00 đến HẾT khung 16:00, tức tới 17:00 là kết thúc") — gói ban ngày thêm khung
   16:00: `LT.OFF_HOURS` = 06 · 07 · 08 · 09 · 10 · 11 · 12 · 14 · 15 · **16** (cửa sổ hiển thị 06:00–17:00). **Bài học**: "giờ A–B" của chủ
@@ -277,6 +284,8 @@ node test/ui_tk3d.js all && node test/ui_png.js all && node test/b0b_check.js &&
 - `Lịch coach` (713): ô tick từng giờ × 7 ngày cho từng coach, chủ studio sửa tay; máy chủ đọc `A1:AD400` (luật đọc: `worker/README.md`).
   Tạo 19/10 bằng `tools/lich_coach.py`, mặc định = luật cũ (T2–T7 đủ, CN trống). Bỏ tick chỉ chặn đặt / đổi mới, buổi đã đặt giữ nguyên.
   31/10: chèn hàng 12:00 vào cả 5 khối (T2–T7 tick, CN trống), vạch nghỉ trưa dưới 12:00. Khối thiếu hàng 12:00 = coach nghỉ 12:00.
+- `Bảng lịch tập` · khách 1:2 đang lẻ (01/11): bảng phụ ẩn S13:Y27 + S29:Y36 → 3 quy tắc tô đỏ; dựng lại tab = `bang_lich_tap.py` (đã có) với
+  số quy tắc cũ 8.
 - `_dữ liệu`: Worker ghi ảnh chụp hội viên còn gói (A tên · B tên ngắn · C coach · D còn lại · E hết hạn · F Mã KH · G hiển thị).
 - Kết quả đọc sheet lớn chứa tên → xử lý bằng script, chỉ in số / so khớp.
 

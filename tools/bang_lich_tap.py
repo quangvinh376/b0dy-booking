@@ -22,6 +22,12 @@ Bẫy đã gặp (17/10):
   · Màu: Sheets cắt (floor) giá trị × 255 → xem rgb().
   · Đếm quy tắc định dạng có điều kiện: spreadsheets.get KHÔNG kèm `ranges` (có `ranges` thì chỉ trả quy tắc chạm vùng đó — 31/10 đếm
     nhầm 2 thay vì 5).
+Khách 1:2 đang lẻ (chủ studio 01/11: "tên khách 1:2 chưa có ai ghép cùng thành màu đỏ #c2182b"): Sheets không tô màu riêng một dòng trong
+ô bằng công thức → chủ studio chọn TÔ ĐỎ CẢ Ô. Bảng phụ ẩn S14:Y27 (14 giờ × T2–CN) và S30:Y36 (T2–CN × coach S5:S11): 1 = khung / coach-ngày
+có khách 1:2 mà coach đó chỉ có một người ở khung đó ("Đã đặt"). Quy tắc định dạng đọc bảng phụ bằng INDEX theo hàng / cột của ô. Thứ tự quy
+tắc (trên → dưới): Theo coach ngày đã qua · Theo coach lẻ · đầu cột đã qua · hôm nay · lưới ngày đã qua · lưới đầy + lẻ (nền Sương, chữ đỏ)
+· lưới lẻ · lưới đầy — Sheets chỉ áp quy tắc ĐẦU TIÊN khớp, nên ô vừa đầy vừa lẻ cần quy tắc riêng. Trong LAMBDA, so mảng phải dùng
+SUMPRODUCT (SUM(--(a=x)) chỉ lấy phần tử đầu → cặp đã ghép bị đếm là lẻ, bắt được khi đối chiếu 01/11).
 Khớp tab thật 31/10 (chỉnh tay sau lần dựng 19/10, script theo): cột ngày 250 px · nhãn H3 "TUẦN ĐANG CHỌN" / "CHỌN TUẦN".
 Ca 12:00 lên tab thật 31/10 bằng CHÈN 2 hàng (12:00 + khe) trên dải nghỉ trưa (không dựng lại → giữ chỉnh tay) + sửa công thức khối sáng
 (MAKEARRAY 13 hàng), nhãn nghỉ trưa, quy tắc "Theo coach" (ROW()−43); dựng lại bằng script này ra đúng bố cục đó.
@@ -37,6 +43,7 @@ def rgb(h):
     # Cộng 1/4 bậc → luôn ra đúng bậc dù Sheets cắt hay làm tròn.
     return {k: min(1.0, round((int(h[i:i + 2], 16) + 0.25) / 255, 6)) for k, i in (('red', 0), ('green', 2), ('blue', 4))}
 GIAY, GIAY2, SUONG, KE, TRO, DA, THAN, MUC = map(rgb, ['FAFAFA', 'F2F2F2', 'EFEFEF', 'E2E2E2', 'B0B0B0', '737373', '4A4A4A', '0A0A0A'])
+DO = rgb('C2182B')                        # chữ đỏ: ô có khách 1:2 đang lẻ (chủ studio 01/11)
 INTER, MONO = 'Inter', 'JetBrains Mono'
 LOG, DAT = "'Sổ đặt lịch'", "'_dữ liệu'"
 
@@ -162,7 +169,7 @@ s2.append(style(grid(R_MISS_0, 5, R_MISS_0 + NMISS, 16), INTER, 8, THAN, v='TOP'
 # ---------------- s3: giá trị + định dạng có điều kiện ----------------
 def F(s): return {'userEnteredValue': {'formulaValue': s}}
 def S(s): return {'userEnteredValue': {'stringValue': s}}
-E, G, L, R, J, I, O, D, Q = [LOG + '!$' + x + '$5:$' + x for x in 'EGLRJIODQ']
+E, G, L, R, J, I, O, D, Q, K = [LOG + '!$' + x + '$5:$' + x for x in 'EGLRJIODQK']     # K = Loại (1:1 / 1:2)
 ON = '"Đã đặt"'
 WEEK_ON = f'{D},$S$3,{L},{ON}'
 cells = {}
@@ -201,6 +208,18 @@ for k, cc in enumerate(DAY_COLS):
 # vạch hôm nay (UI: vạch Mực 20 × 2 px dưới ngày): hàng 7 (14 px — thấp hơn thì Sheets không vẽ chữ) ghi "━━" Mono 16 px = 19,2 px dưới cột của hôm nay
 for k, cc in enumerate(DAY_COLS):
     cells[(6, cc)] = F('=IF($S$2' + ('+' + str(k) if k else '') + '=TODAY(),"━━","")')
+# bảng phụ khách 1:2 đang lẻ (ẩn): S13 / S29 nhãn · S14:Y27 = 14 giờ × T2–CN · S30:Y36 = T2–CN × coach S5:S11 (1 = có, 0 = không)
+LONE_G, LONE_C = (13, 18), (29, 18)                  # (hàng, cột) 0-based của S14 · S30
+HRS_ARR = '{' + ';'.join(str(int(h[:2])) for h in HOURS) + '}'
+cells[(LONE_G[0] - 1, 18)] = S('_khách 1:2 đang lẻ theo khung (14 giờ × T2–CN, 1 = có) → tô đỏ ô bảng lịch tập')
+cells[LONE_G] = F(f'=LET(e,{E},g,{G},l,{L},c,{J},k,{K},MAKEARRAY({len(HOURS)},{NDAY},LAMBDA(i,j,LET(d,TEXT($S$2+j-1,"yyyy-mm-dd"),'
+                  f't,TEXT(INDEX({HRS_ARR},i),"00")&":00",IFERROR(LET(cs,FILTER(c,e=d,g=t,l={ON}),ks,FILTER(k,e=d,g=t,l={ON}),'
+                  f'IF(SUM(MAP(cs,ks,LAMBDA(x,y,IF(AND(y="1:2",SUMPRODUCT(--(cs=x))=1),1,0))))>0,1,0)),0)))))')
+cells[(LONE_C[0] - 1, 18)] = S('_khách 1:2 đang lẻ theo coach (T2–CN × coach S5:S11, 1 = có) → tô đỏ ô Theo coach')
+cells[LONE_C] = F(f'=LET(e,{E},g,{G},l,{L},c,{J},k,{K},MAKEARRAY({NDAY},7,LAMBDA(i,j,LET(co,INDEX($S$5:$S$11,j),d,TEXT($S$2+i-1,"yyyy-mm-dd"),'
+                  f'IF(co="",0,IFERROR(LET(ts,FILTER(g,c=co,e=d,l={ON},k="1:2"),al,FILTER(g,c=co,e=d,l={ON}),'
+                  f'IF(SUM(MAP(ts,LAMBDA(t,IF(SUMPRODUCT(--(al=t))=1,1,0))))>0,1,0)),0))))))')
+assert LONE_G[0] + len(HOURS) <= LONE_C[0] - 1 and LONE_C[0] + NDAY <= R_MISS_0          # không đè ô phụ khác (V54:V61 ở dưới)
 # lưới: MỘT công thức mỗi khối (sáng 13 × 13 từ D8 · chiều 13 × 13 từ D24). Hàng / cột chẵn của khối = khe → "".
 # Mỗi ô: các coach có mặt (UNIQUE, xếp theo tên) → mỗi coach MỘT dòng "tên + tên · coach" (MAP) → số dòng = số suất.
 def block(nrows, h0):
@@ -254,11 +273,21 @@ def cf(ranges, formula, fmt):
 # addConditionalFormatRule index 0 = lên đầu danh sách → thêm theo thứ tự ưu tiên TĂNG dần (quy tắc thêm sau thắng)
 body = [grid(GRID_TOP, 3, GRID_END, GRID_C2)]
 DAY_OF_COL = '$S$2+(COLUMN()-4)/2'
+A1G = '$S$' + str(LONE_G[0] + 1) + ':$Y$' + str(LONE_G[0] + len(HOURS))          # $S$14:$Y$27
+A1C = '$S$' + str(LONE_C[0] + 1) + ':$Y$' + str(LONE_C[0] + NDAY)                # $S$30:$Y$36
+# hàng của ô → thứ tự giờ (06:00 hàng 8 → 1 · 12:00 hàng 20 → 7 · 14:00 hàng 24 → 8 · 20:00 hàng 36 → 14); cột D/F/…/P → ngày 1…7
+HIDX = f'IF(ROW()<{LUNCH_ROW + 1},(ROW()-{AM_TOP - 1})/2,(ROW()-{PM_TOP + 1 - 2 * (AM_H + 1)})/2)'
+LONE = f'INDEX({A1G},{HIDX},(COLUMN()-2)/2)=1'
+FULL = 'LEN(D8)-LEN(SUBSTITUTE(D8,CHAR(10),""))+1>=$S$4'
 s3 += [
-    cf(body, '=AND(ISEVEN(COLUMN()),D8<>"",LEN(D8)-LEN(SUBSTITUTE(D8,CHAR(10),""))+1>=$S$4)', {'backgroundColor': SUONG}),   # số dòng = số suất
+    cf(body, f'=AND(ISEVEN(COLUMN()),D8<>"",{FULL})', {'backgroundColor': SUONG}),   # số dòng = số suất
+    cf(body, f'=AND(ISEVEN(COLUMN()),$B8<>"",D8<>"",{LONE})', {'textFormat': {'foregroundColor': DO}}),
+    cf(body, f'=AND(ISEVEN(COLUMN()),$B8<>"",D8<>"",{FULL},{LONE})', {'backgroundColor': SUONG, 'textFormat': {'foregroundColor': DO}}),
     cf(body, f'=AND(ISEVEN(COLUMN()),$B8<>"",{DAY_OF_COL}<TODAY())', {'backgroundColor': GIAY2, 'textFormat': {'foregroundColor': DA}}),
     cf([grid(4, 3, 5, GRID_C2)], f'=AND(ISEVEN(COLUMN()),{DAY_OF_COL}=TODAY())', {'textFormat': {'foregroundColor': MUC}}),
     cf([grid(4, 3, 6, GRID_C2)], f'=AND(ISEVEN(COLUMN()),{DAY_OF_COL}<TODAY())', {'textFormat': {'foregroundColor': TRO}}),
+    cf([grid(R_COACH_D0, 3, R_COACH_D0 + NDAY, 16)], f'=AND(ISEVEN(COLUMN()),D{R_COACH_D0 + 1}<>"",INDEX({A1C},ROW()-{R_COACH_D0},(COLUMN()-2)/2)=1)',
+       {'textFormat': {'foregroundColor': DO}}),
     # hàng "Theo coach" ngày đã qua: số hàng nằm TRONG công thức (ROW() − hàng T2) → chèn / xoá hàng phía trên phải sửa tay quy tắc này
     cf([grid(R_COACH_D0, 1, R_COACH_D0 + NDAY, 16)], f'=$S$2+ROW()-{R_COACH_D0 + 1}<TODAY()', {'textFormat': {'foregroundColor': DA}}),
     # ô Xem tuần: chỉ nhận ngày (bấm đúp → lịch chọn ngày; locale en_US nên gõ tay "26/10" không phải ngày → bị từ chối)
