@@ -24,7 +24,7 @@ ID hai file Google Sheets: `BA_ID` (file BA: MEMBERS · SESSION LOG · TRIAL · 
    biến `CLOUDFLARE_API_TOKEN` (quyền Workers Scripts: Edit) + `CLOUDFLARE_ACCOUNT_ID` thì `cd worker && npx wrangler deploy` trực tiếp.
    Không áp dụng cho: sửa hàng loạt Google Sheets (luật 5), đưa Apps Script dự phòng lên (luật 4). Cách deploy: mục "Máy chủ" dưới.
 4. Apps Script dự phòng (`backend/LichTuan.gs`): đưa lên bằng Deploy ▸ Manage deployments ▸ New version; KHÔNG bấm Run.
-   Đang chạy **V40 = `backend/LichTuan.gs` của `aee113b`** (31/10, chủ studio "mọi quyền deploy đều được cho phép"). Số version là của
+   Đang chạy **V43 = `backend/LichTuan.gs` của `6c4c70a`** (04/11; 31/10 chủ studio "mọi quyền deploy đều được cho phép"). Số version là của
    cả project: V39 (28/10) là của deployment tập thử, không phải trang đặt lịch. Đổi luật ở repo thì đưa
    bản mới lên cùng lúc với Worker (chạy parity trước). Ô "Description" của New version để trống → deployment mất tên ("Untitled"):
    luôn gõ mô tả.
@@ -33,7 +33,23 @@ ID hai file Google Sheets: `BA_ID` (file BA: MEMBERS · SESSION LOG · TRIAL · 
 6. Sau mỗi lần đẩy: xác minh commit bằng hash và SHA-256 từng tệp trên `raw.githubusercontent.com/quangvinh376/b0dy-booking/<commit>/…`.
 7. Chỉ MỘT tiến trình Playwright / Chromium một lúc (máy test nhỏ từng hết RAM).
 
-## Đang ở đâu (01/11/2026, 16:50)
+## Đang ở đâu (04/11/2026, 23:15)
+
+- **1.8.2 live 04/11 ~23:10** (chủ studio 04/11 20:47: "Cho phép đổi giờ trong ngày" — chốt: giữ buổi đang có ≥ 24 giờ, khung mới ≥ 12 giờ;
+  đổi trong ngày tính 1 lượt như mọi lần đổi; "Ghép" vào nhóm 1:2 vẫn miễn lượt). Nguồn: khách 1:1 không dời được T6 19:00 → T6 07:00 vì
+  `checkChange` trả `cung_ngay` và trang khoá cả cột ngày của buổi đang đổi. Máy chủ (`core.js` · `LichTuan.gs`, parity): bỏ `cung_ngay`;
+  thêm chặn "đổi" sang chính buổi đang có (`khong_hop_le` · `khung` — trước đây `cung_ngay` chặn luôn ca này). Trang: `cellModel` cờ
+  `sameDay` (ô giờ khác cùng ngày buổi đang đổi đi luồng ô thường; hết lượt / chỉ còn Ghép giữ lối cũ), `toOk` bỏ chặn cùng ngày, luật
+  "Đổi sang ngày khác, hoặc giờ khác trong cùng ngày, trong cùng tuần." (bỏ biến thể 1:2 "trừ khi dời vào nhóm"). Mã `cung_ngay` trang vẫn
+  hiểu (máy chủ cũ). Test: `gas_lt` 379 · parity 432 (1023 lượt giống hệt) · concurrency 37 · robust 86 · http 13 · live 25 ·
+  `coach_cases` mục 23 mới (đổi trong ngày: dưới 12 giờ · ok + dòng sổ · coach bận → het_cho · trùng chính buổi · mỗi ngày một buổi · hết
+  lượt) + mục 15 viết lại · ui_states 117 (E13 mới: cột T6 mở, T3 vẫn khoá, máy chủ nhận đổi) · ui_qc 84 · ui_duo 48 (đổi ca "rời cặp
+  trong ngày không được" → chọn được) · ui_live 28 · ui_notice 110 · ui_smoke 24 · ui_sw 8 · ui_peak 71 · rv_* PASS. `ui_peak` ca "Chọn
+  1 buổi" trượt cả trên 1.8.1 (đọc chữ nút 250 ms trong lúc mờ chéo) → chờ 900 ms. Deploy: `main` `6c4c70a` (11 tệp SHA-256 khớp raw) ·
+  Worker `6c4c70a` (7 module SHA khớp, `OK etag=007ad63bed`, 5 binding, cron) → `lt_ping` pending 0 · `lt_boot` tuần 45 7 ngày · trang thật
+  `index.html` · `app.js` · `sw.js` khớp, VER 1.8.2 · Apps Script **V43** 23:11 ("Lich tap tuan (booking.b0dy.studio) - doi gio trong cung
+  ngay, 04/11", ID giữ; LichTuan.gs SHA `fda7da38…` sau khi tải lại, Code.gs / Discord.gs không đổi) → `/exec` `lt_boot` tuần 45 ·
+  `lt_find` 'zqxj' → `[]`. Lần này bộ kiểm quyền chặn deploy Worker tới khi chủ studio nói rõ "tiến hành deploy, tôi đồng ý".
 
 - **`Bảng lịch tập` · hàng ô con 13 / 14 → 18 px** (chủ studio 16:41: "đang bị cắt xén mất text"): 13 px cắt chân chữ g · y · ọ (Inter 8).
   Chỉ đổi chiều cao 70 hàng lưới + 56 hàng Theo coach (`SUB_H` = `KC_H` = 18 trong script), không đụng công thức / màu. Đọc ngược
