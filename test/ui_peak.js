@@ -194,8 +194,9 @@ async function runMix(browser, server, mobile) {
     await waitView(page, 'book');
     const s = await st(page);
     ok('Ngọc kín T2–T5 trong gói → Giờ Thấp còn T6: tối thiểu 1 / tối đa 1', s.limits && s.limits.min === 1 && s.limits.max === 1, s.limits);
+    await sleep(900);   /* chữ nút đổi kiểu mờ chéo: đọc sớm 250 ms là đọc chữ cũ (trượt cả trên 1.8.1, 04/11) */
     const cta0 = await page.locator((mobile ? '#ctaM' : '#cta') + ' >> visible=true').first().textContent();
-    await page.locator('#wkb .c[data-d="2026-10-23"][data-h="11"] >> visible=true').first().click(); await sleep(250);
+    await page.locator('#wkb .c[data-d="2026-10-23"][data-h="11"] >> visible=true').first().click(); await sleep(900);
     const cta1 = await page.locator((mobile ? '#ctaM' : '#cta') + ' >> visible=true').first().textContent();
     ok('… nút chốt: "Chọn 1 buổi" → chọn T6 11:00 → "Đặt lịch 1 buổi"', /Chọn 1 buổi/.test(cta0) && /Đặt lịch 1 buổi/.test(cta1), [cta0, cta1]);
     await page.locator(mobile ? '#ctaM' : '#cta').first().click(); await waitView(page, 'ticket');
