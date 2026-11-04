@@ -368,7 +368,7 @@ console.log('\n== 8. Đặt muộn (T2–T7): khung phải cách ≥ 12 giờ (c
   ok('Điểm danh SESSION LOG: T2 19.10 "Vắng" không nằm trong phiếu nên không hiện', r.mine.sessions.every(x => x.date !== '2026-10-19'));
 }
 
-console.log('\n== 9. Đổi lịch: tối đa 2 lần, ngày khác, buổi đang có ≥ 24 giờ, khung mới ≥ 12 giờ (chốt 22/10) ==');
+console.log('\n== 9. Đổi lịch: tối đa 2 lần, ngày khác hoặc giờ khác trong ngày, buổi đang có ≥ 24 giờ, khung mới ≥ 12 giờ (chốt 22/10) ==');
 {
   const t = setup(vn('2026-10-18', '07:00'));
   let s = await login(t, 'duc nam', '0001');
@@ -386,8 +386,8 @@ console.log('\n== 9. Đổi lịch: tối đa 2 lần, ngày khác, buổi đang
   ok('Dòng cũ → Đã đổi + "Đổi sang T5 22.10 · 19:00"; dòng mới Đổi + "Đổi từ T4 21.10 · 18:00"', old[11] === 'Đã đổi' && old[13] === 'Đổi sang T5 22.10 · 19:00' && nw[11] === 'Đã đặt' && nw[12] === 'Đổi' && nw[13] === 'Đổi từ T4 21.10 · 18:00' && nw[2] === 2, [old, nw]);
   r = await call(t, { action: 'lt_change', tok: s.tok, rid: rid(), week: '2026-W43', from: { date: '2026-10-20', h: 6 }, to: { date: '2026-10-24', h: 9 } });
   ok('Đổi buổi không có trong phiếu → khong_co_buoi', r.why === 'khong_co_buoi', r.why);
-  r = await call(t, { action: 'lt_change', tok: s.tok, rid: rid(), week: '2026-W43', from: { date: '2026-10-22', h: 19 }, to: { date: '2026-10-22', h: 7 } });
-  ok('Đổi trong cùng ngày → cung_ngay', r.why === 'cung_ngay', r.why);
+  r = await call(t, { action: 'lt_change', tok: s.tok, rid: rid(), week: '2026-W43', from: { date: '2026-10-22', h: 19 }, to: { date: '2026-10-22', h: 19 } });
+  ok('Đổi sang chính buổi đang có → khong_hop_le · khung (đổi giờ trong ngày được từ 04/11: mục 23 của coach_cases)', r.ok === false && r.why === 'khung', r.why);
   r = await call(t, { action: 'lt_change', tok: s.tok, rid: rid(), week: '2026-W43', from: { date: '2026-10-22', h: 19 }, to: { date: '2026-10-23', h: 7 } });
   ok('Đổi sang ngày đã có buổi → mot_ngay_mot_buoi', r.why === 'mot_ngay_mot_buoi', r.why);
   r = await call(t, { action: 'lt_change', tok: s.tok, rid: rid(), week: '2026-W43', from: { date: '2026-10-22', h: 19 }, to: { date: '2026-10-20', h: 20 } });

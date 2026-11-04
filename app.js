@@ -9,7 +9,7 @@
 'use strict';
 
 /* ============================== CẤU HÌNH ============================== */
-var VER = '1.8.1';
+var VER = '1.8.2';
 var API_URL = 'https://b0dy-booking-api.little-bonus-1d87.workers.dev/';
 var API_SLOW = false;                 /* true khi chạy Apps Script (chậm hơn nhiều) → nới thời gian chờ */
 /* kênh live: Worker chỉ nhận từ trang thật (ALLOW_ORIGINS) → trang chạy chỗ khác (test trên máy) không nối, khỏi gõ cửa máy chủ thật.
@@ -29,7 +29,7 @@ var OFF = 7 * 3600e3, HR = 3600e3, DAY = 864e5;
    buổi đang có muốn đổi ≥ 24 giờ */
 var LEAD = 12 * HR, CHG_LEAD = 24 * HR;
 var RULES = ['Mỗi tuần đặt 2–4 buổi, mỗi ngày tối đa 1 buổi.', 'Mỗi khung giờ, coach dạy một suất: 1 khách 1:1, hoặc 2 khách gói 1:2 của coach đó.', 'Lịch đã đặt không thể huỷ.',
-  'Đổi lịch tối đa 2 lần mỗi tuần: buổi muốn đổi còn ít nhất 24 giờ, khung mới còn ít nhất 12 giờ.', 'Chỉ đổi sang ngày khác trong cùng tuần.',
+  'Đổi lịch tối đa 2 lần mỗi tuần: buổi muốn đổi còn ít nhất 24 giờ, khung mới còn ít nhất 12 giờ.', 'Đổi sang ngày khác, hoặc giờ khác trong cùng ngày, trong cùng tuần.',
   'Không đến vẫn tính 1 buổi.', 'Lịch tuần sau mở lúc 06:00 Chủ Nhật.', 'Đặt hoặc thêm buổi trong tuần: trước buổi tập ít nhất 12 giờ.'];
 
 /* ============================== TIỆN ÍCH ============================== */
@@ -1235,11 +1235,10 @@ function rulesOf() {
   var d = duoSt(), o = offSt(), op = o ? ['Gói ban ngày đặt trong ' + offRange() + ': khung ' + hoursTxt(o.hours) + '.'] : [];
   if (!d) return o ? RULES.slice(0, 2).concat(op, RULES.slice(2)) : RULES;
   var r = RULES.slice();
-  r[4] = 'Chỉ đổi sang ngày khác trong cùng tuần, trừ khi dời vào nhóm.';
   return r.slice(0, 2).concat(op, [(duoAll() ? 'Gói 1:2 đặt được mọi khung' + (o ? ' trong gói' : ' như gói 1:1') : 'Gói 1:2 đặt vào các khung ghép ' + hoursTxt()) +
     '. Bạn tập cùng coach đã đặt hiện tên trên bảng.',
     'Chưa có bạn tập thì buổi vẫn diễn ra. Bạn có thể mời một bạn cùng coach; bạn ấy thấy lời mời khi mở trang đặt lịch.',
-    'Dời buổi đang chờ ghép vào nhóm có sẵn sẽ không bị tính lượt đổi, kể cả trong ngày.']).concat(r.slice(2));
+    'Dời buổi đang chờ ghép vào nhóm có sẵn sẽ không bị tính lượt đổi.']).concat(r.slice(2));
 }
 function rulesHTML() { return '<div class="rules"><p>Lịch đã đặt không thể huỷ.</p><p>Có thể đổi lịch tối đa 2 lần, trước 24 giờ.</p></div>'; }
 var MRULE = 'Không huỷ · đổi tối đa 2 lần, trước 24 giờ';
@@ -1794,10 +1793,13 @@ function cellModel(mode) {
   var from = S.chg.from, to = S.chg.to;
   w.days.forEach(function (d, di) {
     var prevWhy = '', s = mode !== 'book' || S.addMode ? sessOn(d) : null;
+    /* đổi lịch: ngày của buổi đang đổi — giờ khác trong ngày chọn được như ô thường (chủ studio 04/11; tính một lượt).
+       Hết lượt (gói 1:2 chỉ còn Ghép) thì giữ lối cũ: trong ngày chỉ dời vào nhóm. */
+    var sameDay = mode === 'chg' && !noChg && !pairOnly && !!from && !!s && from.date === d;
     gridRows().forEach(function (h) {
       var k = d + '|' + h, label = DOWF[dowOf(d)] + ' ' + ddmm(d) + ', ' + hm(h) + ', ', at = { date: d, h: h };
       var m = { cls: 'free', html: '', can: false, aria: '' };
-      if (s && mode !== 'book') {
+      if (s && mode !== 'book' && !(sameDay && s.h !== h)) {
         /* màn đổi lịch / thêm buổi: ngày đã có buổi */
         if (s.h === h) {
           var pn = pairName(d, h), single = !!duoSt() && !pn;
@@ -1824,7 +1826,7 @@ function cellModel(mode) {
       if (mode === 'chg') {
         if (to && to.date === d && to.h === h) { m.cls = 'sel pop0'; m.html = selHTML(at); m.can = true; m.aria = label + 'buổi mới, chọn lại để bỏ'; out[k] = m; return; }
         if (wy === 'qua') { m.cls = 'past'; m.aria = label + 'đã qua'; out[k] = m; return; }
-        if (noChg || !from || from.date === d || (s && s.date === d) || (pairOnly && !pairMove(from, at))) { m.cls = 'lock'; m.aria = label + 'không chuyển tới được'; out[k] = m; return; }
+        if (noChg || !from || (s && !sameDay) || (pairOnly && !pairMove(from, at))) { m.cls = 'lock'; m.aria = label + 'không chuyển tới được'; out[k] = m; return; }
       } else {
         if (pickBy[d] === h) { m.cls = 'sel'; m.html = selHTML(at); m.can = true; m.aria = label + 'đã chọn, chọn lại để bỏ'; out[k] = m; return; }
         if (goneBy[k]) { m.cls = 'gone'; m.html = '<span class="d">Vừa hết</span><span class="m">Hết</span>'; m.aria = label + 'vừa hết chỗ'; out[k] = m; return; }
@@ -2422,7 +2424,6 @@ VIEWS.change = function () {
 function toOk(f, t) {
   if (!f || !t || sameSlot(f, t) || why(t.date, t.h, LEAD)) return false;
   var pm = pairMove(f, t);
-  if (t.date === f.date && !pm) return false;
   if (t.date !== f.date && sessOn(t.date)) return false;
   return S.st.mine.changesLeft > 0 || pm;
 }

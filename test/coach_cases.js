@@ -226,15 +226,14 @@ async function coachCases(h) {
     r = await change(t, c1, ['2026-10-23', 17], ['2026-10-19', 17]);
     ok('Cặp Một đổi thường T6 17:00 → T2 17:00 (khung trống) → "Đổi", còn 1 lượt', r.ok && r.mine.changesLeft === 1, r.error || r.why);
     r = await change(t, c1, ['2026-10-19', 17], ['2026-10-19', 19]);
-    ok('… đổi thường trong cùng ngày (T2 17:00 → T2 19:00, không phải vào cặp) → cung_ngay', r.ok === false && r.why === 'cung_ngay', r.why);
-    r = await change(t, c1, ['2026-10-19', 17], ['2026-10-21', 19]);
-    ok('… đổi thường T2 17:00 → T4 19:00 → ok, hết lượt đổi', r.ok && r.mine.changesLeft === 0, r.error || r.why);
-    r = await change(t, c1, ['2026-10-21', 19], ['2026-10-19', 19]);
-    ok('Hết lượt: đổi thường T4 19:00 → T2 19:00 → het_luot_doi', r.ok === false && r.error === 'het_luot_doi', r.error);
-    r = await change(t, c1, ['2026-10-21', 19], ['2026-10-21', 10]);
-    ok('Hết lượt: dời vào khung không có ai chờ ghép (không phải vào cặp) → het_luot_doi', r.ok === false && r.error === 'het_luot_doi', r.error || r.why);
-    r = await change(t, c1, ['2026-10-21', 19], ['2026-10-21', 17]);
-    ok('Hết lượt vẫn dời được buổi đang lẻ vào cặp: T4 19:00 → T4 17:00 (Cặp Hai đang chờ) → ok, vẫn 0 lượt, thấy tập đôi cùng Cặp Hai',
+    ok('… đổi thường trong cùng ngày (T2 17:00 → T2 19:00, không phải vào cặp; được từ 04/11) → "Đổi", hết lượt đổi', r.ok && r.mine.changesLeft === 0 &&
+       rowsOf(t, 'B925DY').some(x => x[12] === 'Đổi' && x[13] === 'Đổi từ T2 19.10 · 17:00'), r.error || r.why);
+    r = await change(t, c1, ['2026-10-19', 19], ['2026-10-21', 19]);
+    ok('Hết lượt: đổi thường T2 19:00 → T4 19:00 → het_luot_doi', r.ok === false && r.error === 'het_luot_doi', r.error);
+    r = await change(t, c1, ['2026-10-19', 19], ['2026-10-19', 10]);
+    ok('Hết lượt: đổi trong ngày vào khung không có ai chờ ghép (không phải vào cặp) → het_luot_doi', r.ok === false && r.error === 'het_luot_doi', r.error || r.why);
+    r = await change(t, c1, ['2026-10-19', 19], ['2026-10-21', 17]);
+    ok('Hết lượt vẫn dời được buổi đang lẻ vào cặp: T2 19:00 → T4 17:00 (Cặp Hai đang chờ) → ok, vẫn 0 lượt, thấy tập đôi cùng Cặp Hai',
        r.ok && r.mine.changesLeft === 0 && r.mine.changes === 2 && duo(r).pairs['2026-10-21|17'] === 'Cặp Hai', r.error || r.why || r.mine);
     /* rời một cặp để vào cặp khác: tính lượt đổi như thường */
     c2 = await boot(t, c2);
@@ -732,6 +731,45 @@ async function coachCases(h) {
     const mot = await login(t, 'thu mot', '0021');
     r = await book(t, mot, [['2026-10-21', 6], ['2026-10-22', 7]]);
     ok('K. Thứ Một (Quyết · 1:1) chọn T4 06:00 (Quyết có nhóm 1:2) → het_cho chỉ ra T4 06:00', fullOnly(r, '2026-10-21', 6), r);
+  }
+
+  console.log('\n== 23. Đổi giờ trong cùng ngày (chủ studio 04/11): buổi đang có ≥ 24 giờ, khung mới ≥ 12 giờ, tính một lượt như mọi lần đổi ==');
+  {
+    const t = await setup(vn('2026-10-18', '07:00'));
+    let nam = await login(t, 'duc nam', '0001');
+    let r = await book(t, nam, [['2026-10-21', 20], ['2026-10-22', 19], ['2026-10-23', 18]]);
+    ok('H. Đức Nam (Quyết · 1:1) đặt T4 20:00 · T5 19:00 · T6 18:00 → ok', r.ok, r.error || r.why);
+    const mot = await login(t, 'thu mot', '0021');
+    r = await book(t, mot, [['2026-10-22', 7], ['2026-10-23', 10]]);
+    ok('K. Thứ Một (cùng coach Quyết) đặt T5 07:00 · T6 10:00 → ok', r.ok, r.error || r.why);
+    t.clock.now = vn('2026-10-20', '19:30');
+    nam = await boot(t, nam);
+    const n0 = rowsOf(t, 'B901DY').length;
+    r = await change(t, nam, ['2026-10-21', 20], ['2026-10-21', 7]);
+    ok('T3 19:30 · đổi T4 20:00 (24,5 giờ) → T4 07:00 (11,5 giờ) cùng ngày → duoi_12h, không ghi', r.ok === false && r.why === 'duoi_12h' && rowsOf(t, 'B901DY').length === n0, r.why);
+    r = await change(t, nam, ['2026-10-21', 20], ['2026-10-21', 8]);
+    ok('… → T4 08:00 (12,5 giờ) → ok, "Đổi", bản 2, còn 1 lượt',
+       r.ok && r.mine.ver === 2 && r.mine.changesLeft === 1 && r.mine.sessions.some(x => x.date === '2026-10-21' && x.h === 8) && !r.mine.sessions.some(x => x.date === '2026-10-21' && x.h === 20), r.error || r.why || r.mine);
+    const rs = rowsOf(t, 'B901DY'), old = rs.find(x => x[4] === '2026-10-21' && x[6] === '20:00'), nw = rs.find(x => x[4] === '2026-10-21' && x[6] === '08:00');
+    ok('… dòng cũ "Đã đổi" + "Đổi sang T4 21.10 · 08:00"; dòng mới "Đã đặt" · "Đổi" + "Đổi từ T4 21.10 · 20:00"',
+       !!(old && nw) && old[11] === 'Đã đổi' && old[13] === 'Đổi sang T4 21.10 · 08:00' && nw[11] === 'Đã đặt' && nw[12] === 'Đổi' && nw[13] === 'Đổi từ T4 21.10 · 20:00', [old, nw]);
+    ok('… phòng: T4 20:00 trống, T4 08:00 một suất', !(r.taken['2026-10-21|20'] > 0) && r.taken['2026-10-21|8'] === 1, [r.taken['2026-10-21|20'], r.taken['2026-10-21|8']]);
+    const mot2 = await boot(t, mot);
+    ok('… K. Thứ Một thấy T4 08:00 "busy", T4 20:00 rảnh', at(mot2, '2026-10-21|8') === 'busy' && !at(mot2, '2026-10-21|20'), [at(mot2, '2026-10-21|8'), at(mot2, '2026-10-21|20')]);
+    const n1 = rowsOf(t, 'B901DY').length;
+    r = await change(t, nam, ['2026-10-22', 19], ['2026-10-22', 19]);
+    ok('"Đổi" T5 19:00 sang chính T5 19:00 → khong_hop_le · khung, không ghi', r.ok === false && r.why === 'khung' && rowsOf(t, 'B901DY').length === n1, [r.error, r.why]);
+    r = await change(t, nam, ['2026-10-22', 19], ['2026-10-22', 7]);
+    ok('Đổi T5 19:00 → T5 07:00 (Quyết đang dạy K. Thứ Một) → het_cho chỉ ra T5 07:00, không ghi', fullOnly(r, '2026-10-22', 7) && rowsOf(t, 'B901DY').length === n1, r.error || r.why);
+    r = await change(t, nam, ['2026-10-22', 19], ['2026-10-21', 10]);
+    ok('Đổi T5 19:00 → T4 10:00 (T4 đã có buổi 08:00) → mot_ngay_mot_buoi', r.ok === false && r.why === 'mot_ngay_mot_buoi', r.why);
+    r = await change(t, nam, ['2026-10-22', 19], ['2026-10-22', 9]);
+    ok('Đổi T5 19:00 → T5 09:00 → ok, hết lượt', r.ok && r.mine.changesLeft === 0 && r.mine.sessions.some(x => x.date === '2026-10-22' && x.h === 9), r.error || r.why);
+    r = await change(t, nam, ['2026-10-22', 9], ['2026-10-22', 10]);
+    ok('Hết lượt: đổi trong ngày T5 09:00 → T5 10:00 → het_luot_doi', r.ok === false && r.error === 'het_luot_doi', r.error);
+    t.clock.now = vn('2026-10-22', '10:00');
+    const nam2 = await boot(t, nam);
+    ok('T5 10:00 · phiếu: T4 08:00 (Đổi) · T5 09:00 (Đổi) · T6 18:00, 0 lượt', nam2.mine.changesLeft === 0 && nam2.mine.sessions.map(x => x.date.slice(8) + '|' + x.h).join(',') === '21|8,22|9,23|18', nam2.mine.sessions);
   }
 }
 

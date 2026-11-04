@@ -686,7 +686,8 @@ function ltCheckBook_(ctx, person, env, mine, picks) {
   return { ok: true };
 }
 /**
- * Kiểm tra đổi buổi: từ buổi `from` (cách hiện tại ≥ 24 giờ) sang khung `to` (ngày khác, cùng tuần, cách hiện tại ≥ 12 giờ như đặt lịch).
+ * Kiểm tra đổi buổi: từ buổi `from` (cách hiện tại ≥ 24 giờ) sang khung `to` (cùng tuần, cách hiện tại ≥ 12 giờ như đặt lịch; ngày khác
+ * hoặc giờ khác trong cùng ngày — chủ studio 04/11: đổi giờ trong ngày được, tính một lượt như mọi lần đổi).
  * Gói 1:2: dời một buổi đang lẻ vào cặp đang chờ (ltPairMove_) không tính lượt đổi — còn làm được khi đã hết lượt, và được dời
  * trong cùng ngày. Trả {ok, cur, pair} — pair: ghi "Ghép" thay "Đổi".
  */
@@ -697,10 +698,10 @@ function ltCheckChange_(ctx, person, env, mine, from, to) {
   var cur = null;
   mine.sessions.forEach(function (s) { if (s.date === from.date && s.h === from.h) cur = s; });
   if (!cur) return { error: 'khong_hop_le', why: 'khong_co_buoi' };
+  if (to.date === cur.date && to.h === cur.h) return { error: 'khong_hop_le', why: 'khung' };   /* "đổi" sang chính buổi đang có */
   var pair = duo && ltPairMove_(env, person, cur, to);
   if (!pair && mine.changes >= LT.CHANGES) return { error: 'het_luot_doi' };
   if (ltSlotMs_(cur.date, cur.h) - ctx.now < LT.CHG_LEAD) return { error: 'khong_hop_le', why: 'buoi_duoi_24h' };
-  if (to.date === from.date && !pair) return { error: 'khong_hop_le', why: 'cung_ngay' };
   for (var i = 0; i < mine.sessions.length; i++) if (mine.sessions[i].date === to.date && mine.sessions[i] !== cur) return { error: 'khong_hop_le', why: 'mot_ngay_mot_buoi' };
   var w = ltWhy_(ctx, person, env, to.date, to.h, LT.LEAD);
   if (ltIsFull_(w)) return { error: 'het_cho', full: [{ date: to.date, h: to.h }] };

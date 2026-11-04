@@ -369,6 +369,45 @@ async function E12chg() {
     await close(page);
   }
 }
+async function E13sameday() {
+  /* chủ studio 04/11: đổi giờ trong cùng ngày được (buổi đang có ≥ 24 giờ, khung mới ≥ 12 giờ), tính một lượt */
+  console.log('\n== E13 · đổi giờ trong cùng ngày (T3 07:00: T6 18:00 → T6 08:00) ==');
+  for (const [k, o] of [['d', DESK], ['m', MOB]]) {
+    const t = backend(vn('2026-10-18', '20:15'));
+    const page = await open(t, o, 'E13' + k);
+    const desk = k === 'd';
+    await login(page, 'duc nam', '0001', desk);
+    await page.waitForSelector('.pg-book');
+    for (const [d, h] of [['2026-10-20', 19], ['2026-10-23', 18]]) await cell(page, d, h);
+    await tap(page, desk ? '#cta' : '#ctaM');
+    await page.waitForSelector('.pg-tk');
+    t.clock.now = vn('2026-10-20', '07:00');
+    await page.reload();
+    await page.waitForSelector(vis('[data-a="gochg"]'));
+    await sleep(600);
+    await tap(page, '[data-a="gochg"]'); await page.waitForSelector('.pg-chg');
+    await sleep(500);
+    const from0 = await page.evaluate(() => window.__lt.S.chg.from);
+    ok('E13 ' + k + ': chỉ T6 18:00 đổi được → chọn sẵn', from0 && from0.date === '2026-10-23' && from0.h === 18, from0);
+    if (!from0) await cell(page, '2026-10-23', 18);
+    const st = await page.evaluate(() => {
+      const q = (d, h) => document.querySelector('#wkb .c[data-d="' + d + '"][data-h="' + h + '"]');
+      const a = (d, h) => { const c = q(d, h); return c ? c.getAttribute('aria-disabled') : 'none'; };
+      return { t6_8: a('2026-10-23', 8), t6_18: q('2026-10-23', 18).className, t3_10: a('2026-10-20', 10) };
+    });
+    ok('E13 ' + k + ': cột T6 (ngày của buổi đang đổi): T6 08:00 chọn được, T6 18:00 là buổi đang đổi', st.t6_8 === null && /moving/.test(st.t6_18), st);
+    ok('E13 ' + k + ': ngày có buổi khác (T3) vẫn khoá giờ khác', st.t3_10 === 'true', st);
+    await cell(page, '2026-10-23', 8); await sleep(300);
+    const to = await page.evaluate(() => window.__lt.S.chg.to);
+    ok('E13 ' + k + ': chọn T6 08:00 → buổi mới T6 08:00', to && to.date === '2026-10-23' && to.h === 8, to);
+    await tap(page, desk ? '#cta' : '#ctaM');
+    await page.waitForSelector('.pg-tk'); await sleep(400);
+    const ses = await page.evaluate(() => [window.__lt.S.st.mine.sessions.map(s => s.date + ' ' + s.h).join(','), window.__lt.S.st.mine.changesLeft]);
+    ok('E13 ' + k + ': máy chủ nhận đổi T6 18:00 → T6 08:00, còn 1 lượt', ses[0] === '2026-10-20 19,2026-10-23 8' && ses[1] === 1, ses);
+    await shot(page, 'E13-' + k, 600);
+    await close(page);
+  }
+}
 async function E09drawer() {
   console.log('\n== E09 hết lượt đổi · ngăn kéo / cửa sổ · bàn phím ==');
   for (const [k, o] of [['d', DESK], ['m', MOB]]) {
@@ -466,7 +505,7 @@ async function reduced() {
   browser = await chromium.launch({ executablePath: EXE, args: ARGS });
   server = await startServer();
   const only = process.argv[2];
-  const all = { E01, E03, E04, E11, E08, E12chg, E10, E06E07, E09drawer, overflow, reduced };
+  const all = { E01, E03, E04, E11, E08, E12chg, E13sameday, E10, E06E07, E09drawer, overflow, reduced };
   process.on('unhandledRejection', e => { console.error(e); process.exit(2); });
   for (const k of Object.keys(all)) if (!only || only.split(',').indexOf(k) >= 0) await all[k]();
   console.log('\n  console/pageerror:', ERRS.length ? ERRS : 'none');

@@ -4,7 +4,7 @@
    2. Thục Quyên mở → phiếu: dòng Tập đôi báo lời mời → bảng → Tập cùng → đổi lịch chọn sẵn T4 11:00 → T4 09:00, nút "Dời vào nhóm"
    3. Gửi → phiếu "Đã ghép tập đôi!" · lượt đổi còn 2 · sổ: dòng "Ghép" · Uyển Nhi thấy T4 09:00 tập đôi cùng Thục Quyên
    4. Uyển Nhi đổi T6 09:00 (đang lẻ) sang T5 11:00 (Thục Quyên đang chờ) → "Dời vào nhóm" khác ngày, không tính lượt
-   5. Thục Quyên đổi T4 09:00 (đang tập đôi) ra T4 11:00 → không được (cùng ngày, rời cặp) · sang T6 19:00 → "Xác nhận đổi" (tính lượt)
+   5. Thục Quyên đổi T4 09:00 (đang tập đôi): T4 11:00 chọn được (đổi trong ngày, tính lượt) · sang T6 19:00 → "Xác nhận đổi" (tính lượt)
    6. Thục Quyên mời Uyển Nhi T6 19:00 → Uyển Nhi "Không, cảm ơn" → Thục Quyên thấy "Uyển Nhi đã từ chối tham gia" + "Mời bạn khác" */
 'use strict';
 const { chromium } = require('playwright');
@@ -117,7 +117,7 @@ async function run(browser, server, mobile) {
   if (!pre || pre.date !== '2026-10-21') await cell('2026-10-21', 9).click();
   await sleep(200);
   const same = await page.evaluate(() => { const c = document.querySelector('#wkb .c[data-d="2026-10-21"][data-h="11"]'); return c ? c.className + ' ' + c.getAttribute('aria-disabled') : 'none'; });
-  ok('Thục Quyên chọn T4 09:00 (đang tập đôi) → T4 11:00 khoá (rời cặp trong ngày không được)', /lock/.test(same) && /true/.test(same), same);
+  ok('Thục Quyên chọn T4 09:00 (đang tập đôi) → T4 11:00 chọn được (đổi giờ trong ngày từ 04/11, rời cặp tính lượt)', !/lock/.test(same) && !/true/.test(same), same);
   await cell('2026-10-23', 19).click(); await sleep(300);
   ok('T4 09:00 → T6 19:00: nút "Xác nhận đổi" (tính lượt)', await ctaIs(/Xác nhận đổi/, true));
   await cta().click(); await waitView(page, 'ticket'); await flushed(); await sleep(600);
