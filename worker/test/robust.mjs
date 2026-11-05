@@ -124,13 +124,13 @@ console.log('\n== Ảnh chụp BA dạng cũ (trước cột "Khung giờ" · ca
   ok('Khách Số Sáu (gói ban ngày) → state có offpeak.hours', s6.offpeak && JSON.stringify(s6.offpeak.hours) === '[6,7,8,9,10,11,12,14,15,16]', s6.offpeak);
   await w.wk.idle();
   const sb = await w.storage.get('snap:ba');
-  ok('Ảnh chụp BA lưu storage có dạng 3 (dòng MEMBERS có off, nhận "Ban ngày")', sb && sb.fmt === 3 && sb.members.some(x => x.off === true) && sb.members.some(x => x.off === false), sb && [sb.fmt, sb.members.map(x => x.off)]);
-  const old = Object.assign({}, sb, { members: sb.members.map(x => { const y = Object.assign({}, x); delete y.off; return y; }) });
-  old.fmt = 2;                                                       /* dạng 2 (31/10): `off` chỉ nhận "Thấp điểm" */
+  ok('Ảnh chụp BA lưu storage có dạng 4 (dòng MEMBERS có off nhận "Ban ngày" + kh)', sb && sb.fmt === 4 && sb.members.some(x => x.off === true) && sb.members.some(x => x.off === false) && sb.members.every(x => 'kh' in x), sb && [sb.fmt, sb.members.map(x => x.off)]);
+  const old = Object.assign({}, sb, { members: sb.members.map(x => { const y = Object.assign({}, x); delete y.off; delete y.kh; return y; }) });
+  old.fmt = 3;                                                       /* dạng 3 (01/11): chưa có `kh` — dạng 2 (31/10) cũng bị bỏ như vậy */
   await w.storage.put('snap:ba', old);
   const b = core(w.f, w.fg, w.storage, w.clock, {}, w.logs);
   await b.init();
-  ok('Bản DO mới bỏ ảnh chụp BA dạng cũ (dạng 2, trước 01/11)', b.ba === null, b.ba && b.ba.fmt);
+  ok('Bản DO mới bỏ ảnh chụp BA dạng cũ (dạng 3, trước 05/11)', b.ba === null, b.ba && b.ba.fmt);
   const r = await b.api(BOOK(s6.tok, rid(), [{ date: '2026-10-19', h: 17 }, { date: '2026-10-20', h: 9 }], 'devROBUSTROBUSTROB6'));
   ok('… lượt ghi đầu tiên đọc BA mới rồi mới kiểm: T2 17:00 ngoài gói ban ngày → thap_diem, không ghi', r.ok === false && r.why === 'thap_diem' && rows(w.f).filter(x => x[16] === 'B906DY').length === 0, r);
   const r2 = await b.api(BOOK(s6.tok, rid(), [{ date: '2026-10-19', h: 12 }, { date: '2026-10-20', h: 9 }], 'devROBUSTROBUSTROB6'));

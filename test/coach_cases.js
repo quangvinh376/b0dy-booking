@@ -771,6 +771,86 @@ async function coachCases(h) {
     const nam2 = await boot(t, nam);
     ok('T5 10:00 · phiếu: T4 08:00 (Đổi) · T5 09:00 (Đổi) · T6 18:00, 0 lượt', nam2.mine.changesLeft === 0 && nam2.mine.sessions.map(x => x.date.slice(8) + '|' + x.h).join(',') === '21|8,22|9,23|18', nam2.mine.sessions);
   }
+
+  console.log('\n== 24. Khách gia hạn: một NGƯỜI qua nhiều hợp đồng (Mã KH mới, ô Mã KH trống) · mã cũ / #tên cũ trên sổ · chung SĐT khác tên (chủ studio 05/11) ==');
+  {
+    /* [số, tên, coach, SĐT, Mã KH, loại, khung giờ, hết hạn, bắt đầu, _kh (trống = tự tính theo SĐT), còn lại] — tên bịa */
+    const OLD = (left) => ['941', 'Khách Gia Hạn', 'Bích Ngọc', '0900000041', 'B941DY', '1:1', '', '2026-11-30', '2026-08-01', undefined, left];
+    const NEW = (code) => ['951', 'Khách Gia Hạn', 'Bích Ngọc', '0900000041', code, '1:1', '', '2027-03-01', '2026-10-21', undefined, 48];
+    /* ba thế giới dùng chung khoá ký mã nhớ máy (giả) → mã nhớ máy cấp ở thế giới trước còn dùng được ở thế giới sau */
+    const P = { BA_ID: 'BA', LT_OUT_ID: 'OUT', LT_SECRET: 'giahan-test-secret-0123456789abcdef' };
+    const srow = (code, date, dow, hh, kh, act, ver, r) => [code, ver || 1, W, date, dow, hh, 'Khách Gia Hạn', 'K. Gia Hạn', 'Bích Ngọc', '1:1', 'Đã đặt', act || 'Đặt', '', '2026-10-18 08:00:00', r, kh, 'K. Gia Hạn · BN'];
+
+    /* a · HĐ cũ còn 1 buổi + HĐ mới đã ký (bắt đầu 21.10), dòng HĐ mới chưa có Mã KH */
+    let t = await setup(vn('2026-10-18', '07:00'), { props: P, members: [OLD(1), NEW('')] });
+    let f = await call(t, { action: 'lt_find', q: 'gia han' });
+    ok('a · tìm "gia han" → MỘT người (trước: hai dòng "K. Gia Hạn" — còn 1 buổi và còn 48 buổi)', f.ok && f.results.length === 1, f.results);
+    let s = await login(t, 'gia han', '0041');
+    ok('… khoá = Mã KH B941DY (dòng HĐ mới chưa có mã), còn 49 buổi → đặt tối đa 4', s.ok && s.mine.code === 'B941DY-W43' && s.limits.max === 4, [s.mine && s.mine.code, s.limits]);
+    let r = await book(t, s, [['2026-10-19', 18], ['2026-10-21', 18]]);
+    ok('… đặt T2 18:00 + T4 18:00 → ok, sổ ghi Mã KH B941DY', r.ok && rowsOf(t, 'B941DY', 'Đã đặt').length === 2, r.error || r.why);
+    const tokOld = s.tok;
+
+    /* b · HĐ cũ hết buổi (tập xong T2), dòng HĐ mới vẫn chưa có Mã KH: vẫn là người cũ, không thành "#tên" */
+    t = await setup(vn('2026-10-19', '20:00'), { props: P, members: [OLD(0), NEW('')], log: [
+      srow('B941DY-W43', '2026-10-19', 'T2', '18:00', 'B941DY', 'Đặt', 1, 'ridgiahan0001'),
+      srow('B941DY-W43', '2026-10-21', 'T4', '18:00', 'B941DY', 'Đặt', 1, 'ridgiahan0001')] });
+    s = await call(t, { action: 'lt_boot', tok: tokOld }); s.tok = tokOld;
+    ok('b · mã nhớ máy cũ vẫn vào được · khoá vẫn B941DY (không "#khach gia han") · phiếu có 2 buổi đã đặt', s.ok && s.auth === true && s.mine.code === 'B941DY-W43' && s.mine.sessions.length === 2, s.mine || s.error);
+    ok('… buổi T4 18:00 của chính mình không hiện "coach bận"', !at(s, '2026-10-21|18'), s.coachAt);
+    r = await book(t, s, [['2026-10-21', 10]]);
+    ok('… thêm T4 10:00 (ngày đã có buổi) → mot_ngay_mot_buoi', r.ok === false && r.why === 'mot_ngay_mot_buoi', r.why);
+    r = await book(t, s, [['2026-10-23', 18]]);
+    const rb = rowsOf(t, 'B941DY', 'Đã đặt');
+    ok('… thêm T6 18:00 → ok, "Thêm" bản 2 cùng phiếu B941DY-W43 (trước: "#khach gia han" "Đặt" bản 1)', r.ok && rb.length === 3 && rb[2][12] === 'Thêm' && rb[2][2] === 2 && rb[2][1] === 'B941DY-W43', rb.map(x => [x[1], x[2], x[12]]));
+
+    /* c · Mã KH mới đã điền (B951DY); sổ còn dòng mã cũ B941DY và dòng "#khach gia han" do máy chủ cũ ghi */
+    t = await setup(vn('2026-10-19', '20:00'), { props: P, members: [OLD(0), NEW('B951DY')], log: [
+      srow('B941DY-W43', '2026-10-19', 'T2', '18:00', 'B941DY', 'Đặt', 1, 'ridgiahan0001'),
+      srow('B941DY-W43', '2026-10-21', 'T4', '18:00', 'B941DY', 'Đặt', 1, 'ridgiahan0001'),
+      srow('#khach gia han-W43', '2026-10-23', 'T6', '18:00', '#khach gia han', 'Đặt', 1, 'ridgiahan0002')] });
+    f = await call(t, { action: 'lt_find', q: 'gia han' });
+    ok('c · tìm "gia han" → một người', f.ok && f.results.length === 1, f.results);
+    s = await call(t, { action: 'lt_boot', tok: tokOld }); s.tok = tokOld;
+    ok('… mã nhớ máy (cấp khi còn là B941DY) → người B951DY · phiếu B951DY-W43 gồm cả 3 buổi (mã cũ + #tên cũ)',
+       s.ok && s.auth === true && s.mine.code === 'B951DY-W43' && s.mine.sessions.map(x => x.date.slice(8) + '|' + x.h).join(',') === '19|18,21|18,23|18', s.mine || s.error);
+    ok('… không buổi nào của chính mình hiện "coach bận"', !at(s, '2026-10-21|18') && !at(s, '2026-10-23|18'), s.coachAt);
+    ok('… còn thêm được đúng 1 buổi (tối đa 4)', s.limits.add === 1, s.limits);
+    r = await change(t, s, ['2026-10-23', 18], ['2026-10-23', 10]);
+    const rc = logRows(t).filter(x => x[4] === '2026-10-23');
+    ok('… đổi buổi "#tên" cũ T6 18:00 → T6 10:00 → ok: dòng cũ (giữ mã "#khach gia han") thành "Đã đổi", dòng mới mã B951DY',
+       r.ok && rc.some(x => x[16] === '#khach gia han' && x[11] === 'Đã đổi') && rc.some(x => x[16] === 'B951DY' && x[11] === 'Đã đặt' && x[12] === 'Đổi' && x[1] === 'B951DY-W43'), rc.map(x => [x[1], x[6], x[11], x[12], x[16]]));
+    r = await book(t, s, [['2026-10-22', 18]]);
+    ok('… thêm T5 18:00 → ok (buổi thứ 4), sổ ghi B951DY', r.ok && r.mine.sessions.length === 4 && rowsOf(t, 'B951DY', 'Đã đặt').some(x => x[4] === '2026-10-22'), r.error || r.why);
+    r = await book(t, s, [['2026-10-20', 18]]);
+    ok('… thêm buổi thứ 5 → bị chặn (mọi buổi mã cũ đều được tính)', r.ok === false, [r.error, r.why]);
+
+    /* d · cùng SĐT khác tên (người nhà dùng chung số) → hai người, không gộp */
+    t = await setup(vn('2026-10-18', '07:00'), { members: [
+      ['961', 'Khách Bố Một', 'Quyết Hán', '0900000061', 'B961DY'], ['962', 'Khách Con Một', 'Quyết Hán', '0900000061', 'B962DY']] });
+    const fb = await call(t, { action: 'lt_find', q: 'bo mot' }), fc = await call(t, { action: 'lt_find', q: 'con mot' });
+    s = await login(t, 'con mot', '0061');
+    ok('d · chung SĐT khác tên (_kh như nhau) → hai người riêng: "Bố Một" và "Con Một" mỗi người một kết quả, phiếu Con Một là B962DY',
+       fb.results.length === 1 && fc.results.length === 1 && fb.results[0].id !== fc.results[0].id && s.ok && s.mine.code === 'B962DY-W43', [fb.results.length, fc.results.length, s.mine && s.mine.code]);
+
+    /* e · "#tên" cũ mà hai người cùng tên → không đoán là của ai */
+    t = await setup(vn('2026-10-18', '07:00'), { members: [
+      ['971', 'Khách Trùng Tên', 'Hiền Mai', '0900000071', 'B971DY'], ['972', 'Khách Trùng Tên', 'Khải Phan', '0900000072', 'B972DY']],
+      log: [[ '#khach trung ten-W43', 1, W, '2026-10-20', 'T3', '19:00', 'Khách Trùng Tên', 'K. Trùng Tên', 'Hiền Mai', '1:1', 'Đã đặt', 'Đặt', '', '2026-10-18 06:30:00', 'ridtrungten01', '#khach trung ten', 'K. Trùng Tên · HM']] });
+    f = await call(t, { action: 'lt_find', q: 'trung ten' });
+    const s1 = await call(t, { action: 'lt_verify', id: f.results[0].id, pin: '0071', remember: true }), s2 = await call(t, { action: 'lt_verify', id: f.results[1].id, pin: '0072', remember: true });
+    ok('e · "#khach trung ten" khi có hai người cùng tên → không gán cho ai (cả hai phiếu trống), khung vẫn tính 1 suất',
+       f.results.length === 2 && s1.ok && s2.ok && s1.mine.sessions.length === 0 && s2.mine.sessions.length === 0 && s1.taken['2026-10-20|19'] === 1, [f.results.length, s1.mine && s1.mine.sessions, s2.mine && s2.mine.sessions, s1.taken]);
+
+    /* f · gói 1:2 gia hạn: lời mời ghi Mã KH cũ vẫn tới đúng người */
+    t = await setup(vn('2026-10-18', '07:00'), { members: [
+      ['981', 'Khách Đôi Cũ', 'Quyết Hán', '0900000081', 'B981DY', '1:2', '', '2026-11-30', '2026-08-01', undefined, 0],
+      ['982', 'Khách Đôi Cũ', 'Quyết Hán', '0900000081', 'B982DY', '1:2', '', '2027-03-01', '2026-10-01', undefined, 48]],
+      log: [[ 'B902DY-W43', 1, W, '2026-10-20', 'T3', '15:00', 'Ninh Ngọc Nam', 'N. Ngọc Nam', 'Quyết Hán', '1:2', 'Đã đặt', 'Đặt', '', '2026-10-18 06:30:00', 'riddoicu00001', 'B902DY', 'N. Ngọc Nam · QH'],
+            [ 'B902DY-W43', 1, W, '2026-10-20', 'T3', '15:00', 'Ninh Ngọc Nam', 'N. Ngọc Nam', 'Quyết Hán', '1:2', 'Mời', 'Mời', 'Mời K. Đôi Cũ · B981DY', '2026-10-18 06:31:00', 'riddoicu00002', 'B902DY', 'N. Ngọc Nam · QH']] });
+    s = await login(t, 'doi cu', '0081');
+    ok('f · khách 1:2 gia hạn (B981DY → B982DY) thấy lời mời ghi mã cũ: T3 15:00 từ Ngọc Nam', s.ok && s.mine.code === 'B982DY-W43' && inv(s) === '[{"date":"2026-10-20","h":15,"from":"Ngọc Nam"}]', [s.mine && s.mine.code, duo(s).invIn]);
+  }
 }
 
 module.exports = { coachCases };

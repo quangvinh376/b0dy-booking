@@ -282,7 +282,7 @@ export function memberRows(vals) {
   function col() { for (let i = 0; i < arguments.length; i++) { const k = H.indexOf(arguments[i]); if (k >= 0) return k; } return -1; }
   const c = { name: col('ten'), pkg: col('goi'), total: col('so buoi'), kind: col('loai'), coach: col('coach'),
               phone: col('sdt', 'so dien thoai', 'dien thoai'), left: col('con lai'), start: col('ngay bat dau'),
-              exp: col('ngay het han'), code: col('ma kh'), tier: col('khung gio') };
+              exp: col('ngay het han'), code: col('ma kh'), kh: col('_kh'), tier: col('khung gio') };
   const out = [];
   for (let r = hd.r + 1; r < vals.length; r++) {
     const x = vals[r] || [], g = k => cell(x, c[k]);
@@ -291,28 +291,45 @@ export function memberRows(vals) {
     out.push({ name: name, pkg: String(g('pkg') || '').trim(), total: +g('total') || 0,
                kind: String(g('kind') || '').trim(), coach: coachName(g('coach')), phone: digits(g('phone')),
                left: Number(g('left')) || 0, start: cellIso(g('start'), true),
-               exp: cellIso(g('exp'), true), code: String(g('code') || '').trim(), off: isOffPeak(g('tier')) });
+               exp: cellIso(g('exp'), true), code: String(g('code') || '').trim(), kh: String(g('kh') || '').trim(),
+               off: isOffPeak(g('tier')) });
   }
   return out;
 }
 
 /**
- * Gộp các dòng còn hiệu lực thành hội viên (giống ltPersons_): khoá = Mã KH; số buổi còn = tổng;
+ * Gộp dòng MEMBERS thành hội viên (giống ltPersons_). Một NGƯỜI = các dòng nối nhau bởi: cùng Mã KH (gói A/B), HOẶC cùng `_kh`
+ * (MEMBERS X: Mã KH dòng đầu cùng SĐT) và cùng tên — khách gia hạn hợp đồng mới có Mã KH mới vẫn là một người (chủ studio 05/11:
+ * khách gia hạn từng thành "người mới" ở trang đặt lịch vì dòng HĐ mới chưa có Mã KH → khoá #tên, rồi có Mã KH → khoá thứ ba).
+ * Dòng không có Mã KH lẫn _kh: nối theo tên như trước (khoá #tên). Cùng SĐT mà khác tên (người nhà dùng chung số) không nối.
+ * Chỉ người có ít nhất một dòng còn hiệu lực (còn buổi, chưa quá hạn) mới là hội viên: số buổi còn = tổng các dòng còn hiệu lực;
  * hết hạn = xa nhất; bắt đầu = sớm nhất; gói/loại/coach/khung giờ theo dòng bắt đầu muộn nhất nhưng ≤ hôm nay.
+ * Khoá = Mã KH của dòng đó (đúng mã BA đang hiện); dòng đó chưa có Mã KH → Mã KH gần nhất của cùng người → #tên.
+ * list.alias: mọi Mã KH cũ / #tên cũ của cùng người → khoá hiện tại — sổ đặt lịch, mã nhớ máy, lời mời ghi bằng mã cũ vẫn là của người đó.
  */
 export function persons(rows, today) {
-  const byKey = {}, order = [], phoneOf = {};
-  rows.forEach(r => {
-    const k = r.code || ('#' + nameKey(r.name));
-    if (r.phone && !phoneOf[k]) phoneOf[k] = r.phone;
-    if (!(r.left > 0) || (r.exp && r.exp < today)) return;
-    if (!byKey[k]) { byKey[k] = []; order.push(k); }
-    byKey[k].push(r);
+  const par = rows.map((_, i) => i), seen = {};
+  const find = i => { while (par[i] !== i) { par[i] = par[par[i]]; i = par[i]; } return i; };
+  const join = (a, b) => { a = find(a); b = find(b); if (a !== b) { if (a < b) par[b] = a; else par[a] = b; } };
+  rows.forEach((r, i) => {
+    const ks = [];
+    if (r.code) ks.push('c:' + r.code);
+    if (r.kh) ks.push('p:' + r.kh + '|' + nameKey(r.name));
+    if (!ks.length) ks.push('n:' + nameKey(r.name));
+    ks.forEach(k => { if (seen[k] === undefined) seen[k] = i; else join(seen[k], i); });
   });
-  return order.map(k => {
-    const g = byKey[k];
+  const comp = {}, order = [];
+  rows.forEach((r, i) => { const c = find(i); if (!comp[c]) comp[c] = { all: [], act: [] }; comp[c].all.push(r); });
+  rows.forEach((r, i) => {
+    if (!(r.left > 0) || (r.exp && r.exp < today)) return;
+    const c = comp[find(i)];
+    if (!c.act.length) order.push(c);
+    c.act.push(r);
+  });
+  const used = {}, out = [];
+  order.forEach(c => {
     let pick = null, left = 0, exp = '', noExp = false, start = '';
-    g.forEach(r => {
+    c.act.forEach(r => {
       left += r.left;
       if (!r.exp) noExp = true; else if (r.exp > exp) exp = r.exp;
       if (r.start && (!start || r.start < start)) start = r.start;
@@ -324,10 +341,60 @@ export function persons(rows, today) {
         else if (!ok && !pOk && (r.start || '') < (pick.start || '')) pick = r;
       }
     });
-    return { key: k, name: pick.name, toks: nameKey(pick.name).split(' '), short: short(pick.name), call: callName(pick.name),
-             coach: pick.coach, kind: pick.kind || '1:1', pkg: pkgLabel(pick.pkg, pick.total), left: left,
-             exp: noExp ? '' : exp, start: start, phone: phoneOf[k] || '', code: pick.code || '', off: !!pick.off };
+    let key = pick.code, last = null;
+    if (!key) {
+      c.all.forEach(r => { if (r.code && (!last || (r.start || '') >= (last.start || ''))) last = r; });
+      key = last ? last.code : '#' + nameKey(pick.name);
+      if (!last && used[key]) key += '|' + (pick.kh || pick.phone || out.length);   /* hai người cùng tên đều chưa có mã: không trùng khoá */
+    }
+    used[key] = 1;
+    let phone = '';
+    c.all.forEach(r => { if (!phone && r.phone) phone = r.phone; });
+    out.push({ key: key, name: pick.name, toks: nameKey(pick.name).split(' '), short: short(pick.name), call: callName(pick.name),
+               coach: pick.coach, kind: pick.kind || '1:1', pkg: pkgLabel(pick.pkg, pick.total), left: left,
+               exp: noExp ? '' : exp, start: start, phone: phone, code: pick.code || '', off: !!pick.off, _all: c.all });
   });
+  /* bí danh: #tên cũ (chỉ khi đúng một người mang tên đó) → Mã KH cũ / _kh → khoá hiện tại (ghi sau thắng) */
+  const alias = {}, nameOwner = {};
+  for (const ci in comp) {
+    const c = comp[ci], mine = {};
+    c.all.forEach(r => { mine['#' + nameKey(r.name)] = 1; });
+    for (const n in mine) nameOwner[n] = nameOwner[n] === undefined ? c : null;   /* tên của hơn một người (kể cả người đã hết gói): không đoán */
+  }
+  out.forEach(p => { p._comp = null; });
+  order.forEach((c, i) => { c.person = out[i]; });
+  for (const n in nameOwner) if (nameOwner[n] && nameOwner[n].person) alias[n] = nameOwner[n].person.key;
+  out.forEach(p => {
+    p._all.forEach(r => { if (r.code) alias[r.code] = p.key; });
+    delete p._all; delete p._comp;
+  });
+  out.forEach(p => { alias[p.key] = p.key; });
+  Object.defineProperty(out, 'alias', { value: alias, enumerable: false });
+  return out;
+}
+/** Khoá hiện tại của một mã bất kỳ (Mã KH cũ / #tên) — không biết thì giữ nguyên. */
+export function canonKey(list, k) {
+  const a = list && list.alias;
+  return a && k && Object.prototype.hasOwnProperty.call(a, k) ? a[k] : k;
+}
+/**
+ * Dòng sổ với Mã KH (và Mã KH trong ghi chú dòng Mời / Từ chối) đổi về khoá hiện tại của người đó — cho mọi phép tính nghiệp vụ
+ * (phiếu, suất coach, lời mời). KHÔNG dùng bản này để tìm lại dòng trên sheet (giữ mã đúng như đang ghi trên sổ).
+ */
+export function canonRows(rows, list) {
+  if (!list || !list.alias) return rows;
+  let out = null;
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i], k = canonKey(list, r.kh);
+    let nr = k !== r.kh ? Object.assign({}, r, { kh: k }) : null;
+    if (r.st === LT.INVITE || r.st === LT.DECLINE) {
+      const nk = noteKey(r.note), t = canonKey(list, nk);
+      if (nk && t !== nk) { nr = nr || Object.assign({}, r); nr.note = r.note.slice(0, r.note.lastIndexOf(' · ') + 3) + t; }
+    }
+    if (nr && !out) out = rows.slice(0, i);
+    if (out) out.push(nr || r);
+  }
+  return out || rows;
 }
 
 /** SESSION LOG: vị trí 3 cột cần đọc (ngày, học viên, trạng thái) từ 10 hàng đầu. */
@@ -868,7 +935,11 @@ export function snapshotRows(list) {
   return list.slice().sort((a, b) => a.name.localeCompare(b.name, 'vi'))
     .map(p => [p.name, p.short, p.coach, p.left, p.exp, p.key, p.short + ' · ' + initials(p.coach)].map(String));
 }
-export function findPerson(list, key) { for (let i = 0; i < list.length; i++) if (list[i].key === key) return list[i]; return null; }
+export function findPerson(list, key) {
+  key = canonKey(list, key);
+  for (let i = 0; i < list.length; i++) if (list[i].key === key) return list[i];
+  return null;
+}
 export function devOk(d) { return /^[A-Za-z0-9_-]{16,64}$/.test(String(d || '')); }
 export function ridOk(r) { return /^[A-Za-z0-9_-]{8,64}$/.test(String(r || '')); }
 /**

@@ -55,7 +55,7 @@ const META_FMT = 2;
 /* Dạng ảnh chụp BA lưu 'snap:ba' (dòng MEMBERS + lịch coach ĐÃ ĐỌC). 2 = dòng MEMBERS có `off` (cột "Khung giờ" — gói thấp điểm) và
    lịch coach có khung 12:00 (31/10). DO thức dậy với ảnh chụp dạng cũ thì bỏ, đọc BA mới trước lượt đầu — không thì lượt ghi ngay sau
    deploy kiểm bằng dòng chưa có khung giờ gói (hội viên thấp điểm đặt được giờ ngoài gói) và coach "nghỉ" ở 12:00. */
-const SNAP_BA_FMT = 3;                                  // 3 (01/11): `off` nhận "Ban ngày" — ảnh chụp cũ tính `off` theo luật cũ → bỏ, đọc BA mới
+const SNAP_BA_FMT = 4;   // 4 (05/11): dòng MEMBERS có `kh` (_kh — gộp khách gia hạn) · 3 (01/11): `off` nhận "Ban ngày"
 
 function msg(e) { return String(e && e.message || e).slice(0, 120); }
 /** băm FNV-1a 32 bit (dấu nội dung cho kênh live — chỉ so bằng, không bảo mật) */
@@ -593,7 +593,7 @@ export class BookingCore {
   async loadState(ctx, person, list, ba) {
     const L = await this.getLog(), marks = await this.marksFor(ctx);
     if (list) this.maybeSnapshot(list, ba.cap, ctx.now);
-    return this.withIds(C.stateOf(ctx, person, C.envOf(ctx, L.rows, this.trialsFor(ctx, ba), ba.closed, ba.cap, ba.sched), C.mine(L.rows, person, ctx), marks, list));
+    return this.withIds(C.stateOf(ctx, person, C.envOf(ctx, C.canonRows(L.rows, list), this.trialsFor(ctx, ba), ba.closed, ba.cap, ba.sched), C.mine(C.canonRows(L.rows, list), person, ctx), marks, list));
   }
   /** Gói 1:2: danh sách bạn để mời mang Mã KH → đổi sang id (như lt_find) trước khi trả cho trình duyệt. */
   async withIds(st) {
@@ -752,7 +752,8 @@ export class BookingCore {
     const L = this.log;
     if (L.rids.has(j.pre.rid)) return { ok: true, dup: true };      /* gồm cả mục còn trong nhật ký */
     if (String(j.p.week || '') !== ctx.key) return { error: 'tuan_doi' };
-    const env = C.envOf(ctx, L.rows, this.trialsFor(ctx, ba), j.pre.closed, j.pre.cap, j.pre.sched), m = C.mine(L.rows, j.pre.me, ctx);
+    const cr = C.canonRows(L.rows, j.pre.list);   /* nghiệp vụ trên mã hiện tại của từng người; tìm dòng trên sheet vẫn dùng L.rows (mã đúng như sổ) */
+    const env = C.envOf(ctx, cr, this.trialsFor(ctx, ba), j.pre.closed, j.pre.cap, j.pre.sched), m = C.mine(cr, j.pre.me, ctx);
     if (C.baseStale(j.p.base, m)) return { error: 'ban_cu' };
     const r = j.kind === 'book' ? this.planBook(ctx, j, env, m) : j.kind === 'change' ? this.planChange(ctx, j, env, m, L)
       : j.kind === 'invite' ? this.planInvite(ctx, j, env, m) : this.planDecline(ctx, j, env, m);
@@ -811,7 +812,7 @@ export class BookingCore {
         if (r.fail) { j.resolve(r.fail === 'loi_he_thong' ? { ok: false, error: 'loi_he_thong', detail: r.detail, now: this.now() } : { ok: false, error: r.fail, now: this.now() }); continue; }
         if (!marks) marks = await this.marksFor(ctx);
         const L = this.log, trials = this.trialsFor(ctx, ba);
-        const st = await this.withIds(C.stateOf(ctx, j.pre.me, C.envOf(ctx, L.rows, trials, j.pre.closed, j.pre.cap, j.pre.sched), C.mine(L.rows, j.pre.me, ctx), marks, j.pre.list));
+        const st = await this.withIds(C.stateOf(ctx, j.pre.me, C.envOf(ctx, C.canonRows(L.rows, j.pre.list), trials, j.pre.closed, j.pre.cap, j.pre.sched), C.mine(C.canonRows(L.rows, j.pre.list), j.pre.me, ctx), marks, j.pre.list));
         if (r.dup) st.dup = true;
         if (!r.ok) {
           st.ok = false;

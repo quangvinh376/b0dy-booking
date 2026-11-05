@@ -272,7 +272,7 @@ function ltMemberRows_() {
   function col() { for (var i = 0; i < arguments.length; i++) { var k = H.indexOf(arguments[i]); if (k >= 0) return k; } return -1; }
   var c = { name: col('ten'), pkg: col('goi'), total: col('so buoi'), kind: col('loai'), coach: col('coach'),
             phone: col('sdt', 'so dien thoai', 'dien thoai'), left: col('con lai'), start: col('ngay bat dau'),
-            exp: col('ngay het han'), code: col('ma kh'), tier: col('khung gio') };
+            exp: col('ngay het han'), code: col('ma kh'), kh: col('_kh'), tier: col('khung gio') };
   var first = hd.r + 2, n = lastR - first + 1;
   if (n <= 0) return [];
   var v = sh.getRange(first, 1, n, lastC).getValues(), out = [];
@@ -283,29 +283,43 @@ function ltMemberRows_() {
     out.push({ name: name, pkg: String(g(x, 'pkg') || '').trim(), total: +g(x, 'total') || 0,
                kind: String(g(x, 'kind') || '').trim(), coach: ltCoach_(g(x, 'coach')), phone: ltDigits_(g(x, 'phone')),
                left: Number(g(x, 'left')) || 0, start: ltCellIso_(g(x, 'start'), tz, true),
-               exp: ltCellIso_(g(x, 'exp'), tz, true), code: String(g(x, 'code') || '').trim(), off: ltIsOffPeak_(g(x, 'tier')) });
+               exp: ltCellIso_(g(x, 'exp'), tz, true), code: String(g(x, 'code') || '').trim(), kh: String(g(x, 'kh') || '').trim(),
+               off: ltIsOffPeak_(g(x, 'tier')) });
   }
   return out;
 }
 
 /**
- * Gộp các dòng còn hiệu lực thành hội viên. Dòng còn hiệu lực = còn buổi và chưa quá ngày hết hạn.
- * Khoá = Mã KH (gói gia hạn A/B dùng chung mã). Số buổi còn = tổng các dòng còn hiệu lực;
- * hết hạn = ngày xa nhất; bắt đầu = ngày sớm nhất (buổi trước ngày bắt đầu sẽ thành "buổi mồ côi" ở BA).
- * Gói, loại, coach, khung giờ lấy theo dòng mà buổi tập sẽ được tính vào (bắt đầu muộn nhất nhưng ≤ hôm nay — giống công thức _mrow).
+ * Gộp dòng MEMBERS thành hội viên (giống persons của Worker). Một NGƯỜI = các dòng nối nhau bởi: cùng Mã KH (gói A/B), HOẶC cùng `_kh`
+ * (MEMBERS X: Mã KH dòng đầu cùng SĐT) và cùng tên — khách gia hạn hợp đồng mới có Mã KH mới vẫn là một người (chủ studio 05/11).
+ * Dòng không có Mã KH lẫn _kh: nối theo tên như trước (khoá #tên). Cùng SĐT mà khác tên không nối.
+ * Chỉ người có dòng còn hiệu lực (còn buổi, chưa quá hạn) mới là hội viên: số buổi còn = tổng; hết hạn = xa nhất; bắt đầu = sớm nhất;
+ * gói, loại, coach, khung giờ theo dòng bắt đầu muộn nhất nhưng ≤ hôm nay (giống công thức _mrow).
+ * Khoá = Mã KH của dòng đó; chưa có → Mã KH gần nhất của cùng người → #tên. persons.alias: Mã KH cũ / #tên cũ → khoá hiện tại.
  */
 function ltPersons_(rows, today) {
-  var byKey = {}, order = [], phoneOf = {};
-  rows.forEach(function (r) {
-    var k = r.code || ('#' + ltName_(r.name));
-    if (r.phone && !phoneOf[k]) phoneOf[k] = r.phone;
-    if (!(r.left > 0) || (r.exp && r.exp < today)) return;
-    if (!byKey[k]) { byKey[k] = []; order.push(k); }
-    byKey[k].push(r);
+  var par = rows.map(function (_, i) { return i; }), seen = {};
+  function find(i) { while (par[i] !== i) { par[i] = par[par[i]]; i = par[i]; } return i; }
+  function join(a, b) { a = find(a); b = find(b); if (a !== b) { if (a < b) par[b] = a; else par[a] = b; } }
+  rows.forEach(function (r, i) {
+    var ks = [];
+    if (r.code) ks.push('c:' + r.code);
+    if (r.kh) ks.push('p:' + r.kh + '|' + ltName_(r.name));
+    if (!ks.length) ks.push('n:' + ltName_(r.name));
+    ks.forEach(function (k) { if (seen[k] === undefined) seen[k] = i; else join(seen[k], i); });
   });
-  return order.map(function (k) {
-    var g = byKey[k], pick = null, left = 0, exp = '', noExp = false, start = '';
-    g.forEach(function (r) {
+  var comp = {}, order = [];
+  rows.forEach(function (r, i) { var c = find(i); if (!comp[c]) comp[c] = { all: [], act: [] }; comp[c].all.push(r); });
+  rows.forEach(function (r, i) {
+    if (!(r.left > 0) || (r.exp && r.exp < today)) return;
+    var c = comp[find(i)];
+    if (!c.act.length) order.push(c);
+    c.act.push(r);
+  });
+  var used = {}, out = [];
+  order.forEach(function (c) {
+    var pick = null, left = 0, exp = '', noExp = false, start = '';
+    c.act.forEach(function (r) {
       left += r.left;
       if (!r.exp) noExp = true; else if (r.exp > exp) exp = r.exp;
       if (r.start && (!start || r.start < start)) start = r.start;
@@ -317,11 +331,53 @@ function ltPersons_(rows, today) {
         else if (!ok && !pOk && (r.start || '') < (pick.start || '')) pick = r;
       }
     });
-    return { key: k, name: pick.name, toks: ltName_(pick.name).split(' '), short: ltShort_(pick.name), call: ltCall_(pick.name),
-             coach: pick.coach, kind: pick.kind || '1:1', pkg: ltPkg_(pick.pkg, pick.total), left: left,
-             exp: noExp ? '' : exp, start: start, phone: phoneOf[k] || '', code: pick.code || '', off: !!pick.off };
+    var key = pick.code, last = null;
+    if (!key) {
+      c.all.forEach(function (r) { if (r.code && (!last || (r.start || '') >= (last.start || ''))) last = r; });
+      key = last ? last.code : '#' + ltName_(pick.name);
+      if (!last && used[key]) key += '|' + (pick.kh || pick.phone || out.length);   /* hai người cùng tên đều chưa có mã: không trùng khoá */
+    }
+    used[key] = 1;
+    var phone = '';
+    c.all.forEach(function (r) { if (!phone && r.phone) phone = r.phone; });
+    var p = { key: key, name: pick.name, toks: ltName_(pick.name).split(' '), short: ltShort_(pick.name), call: ltCall_(pick.name),
+              coach: pick.coach, kind: pick.kind || '1:1', pkg: ltPkg_(pick.pkg, pick.total), left: left,
+              exp: noExp ? '' : exp, start: start, phone: phone, code: pick.code || '', off: !!pick.off };
+    c.person = p;
+    out.push(p);
+  });
+  /* bí danh: #tên cũ (chỉ khi đúng một người — kể cả người đã hết gói — mang tên đó) → Mã KH cũ → khoá hiện tại (ghi sau thắng) */
+  var alias = {}, nameOwner = {}, ci, n;
+  for (ci in comp) {
+    var mine = {};
+    comp[ci].all.forEach(function (r) { mine['#' + ltName_(r.name)] = 1; });
+    for (n in mine) nameOwner[n] = nameOwner[n] === undefined ? comp[ci] : null;
+  }
+  for (n in nameOwner) if (nameOwner[n] && nameOwner[n].person) alias[n] = nameOwner[n].person.key;
+  order.forEach(function (c) { c.all.forEach(function (r) { if (r.code) alias[r.code] = c.person.key; }); });
+  out.forEach(function (p) { alias[p.key] = p.key; });
+  Object.defineProperty(out, 'alias', { value: alias, enumerable: false });
+  return out;
+}
+/** Khoá hiện tại của một mã bất kỳ (Mã KH cũ / #tên) — không biết thì giữ nguyên. */
+function ltCanonKey_(persons, k) {
+  var a = persons && persons.alias;
+  return a && k && Object.prototype.hasOwnProperty.call(a, k) ? a[k] : k;
+}
+/** Dòng sổ với Mã KH (và Mã KH trong ghi chú dòng Mời / Từ chối) đổi về khoá hiện tại của người đó. Số hàng giữ nguyên
+    (Apps Script ghi theo số hàng nên dùng thẳng bản này cho cả kiểm lẫn ghi). */
+function ltCanonRows_(rows, persons) {
+  if (!persons || !persons.alias) return rows;
+  return rows.map(function (r) {
+    var k = ltCanonKey_(persons, r.kh), nr = k !== r.kh ? ltAssign_({}, r, { kh: k }) : null;
+    if (r.st === LT.INVITE || r.st === LT.DECLINE) {
+      var nk = ltNoteKey_(r.note), t = ltCanonKey_(persons, nk);
+      if (nk && t !== nk) { nr = nr || ltAssign_({}, r, {}); nr.note = r.note.slice(0, r.note.lastIndexOf(' · ') + 3) + t; }
+    }
+    return nr || r;
   });
 }
+function ltAssign_(o, a, b) { var k; for (k in a) o[k] = a[k]; for (k in b) o[k] = b[k]; return o; }
 
 /** SESSION LOG → điểm danh của tuần: {"Họ tên|yyyy-MM-dd": "done" | "absent"} */
 function ltMarks_(days) {
@@ -894,12 +950,16 @@ function ltCached_(key, ttl, fn) {
   return v;
 }
 function ltPersonsNow_(ctx, fresh) {
-  var rows = fresh ? ltMemberRows_() : ltCached_('lt:mem3', 60, ltMemberRows_);   /* mem3 (01/11): `off` nhận "Ban ngày" (mem2 31/10: dòng có `off`) */
+  var rows = fresh ? ltMemberRows_() : ltCached_('lt:mem4', 60, ltMemberRows_);   /* mem4 (05/11): dòng có `kh` (_kh) · mem3 (01/11): `off` nhận "Ban ngày" */
   return ltPersons_(rows, ctx.today);
 }
 function ltClosedNow_() { return ltCached_('lt:closed', 600, ltClosures_); }
 function ltCapNow_() { return ltCached_('lt:cap', 600, ltCap_); }
-function ltFindPerson_(persons, key) { for (var i = 0; i < persons.length; i++) if (persons[i].key === key) return persons[i]; return null; }
+function ltFindPerson_(persons, key) {
+  key = ltCanonKey_(persons, key);
+  for (var i = 0; i < persons.length; i++) if (persons[i].key === key) return persons[i];
+  return null;
+}
 
 /** Ghi danh sách hội viên còn hiệu lực sang tab ẩn _dữ liệu (để Bảng lịch tập liệt kê "Chưa đặt lịch"). Tối đa 10 phút/lần. */
 function ltSnapshot_(persons, cap, now) {
@@ -934,7 +994,7 @@ function ltOffAt_(env, person, iso, h) {
 /** Đọc mọi thứ và dựng state cho một hội viên (lượt XEM). */
 function ltLoadState_(ctx, person, persons) {
   var closed = ltClosedNow_(), cap = ltCapNow_(), sched = ltCached_('lt:sc2', 60, ltSched_);
-  var rows = ltLogRows_(ltLogSheet_());
+  var rows = ltCanonRows_(ltLogRows_(ltLogSheet_()), persons);   /* mã cũ của khách gia hạn → khoá hiện tại */
   var trials = ltCached_('lt:tr2:' + ctx.key, 30, function () { return ltTrials_(ctx.days); });   /* tr2: mỗi khung là danh sách coach (bản cũ: số) */
   var marks = ltCached_('lt:mk:' + ctx.key, 60, function () { return ltMarks_(ctx.days); });
   if (persons) ltSnapshot_(persons, cap, ctx.now);
@@ -1119,7 +1179,7 @@ function ltLocked_(pre, p, write) {
   try {
     ctx = ltWeekCtx_(Date.now());
     var sh = ltLogSheet_();
-    rows = ltLogRows_(sh);
+    rows = ltCanonRows_(ltLogRows_(sh), pre.persons);   /* mã cũ của khách gia hạn → khoá hiện tại; ghi theo số hàng nên dùng được */
     for (var i = 0; i < rows.length; i++) if (rows[i].rid === pre.rid) { res = { ok: true, dup: true }; break; }
     if (!res && String(p.week || '') !== ctx.key) res = { error: 'tuan_doi' };
     if (!res) {
@@ -1128,7 +1188,7 @@ function ltLocked_(pre, p, write) {
       if (ltBaseStale_(p.base, mine)) res = { error: 'ban_cu' };
       else {
         res = write(ctx, sh, rows, ltEnv_(ctx, rows, trials, pre.closed, pre.cap, pre.sched), mine);
-        if (res.ok) { SpreadsheetApp.flush(); rows = ltLogRows_(sh); }
+        if (res.ok) { SpreadsheetApp.flush(); rows = ltCanonRows_(ltLogRows_(sh), pre.persons); }
       }
     }
   } finally {
