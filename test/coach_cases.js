@@ -878,6 +878,45 @@ async function coachCases(h) {
     f = await call(t, { action: 'lt_find', q: 'ba hop' });
     s = await login(t, 'ba hop', '0095');
     ok('i · ba hợp đồng một người → một kết quả tìm tên, khoá B995DY (HĐ đã bắt đầu, không phải HĐ tương lai B996DY)', f.results.length === 1 && s.ok && s.mine.code === 'B995DY-W43', [f.results.length, s.error || s.mine.code]);
+
+    /* j · hai người cùng tên đều chưa có Mã KH: không ai giữ khoá #tên trần; người A hết gói thì mã nhớ máy của A không vào phiếu của B */
+    const PJ = { BA_ID: 'BA', LT_OUT_ID: 'OUT', LT_SECRET: 'trungten-test-secret-0123456789abcd' };
+    const J = (left81) => [['981J', 'Khách Hai Tên', 'Lâm Nguyễn', '0900000181', '', '1:1', '', '2027-01-01', '2026-08-01', undefined, left81],
+                           ['982J', 'Khách Hai Tên', 'Lâm Nguyễn', '0900000182', '', '1:1', '', '2027-01-01', '2026-08-01', undefined, 5]];
+    t = await setup(vn('2026-10-18', '07:00'), { props: PJ, members: J(5) });
+    f = await call(t, { action: 'lt_find', q: 'hai ten' });
+    const j1 = await call(t, { action: 'lt_verify', id: f.results[0].id, pin: '0181', remember: true }), j2 = await call(t, { action: 'lt_verify', id: f.results[1].id, pin: '0182', remember: true });
+    const jt = j1.ok ? j1 : j2, jk = [j1, j2].map(x => x.ok ? x.mine.code : '?');
+    ok('j · hai người cùng tên chưa có mã → khoá "#khach hai ten|981J" và "#khach hai ten|982J" (không ai giữ khoá trần)',
+       jk.slice().sort().join(',') === '#khach hai ten|981J-W43,#khach hai ten|982J-W43', jk);
+    t = await setup(vn('2026-10-18', '07:00'), { props: PJ, members: J(0) });
+    s = await call(t, { action: 'lt_boot', tok: (j1.ok && j1.mine.code.indexOf('981J') > 0 ? j1 : j2).tok });
+    ok('… người 981J hết gói → mã nhớ máy của 981J không vào phiếu của 982J', s.ok !== false && s.auth !== true, [s.auth, s.mine && s.mine.code, s.error || s.why]);
+
+    /* k · khách mới chưa có Mã KH: gói A có SĐT, gói B để trống SĐT → một người, xác minh bằng SĐT gói A */
+    t = await setup(vn('2026-10-18', '07:00'), { members: [
+      ['983A', 'Khách Thiếu Số', 'Hiền Mai', '0900000183', '', '1:1', '', '2027-01-01', '2026-08-01', undefined, 3],
+      ['983B', 'Khách Thiếu Số', 'Hiền Mai', '', '', '1:1', '', '2027-01-01', '2026-10-01', undefined, 20]] });
+    f = await call(t, { action: 'lt_find', q: 'thieu so' });
+    s = await login(t, 'thieu so', '0183');
+    ok('k · gói B chưa mã + thiếu SĐT nối vào gói A cùng tên → một người, đăng nhập bằng 4 số của gói A', f.results.length === 1 && s.ok && s.mine.code === '#khach thieu so-W43', [f.results.length, s.error || s.mine.code]);
+
+    /* l · gói A/B cùng mã nhưng tên gõ lệch; gói A đã hết, gói B thiếu SĐT → vẫn xác minh bằng SĐT của mã đó */
+    t = await setup(vn('2026-10-18', '07:00'), { members: [
+      ['984A', 'Khách Lệch Tên', 'Khải Phan', '0900000184', 'B984DY', '1:1', '', '2027-01-01', '2026-08-01', undefined, 0],
+      ['984B', 'Khách Lệch Tênn', 'Khải Phan', '', 'B984DY', '1:1', '', '2027-01-01', '2026-10-01', undefined, 20]] });
+    f = await call(t, { action: 'lt_find', q: 'lech tenn' });
+    s = await call(t, { action: 'lt_verify', id: f.results[0] && f.results[0].id, pin: '0184', remember: true });
+    ok('l · gói A hết, gói B (tên lệch, không SĐT) → vẫn đăng nhập bằng SĐT của mã B984DY', s.ok && s.mine.code === 'B984DY-W43', s.error || s.mine.code);
+
+    /* m · Mã KH gõ nhầm ở dòng CÒN hiệu lực của người khác (khác SĐT) → không gộp lan; An giữ mã của mình */
+    t = await setup(vn('2026-10-18', '07:00'), { members: [
+      ['985', 'Khách An Ba', 'Hiền Mai', '0900000185', 'B985DY'],
+      ['986A', 'Khách Bình Ba', 'Khải Phan', '0900000186', 'B985DY', '1:1', '', '2027-01-01', '2026-06-01', undefined, 2],   /* gõ nhầm mã của An */
+      ['986B', 'Khách Bình Ba', 'Khải Phan', '0900000186', 'B986DY', '1:1', '', '2027-03-01', '2026-10-01', undefined, 30]] });
+    const ma = await login(t, 'an ba', '0185'), mb = await login(t, 'binh ba', '0186');
+    ok('m · An (B985DY) và Bình (một dòng còn hiệu lực lỡ ghi B985DY) → hai người: An giữ B985DY, Bình B986DY',
+       ma.ok && mb.ok && ma.mine.code === 'B985DY-W43' && mb.mine.code === 'B986DY-W43', [ma.error || ma.mine.code, mb.error || mb.mine.code]);
   }
 }
 

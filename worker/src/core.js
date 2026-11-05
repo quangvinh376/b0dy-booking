@@ -325,24 +325,44 @@ function pickRow(list, today) {
   return pick;
 }
 export function persons(rows, today) {
-  const par = rows.map((_, i) => i), seen = {};
+  const par = rows.map((_, i) => i), seen = {}, liveBy = {};
   const find = i => { while (par[i] !== i) { par[i] = par[par[i]]; i = par[i]; } return i; };
   const join = (a, b) => { a = find(a); b = find(b); if (a !== b) { if (a < b) par[b] = a; else par[a] = b; } };
   const live = r => r.left > 0 && !(r.exp && r.exp < today);
+  const nks = rows.map(r => nameKey(r.name)), bare = [];
   rows.forEach((r, i) => {
-    const nk = nameKey(r.name), ks = [];
-    if (r.code) { ks.push('c:' + r.code + '|' + nk); if (live(r)) ks.push('a:' + r.code); }
+    const nk = nks[i], ks = [];
+    if (r.code) { ks.push('c:' + r.code + '|' + nk); if (live(r)) (liveBy[r.code] || (liveBy[r.code] = [])).push(i); }
     if (r.kh) ks.push('p:' + r.kh + '|' + nk);
     if (r.phone) ks.push('s:' + r.phone + '|' + nk);
-    if (!ks.length) ks.push('n:' + nk);
+    if (!ks.length) { ks.push('n:' + nk); bare.push(i); }
     ks.forEach(k => { if (seen[k] === undefined) seen[k] = i; else join(seen[k], i); });
   });
-  const comp = {}, order = [], codeComp = {};
+  /* cùng Mã KH, cả hai dòng còn hiệu lực (gói A/B, kể cả tên gõ lệch) — trừ khi SĐT mâu thuẫn (mã gõ nhầm của người khác) */
+  for (const code in liveBy) {
+    const g = liveBy[code];
+    for (let a = 0; a < g.length; a++) for (let b = a + 1; b < g.length; b++) {
+      const pa = rows[g[a]].phone, pb = rows[g[b]].phone;
+      if (!pa || !pb || pa === pb) join(g[a], g[b]);
+    }
+  }
+  /* dòng không có Mã KH, _kh lẫn SĐT: nối vào người cùng tên nếu chỉ có đúng một người như vậy */
+  const byName = {};
+  rows.forEach((r, i) => { if (bare.indexOf(i) < 0) { const k = nks[i], c = find(i); (byName[k] || (byName[k] = {}))[c] = 1; } });
+  bare.forEach(i => { const cs = Object.keys(byName[nks[i]] || {}); if (cs.length === 1) join(+cs[0], i); });
+
+  const comp = {}, order = [], codeComp = {}, nameOwner = {};
   rows.forEach((r, i) => {
-    const ci = find(i), c = comp[ci] || (comp[ci] = { all: [], act: [], person: null });
+    const ci = find(i), c = comp[ci] || (comp[ci] = { all: [], act: [], person: null, no: '' });
     c.all.push(r);
+    if (!c.no && r.no) c.no = r.no;
     if (r.code) codeComp[r.code] = codeComp[r.code] === undefined || codeComp[r.code] === c ? c : null;   /* null: mã nằm ở hơn một người */
   });
+  for (const ci in comp) {
+    const c = comp[ci], mine = {};
+    c.all.forEach(r => { mine['#' + nameKey(r.name)] = 1; });
+    for (const n in mine) nameOwner[n] = nameOwner[n] === undefined ? c : null;   /* null: tên của hơn một người (kể cả người đã hết gói) */
+  }
   rows.forEach((r, i) => {
     if (!live(r)) return;
     const c = comp[find(i)];
@@ -350,7 +370,7 @@ export function persons(rows, today) {
     c.act.push(r);
   });
   const used = {}, out = [];
-  order.forEach(c => {
+  order.forEach((c, oi) => {
     let left = 0, exp = '', noExp = false, start = '';
     c.act.forEach(r => {
       left += r.left;
@@ -358,32 +378,31 @@ export function persons(rows, today) {
       if (r.start && (!start || r.start < start)) start = r.start;
     });
     const pick = pickRow(c.act, today);
-    let key = pick.code;
+    let key = pick.code && !used[pick.code] ? pick.code : '';
     if (!key) {
-      const own = c.all.filter(r => r.code && codeComp[r.code] === c);
-      key = own.length ? pickRow(own, today).code : '#' + nameKey(pick.name);
+      const own = c.all.filter(r => r.code && codeComp[r.code] === c && !used[r.code]);
+      if (own.length) key = pickRow(own, today).code;
     }
-    if (used[key] && key.charAt(0) === '#') key += '|' + (pick.no || out.length);   /* hai người cùng tên đều chưa có mã: khoá không trùng, không chứa SĐT */
+    if (!key) {
+      const base = '#' + nameKey(pick.name);
+      key = nameOwner[base] === c ? base : base + '|' + (c.no || 'r' + oi);   /* tên của hơn một người: không ai giữ khoá #tên trần */
+    }
     used[key] = 1;
     let phone = '';
     c.all.forEach(r => { if (!phone && r.phone && r.code === key) phone = r.phone; });
     if (!phone) phone = pick.phone || '';
     c.all.forEach(r => { if (!phone && r.phone) phone = r.phone; });
+    if (!phone && pick.code) rows.forEach(r => { if (!phone && r.phone && r.code === pick.code) phone = r.phone; });   /* gói A/B lệch tên, gói A đã hết */
     const p = { key: key, name: pick.name, toks: nameKey(pick.name).split(' '), short: short(pick.name), call: callName(pick.name),
                 coach: pick.coach, kind: pick.kind || '1:1', pkg: pkgLabel(pick.pkg, pick.total), left: left,
                 exp: noExp ? '' : exp, start: start, phone: phone, code: pick.code || '', off: !!pick.off };
     c.person = p;
     out.push(p);
   });
-  /* bí danh: #tên cũ (chỉ khi đúng một người — kể cả người đã hết gói — mang tên đó) → Mã KH cũ (chỉ của đúng một người) → khoá
-     hiện tại (ghi sau thắng) */
-  const alias = {}, nameOwner = {};
-  for (const ci in comp) {
-    const c = comp[ci], mine = {};
-    c.all.forEach(r => { mine['#' + nameKey(r.name)] = 1; });
-    for (const n in mine) nameOwner[n] = nameOwner[n] === undefined ? c : null;
-  }
+  /* bí danh (ghi sau thắng): #tên cũ (tên của đúng một người) · #tên|số HĐ (tên trùng) → Mã KH cũ (của đúng một người) → khoá */
+  const alias = {};
   for (const n in nameOwner) if (nameOwner[n] && nameOwner[n].person) alias[n] = nameOwner[n].person.key;
+  order.forEach(c => { c.all.forEach(r => { if (r.no) alias['#' + nameKey(r.name) + '|' + r.no] = c.person.key; }); });
   for (const code in codeComp) if (codeComp[code] && codeComp[code].person) alias[code] = codeComp[code].person.key;
   out.forEach(p => { alias[p.key] = p.key; });
   Object.defineProperty(out, 'alias', { value: alias, enumerable: false });

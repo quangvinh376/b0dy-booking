@@ -311,24 +311,45 @@ function ltPickRow_(list, today) {
   return pick;
 }
 function ltPersons_(rows, today) {
-  var par = rows.map(function (_, i) { return i; }), seen = {};
+  var par = rows.map(function (_, i) { return i; }), seen = {}, liveBy = {};
   function find(i) { while (par[i] !== i) { par[i] = par[par[i]]; i = par[i]; } return i; }
   function join(a, b) { a = find(a); b = find(b); if (a !== b) { if (a < b) par[b] = a; else par[a] = b; } }
   function live(r) { return r.left > 0 && !(r.exp && r.exp < today); }
+  var nks = rows.map(function (r) { return ltName_(r.name); }), bare = [];
   rows.forEach(function (r, i) {
-    var nk = ltName_(r.name), ks = [];
-    if (r.code) { ks.push('c:' + r.code + '|' + nk); if (live(r)) ks.push('a:' + r.code); }
+    var nk = nks[i], ks = [];
+    if (r.code) { ks.push('c:' + r.code + '|' + nk); if (live(r)) (liveBy[r.code] || (liveBy[r.code] = [])).push(i); }
     if (r.kh) ks.push('p:' + r.kh + '|' + nk);
     if (r.phone) ks.push('s:' + r.phone + '|' + nk);
-    if (!ks.length) ks.push('n:' + nk);
+    if (!ks.length) { ks.push('n:' + nk); bare.push(i); }
     ks.forEach(function (k) { if (seen[k] === undefined) seen[k] = i; else join(seen[k], i); });
   });
-  var comp = {}, order = [], codeComp = {};
+  /* cùng Mã KH, cả hai dòng còn hiệu lực (gói A/B, kể cả tên gõ lệch) — trừ khi SĐT mâu thuẫn (mã gõ nhầm của người khác) */
+  var code, a, b;
+  for (code in liveBy) {
+    var g = liveBy[code];
+    for (a = 0; a < g.length; a++) for (b = a + 1; b < g.length; b++) {
+      var pa = rows[g[a]].phone, pb = rows[g[b]].phone;
+      if (!pa || !pb || pa === pb) join(g[a], g[b]);
+    }
+  }
+  /* dòng không có Mã KH, _kh lẫn SĐT: nối vào người cùng tên nếu chỉ có đúng một người như vậy */
+  var byName = {};
+  rows.forEach(function (r, i) { if (bare.indexOf(i) < 0) { var k = nks[i], c = find(i); (byName[k] || (byName[k] = {}))[c] = 1; } });
+  bare.forEach(function (i) { var cs = Object.keys(byName[nks[i]] || {}); if (cs.length === 1) join(+cs[0], i); });
+
+  var comp = {}, order = [], codeComp = {}, nameOwner = {}, ci, n;
   rows.forEach(function (r, i) {
-    var ci = find(i), c = comp[ci] || (comp[ci] = { all: [], act: [], person: null });
+    var cid = find(i), c = comp[cid] || (comp[cid] = { all: [], act: [], person: null, no: '' });
     c.all.push(r);
+    if (!c.no && r.no) c.no = r.no;
     if (r.code) codeComp[r.code] = codeComp[r.code] === undefined || codeComp[r.code] === c ? c : null;
   });
+  for (ci in comp) {
+    var mine = {};
+    comp[ci].all.forEach(function (r) { mine['#' + ltName_(r.name)] = 1; });
+    for (n in mine) nameOwner[n] = nameOwner[n] === undefined ? comp[ci] : null;
+  }
   rows.forEach(function (r, i) {
     if (!live(r)) return;
     var c = comp[find(i)];
@@ -336,38 +357,38 @@ function ltPersons_(rows, today) {
     c.act.push(r);
   });
   var used = {}, out = [];
-  order.forEach(function (c) {
+  order.forEach(function (c, oi) {
     var left = 0, exp = '', noExp = false, start = '';
     c.act.forEach(function (r) {
       left += r.left;
       if (!r.exp) noExp = true; else if (r.exp > exp) exp = r.exp;
       if (r.start && (!start || r.start < start)) start = r.start;
     });
-    var pick = ltPickRow_(c.act, today), key = pick.code;
+    var pick = ltPickRow_(c.act, today), key = pick.code && !used[pick.code] ? pick.code : '';
     if (!key) {
-      var own = c.all.filter(function (r) { return r.code && codeComp[r.code] === c; });
-      key = own.length ? ltPickRow_(own, today).code : '#' + ltName_(pick.name);
+      var own = c.all.filter(function (r) { return r.code && codeComp[r.code] === c && !used[r.code]; });
+      if (own.length) key = ltPickRow_(own, today).code;
     }
-    if (used[key] && key.charAt(0) === '#') key += '|' + (pick.no || out.length);   /* hai người cùng tên đều chưa có mã: khoá không trùng, không chứa SĐT */
+    if (!key) {
+      var base = '#' + ltName_(pick.name);
+      key = nameOwner[base] === c ? base : base + '|' + (c.no || 'r' + oi);   /* tên của hơn một người: không ai giữ khoá #tên trần */
+    }
     used[key] = 1;
     var phone = '';
     c.all.forEach(function (r) { if (!phone && r.phone && r.code === key) phone = r.phone; });
     if (!phone) phone = pick.phone || '';
     c.all.forEach(function (r) { if (!phone && r.phone) phone = r.phone; });
+    if (!phone && pick.code) rows.forEach(function (r) { if (!phone && r.phone && r.code === pick.code) phone = r.phone; });
     var p = { key: key, name: pick.name, toks: ltName_(pick.name).split(' '), short: ltShort_(pick.name), call: ltCall_(pick.name),
               coach: pick.coach, kind: pick.kind || '1:1', pkg: ltPkg_(pick.pkg, pick.total), left: left,
               exp: noExp ? '' : exp, start: start, phone: phone, code: pick.code || '', off: !!pick.off };
     c.person = p;
     out.push(p);
   });
-  /* bí danh: #tên cũ (chỉ khi đúng một người — kể cả người đã hết gói — mang tên đó) → Mã KH cũ (chỉ của đúng một người) → khoá hiện tại */
-  var alias = {}, nameOwner = {}, ci, n, code;
-  for (ci in comp) {
-    var mine = {};
-    comp[ci].all.forEach(function (r) { mine['#' + ltName_(r.name)] = 1; });
-    for (n in mine) nameOwner[n] = nameOwner[n] === undefined ? comp[ci] : null;
-  }
+  /* bí danh (ghi sau thắng): #tên cũ (tên của đúng một người) · #tên|số HĐ (tên trùng) → Mã KH cũ (của đúng một người) → khoá */
+  var alias = {};
   for (n in nameOwner) if (nameOwner[n] && nameOwner[n].person) alias[n] = nameOwner[n].person.key;
+  order.forEach(function (c) { c.all.forEach(function (r) { if (r.no) alias['#' + ltName_(r.name) + '|' + r.no] = c.person.key; }); });
   for (code in codeComp) if (codeComp[code] && codeComp[code].person) alias[code] = codeComp[code].person.key;
   out.forEach(function (p) { alias[p.key] = p.key; });
   Object.defineProperty(out, 'alias', { value: alias, enumerable: false });
