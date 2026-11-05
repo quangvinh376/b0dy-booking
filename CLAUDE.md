@@ -24,7 +24,7 @@ ID hai file Google Sheets: `BA_ID` (file BA: MEMBERS · SESSION LOG · TRIAL · 
    biến `CLOUDFLARE_API_TOKEN` (quyền Workers Scripts: Edit) + `CLOUDFLARE_ACCOUNT_ID` thì `cd worker && npx wrangler deploy` trực tiếp.
    Không áp dụng cho: sửa hàng loạt Google Sheets (luật 5), đưa Apps Script dự phòng lên (luật 4). Cách deploy: mục "Máy chủ" dưới.
 4. Apps Script dự phòng (`backend/LichTuan.gs`): đưa lên bằng Deploy ▸ Manage deployments ▸ New version; KHÔNG bấm Run.
-   Đang chạy **V43 = `backend/LichTuan.gs` của `6c4c70a`** (04/11; bản `1ce87d6` đã lưu trong project, chưa New version; 31/10 chủ studio "mọi quyền deploy đều được cho phép"). Số version là của
+   Đang chạy **V44 = `backend/LichTuan.gs` của `1ce87d6`** (05/11; 31/10 chủ studio "mọi quyền deploy đều được cho phép"). Số version là của
    cả project: V39 (28/10) là của deployment tập thử, không phải trang đặt lịch. Đổi luật ở repo thì đưa
    bản mới lên cùng lúc với Worker (chạy parity trước). Ô "Description" của New version để trống → deployment mất tên ("Untitled"):
    luôn gõ mô tả.
@@ -33,7 +33,7 @@ ID hai file Google Sheets: `BA_ID` (file BA: MEMBERS · SESSION LOG · TRIAL · 
 6. Sau mỗi lần đẩy: xác minh commit bằng hash và SHA-256 từng tệp trên `raw.githubusercontent.com/quangvinh376/b0dy-booking/<commit>/…`.
 7. Chỉ MỘT tiến trình Playwright / Chromium một lúc (máy test nhỏ từng hết RAM).
 
-## Đang ở đâu (05/11/2026, 13:30)
+## Đang ở đâu (05/11/2026, 13:35)
 
 - **1.8.3 · nhận diện hội viên theo NGƯỜI** (chủ studio 05/11: "sửa tận gốc, không muốn trường hợp này xảy ra nữa"). Sự cố: một khách
   gia hạn hợp đồng, dòng MEMBERS của HĐ mới chưa có Mã KH → máy chủ coi là người mới (khoá `#tên`, phiếu "Đặt" bản 1, buổi cùng tuần không
@@ -54,8 +54,10 @@ ID hai file Google Sheets: `BA_ID` (file BA: MEMBERS · SESSION LOG · TRIAL · 
   mục 24 trượt đúng như sự cố · MEMBERS giả có cột `_kh` tính y công thức thật · ui_states 117 · ui_qc 84 · ui_duo 48 · ui_live 28 ·
   ui_notice 110 · ui_smoke 24 · ui_sw 8 · ui_peak 71 · rv_* PASS. Rà soát độc lập 2 vòng (agent riêng), mọi phát hiện đã sửa + có test.
   Deploy: `main` `1ce87d6` (10 tệp SHA khớp raw) · Worker `1ce87d6` (7 module SHA khớp, `OK etag=36c05b1a39`, 5 binding, cron) →
-  `lt_ping` pending 0 · `lt_boot` tuần 45 · trang thật index · app.js · sw.js khớp (1.8.3) · **Apps Script: LichTuan.gs `d11f0645…` đã lưu
-  trong project (đọc lại ở tab mới), New version CHƯA bấm** (bộ kiểm quyền chặn, chờ chủ studio đồng ý) — deployment vẫn V43.
+  `lt_ping` pending 0 · `lt_boot` tuần 45 · trang thật index · app.js · sw.js khớp (1.8.3) · Apps Script **V44** 13:30 05/11 (chủ studio "đồng ý deploy
+  Apps Script dự phòng" — lần đầu bộ kiểm quyền chặn) "Lich tap tuan (booking.b0dy.studio) - nhan dien khach gia han theo nguoi, 05/11",
+  ID giữ; LichTuan.gs `d11f0645…` đọc lại ở tab mới, Code.gs / Discord.gs không đổi → `/exec` `lt_boot` tuần 45 · `lt_find` 'zqxj' → `[]`
+  · tìm một khách gia hạn ra 1 kết quả như Worker.
   Còn biết: `Bảng lịch tập` đếm HỘI VIÊN ĐÃ ĐẶT / Chưa đặt lịch theo Mã KH thô của sổ → tuần có buổi dưới mã cũ + mã mới của cùng người
   đếm hai lần. Mã nhớ máy `#tên` của người đã bị xoá khỏi MEMBERS có thể vào người cùng tên (rất hiếm). Dòng HĐ mới nên điền đủ SĐT ngay.
 
