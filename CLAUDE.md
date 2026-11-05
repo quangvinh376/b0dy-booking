@@ -24,7 +24,7 @@ ID hai file Google Sheets: `BA_ID` (file BA: MEMBERS · SESSION LOG · TRIAL · 
    biến `CLOUDFLARE_API_TOKEN` (quyền Workers Scripts: Edit) + `CLOUDFLARE_ACCOUNT_ID` thì `cd worker && npx wrangler deploy` trực tiếp.
    Không áp dụng cho: sửa hàng loạt Google Sheets (luật 5), đưa Apps Script dự phòng lên (luật 4). Cách deploy: mục "Máy chủ" dưới.
 4. Apps Script dự phòng (`backend/LichTuan.gs`): đưa lên bằng Deploy ▸ Manage deployments ▸ New version; KHÔNG bấm Run.
-   Đang chạy **V43 = `backend/LichTuan.gs` của `6c4c70a`** (04/11; 31/10 chủ studio "mọi quyền deploy đều được cho phép"). Số version là của
+   Đang chạy **V43 = `backend/LichTuan.gs` của `6c4c70a`** (04/11; bản `1ce87d6` đã lưu trong project, chưa New version; 31/10 chủ studio "mọi quyền deploy đều được cho phép"). Số version là của
    cả project: V39 (28/10) là của deployment tập thử, không phải trang đặt lịch. Đổi luật ở repo thì đưa
    bản mới lên cùng lúc với Worker (chạy parity trước). Ô "Description" của New version để trống → deployment mất tên ("Untitled"):
    luôn gõ mô tả.
@@ -33,7 +33,31 @@ ID hai file Google Sheets: `BA_ID` (file BA: MEMBERS · SESSION LOG · TRIAL · 
 6. Sau mỗi lần đẩy: xác minh commit bằng hash và SHA-256 từng tệp trên `raw.githubusercontent.com/quangvinh376/b0dy-booking/<commit>/…`.
 7. Chỉ MỘT tiến trình Playwright / Chromium một lúc (máy test nhỏ từng hết RAM).
 
-## Đang ở đâu (04/11/2026, 23:15)
+## Đang ở đâu (05/11/2026, 13:30)
+
+- **1.8.3 · nhận diện hội viên theo NGƯỜI** (chủ studio 05/11: "sửa tận gốc, không muốn trường hợp này xảy ra nữa"). Sự cố: một khách
+  gia hạn hợp đồng, dòng MEMBERS của HĐ mới chưa có Mã KH → máy chủ coi là người mới (khoá `#tên`, phiếu "Đặt" bản 1, buổi cùng tuần không
+  thấy); sau khi điền Mã KH mới thành khoá thứ ba → phiếu trống, buổi của mình hiện "coach bận", đặt trùng ngày được. Trước đó tìm tên ra HAI
+  người cùng tên. **Cột MEMBERS!X `_kh` = `IF(U="","",…)` — trống khi dòng chưa có Mã KH** → không dựa được vào nó. Sửa (`core.js` ·
+  `persons` / `LichTuan.gs` · `ltPersons_`, parity): union-find nối dòng cùng SĐT + tên · cùng `_kh` + tên · cùng Mã KH + tên · cùng Mã KH
+  khi cả hai dòng còn hiệu lực và SĐT không mâu thuẫn (gói A/B, kể cả tên gõ lệch) · dòng thiếu cả mã lẫn SĐT vào người cùng tên nếu chỉ có
+  một. Khoá = Mã KH dòng đang tính; trống → Mã KH riêng của người đó (luật dòng đang tính, không nhảy theo HĐ tương lai) → `#tên` (tên của
+  hơn một người → `#tên|số HĐ`, không ai giữ khoá trần, không chứa SĐT). SĐT xác minh như cũ (+ dự phòng: mọi dòng cùng mã).
+  `list.alias`: Mã KH cũ (của đúng một người) · `#tên` (tên của đúng một người) · `#tên|số HĐ` → khoá. `canonRows` / `ltCanonRows_`: dòng
+  sổ (và mã trong ghi chú Mời / Từ chối) đổi về khoá hiện tại cho phiếu, suất coach, lời mời — Worker vẫn tìm dòng trên sheet bằng mã gốc
+  (`L.rows`), Apps Script ghi theo số hàng. `findPerson` hiểu bí danh (mã nhớ máy cũ vẫn vào). `snap:ba` fmt 4 · Apps Script `lt:mem4`
+  (dòng có `kh`, `no`). VER 1.8.3 (qc.js nạp worker/src). Dữ liệu thật (BA 05/11, chỉ đếm): 56 hội viên, khoá / SĐT / số buổi không đổi
+  với ai; 5 khách gia hạn có bí danh mã cũ. Sổ: một dòng `#tên` của khách bị sự cố đã đổi về Mã KH hiện tại (chủ studio đồng ý).
+  Test: `gas_lt` 404 · parity 457 (1075 lượt giống hệt) · robust 86 (ảnh chụp BA dạng 4) · concurrency 37 · http 13 · live 25 · realdata 17
+  · `coach_cases` mục 24 mới (a–m: gia hạn khi Mã KH trống / đã có, mã nhớ máy cũ, đổi buổi dòng `#tên`, chung SĐT khác tên, trùng tên,
+  lời mời 1:2 mã cũ, mã gõ nhầm dòng hết hạn / còn hiệu lực, hai người trùng tên chưa mã, gói thiếu SĐT, A/B lệch tên) — chạy trên mã cũ:
+  mục 24 trượt đúng như sự cố · MEMBERS giả có cột `_kh` tính y công thức thật · ui_states 117 · ui_qc 84 · ui_duo 48 · ui_live 28 ·
+  ui_notice 110 · ui_smoke 24 · ui_sw 8 · ui_peak 71 · rv_* PASS. Rà soát độc lập 2 vòng (agent riêng), mọi phát hiện đã sửa + có test.
+  Deploy: `main` `1ce87d6` (10 tệp SHA khớp raw) · Worker `1ce87d6` (7 module SHA khớp, `OK etag=36c05b1a39`, 5 binding, cron) →
+  `lt_ping` pending 0 · `lt_boot` tuần 45 · trang thật index · app.js · sw.js khớp (1.8.3) · **Apps Script: LichTuan.gs `d11f0645…` đã lưu
+  trong project (đọc lại ở tab mới), New version CHƯA bấm** (bộ kiểm quyền chặn, chờ chủ studio đồng ý) — deployment vẫn V43.
+  Còn biết: `Bảng lịch tập` đếm HỘI VIÊN ĐÃ ĐẶT / Chưa đặt lịch theo Mã KH thô của sổ → tuần có buổi dưới mã cũ + mã mới của cùng người
+  đếm hai lần. Mã nhớ máy `#tên` của người đã bị xoá khỏi MEMBERS có thể vào người cùng tên (rất hiếm). Dòng HĐ mới nên điền đủ SĐT ngay.
 
 - **1.8.2 live 04/11 ~23:10** (chủ studio 04/11 20:47: "Cho phép đổi giờ trong ngày" — chốt: giữ buổi đang có ≥ 24 giờ, khung mới ≥ 12 giờ;
   đổi trong ngày tính 1 lượt như mọi lần đổi; "Ghép" vào nhóm 1:2 vẫn miễn lượt). Nguồn: khách 1:1 không dời được T6 19:00 → T6 07:00 vì
