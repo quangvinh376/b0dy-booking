@@ -850,6 +850,34 @@ async function coachCases(h) {
             [ 'B902DY-W43', 1, W, '2026-10-20', 'T3', '15:00', 'Ninh Ngọc Nam', 'N. Ngọc Nam', 'Quyết Hán', '1:2', 'Mời', 'Mời', 'Mời K. Đôi Cũ · B981DY', '2026-10-18 06:31:00', 'riddoicu00002', 'B902DY', 'N. Ngọc Nam · QH']] });
     s = await login(t, 'doi cu', '0081');
     ok('f · khách 1:2 gia hạn (B981DY → B982DY) thấy lời mời ghi mã cũ: T3 15:00 từ Ngọc Nam', s.ok && s.mine.code === 'B982DY-W43' && inv(s) === '[{"date":"2026-10-20","h":15,"from":"Ngọc Nam"}]', [s.mine && s.mine.code, duo(s).invIn]);
+
+    /* g · Mã KH gõ nhầm ở dòng cũ đã hết hạn của người khác tên → không gộp hai người (rà soát độc lập 05/11) */
+    t = await setup(vn('2026-10-18', '07:00'), { members: [
+      ['991', 'Khách An Một', 'Hiền Mai', '0900000091', 'B991DY'],
+      ['992A', 'Khách Bình Hai', 'Khải Phan', '0900000092', 'B991DY', '1:1', '', '2026-09-30', '2026-06-01', undefined, 0],   /* gõ nhầm mã của An */
+      ['992B', 'Khách Bình Hai', 'Khải Phan', '0900000092', 'B992DY', '1:1', '', '2027-03-01', '2026-10-01', undefined, 30]] });
+    const sa = await login(t, 'an mot', '0091'), sb = await login(t, 'binh hai', '0092');
+    ok('g · An (B991DY) và Bình (dòng cũ hết hạn lỡ ghi B991DY, dòng mới B992DY) vẫn là hai người, mỗi người vào đúng phiếu của mình',
+       sa.ok && sb.ok && sa.mine.code === 'B991DY-W43' && sb.mine.code === 'B992DY-W43' && sa.limits.max === 4 && sb.limits.max === 4, [sa.error || sa.mine.code, sb.error || sb.mine.code]);
+
+    /* h · hai người cùng tên đều chưa có Mã KH (khác SĐT) → hai khoá khác nhau, không chứa SĐT */
+    t = await setup(vn('2026-10-18', '07:00'), { members: [
+      ['993', 'Khách Chưa Mã', 'Lâm Nguyễn', '0900000093', ''], ['994', 'Khách Chưa Mã', 'Lâm Nguyễn', '0900000094', '']] });
+    f = await call(t, { action: 'lt_find', q: 'chua ma' });
+    const h1 = await call(t, { action: 'lt_verify', id: f.results[0].id, pin: '0093', remember: true });
+    const h2 = await call(t, { action: 'lt_verify', id: f.results[1].id, pin: '0094', remember: true });
+    const hk = [h1, h2].map(x => x.ok ? x.mine.code : (x.error || '?'));
+    ok('h · hai người cùng tên chưa có Mã KH → hai phiếu khác khoá (#tên và #tên|số HĐ), không lộ SĐT', f.results.length === 2 && h1.ok && h2.ok && hk[0] !== hk[1] &&
+       hk.every(k => k.indexOf('#khach chua ma') === 0 && !/0900000/.test(k)), hk);
+
+    /* i · dòng đang tính chưa có Mã KH + HĐ cũ đã có mã + HĐ tương lai đã có mã → khoá là mã HĐ đã bắt đầu, không nhảy theo HĐ tương lai */
+    t = await setup(vn('2026-10-18', '07:00'), { members: [
+      ['995A', 'Khách Ba Hợp', 'Quyết Hán', '0900000095', 'B995DY', '1:1', '', '2026-12-31', '2026-06-01', undefined, 0],
+      ['995B', 'Khách Ba Hợp', 'Quyết Hán', '0900000095', '', '1:1', '', '2027-01-31', '2026-10-01', undefined, 10],
+      ['996', 'Khách Ba Hợp', 'Quyết Hán', '0900000095', 'B996DY', '1:1', '', '2027-06-30', '2026-12-01', undefined, 48]] });
+    f = await call(t, { action: 'lt_find', q: 'ba hop' });
+    s = await login(t, 'ba hop', '0095');
+    ok('i · ba hợp đồng một người → một kết quả tìm tên, khoá B995DY (HĐ đã bắt đầu, không phải HĐ tương lai B996DY)', f.results.length === 1 && s.ok && s.mine.code === 'B995DY-W43', [f.results.length, s.error || s.mine.code]);
   }
 }
 

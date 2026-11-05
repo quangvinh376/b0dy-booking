@@ -282,7 +282,7 @@ export function memberRows(vals) {
   function col() { for (let i = 0; i < arguments.length; i++) { const k = H.indexOf(arguments[i]); if (k >= 0) return k; } return -1; }
   const c = { name: col('ten'), pkg: col('goi'), total: col('so buoi'), kind: col('loai'), coach: col('coach'),
               phone: col('sdt', 'so dien thoai', 'dien thoai'), left: col('con lai'), start: col('ngay bat dau'),
-              exp: col('ngay het han'), code: col('ma kh'), kh: col('_kh'), tier: col('khung gio') };
+              exp: col('ngay het han'), code: col('ma kh'), kh: col('_kh'), no: col('#'), tier: col('khung gio') };
   const out = [];
   for (let r = hd.r + 1; r < vals.length; r++) {
     const x = vals[r] || [], g = k => cell(x, c[k]);
@@ -292,82 +292,99 @@ export function memberRows(vals) {
                kind: String(g('kind') || '').trim(), coach: coachName(g('coach')), phone: digits(g('phone')),
                left: Number(g('left')) || 0, start: cellIso(g('start'), true),
                exp: cellIso(g('exp'), true), code: String(g('code') || '').trim(), kh: String(g('kh') || '').trim(),
-               off: isOffPeak(g('tier')) });
+               no: String(g('no') || '').trim(), off: isOffPeak(g('tier')) });
   }
   return out;
 }
 
 /**
- * Gộp dòng MEMBERS thành hội viên (giống ltPersons_). Một NGƯỜI = các dòng nối nhau bởi: cùng Mã KH (gói A/B), HOẶC cùng `_kh`
- * (MEMBERS X: Mã KH dòng đầu cùng SĐT) và cùng tên — khách gia hạn hợp đồng mới có Mã KH mới vẫn là một người (chủ studio 05/11:
- * khách gia hạn từng thành "người mới" ở trang đặt lịch vì dòng HĐ mới chưa có Mã KH → khoá #tên, rồi có Mã KH → khoá thứ ba).
- * Dòng không có Mã KH lẫn _kh: nối theo tên như trước (khoá #tên). Cùng SĐT mà khác tên (người nhà dùng chung số) không nối.
+ * Gộp dòng MEMBERS thành hội viên (giống ltPersons_). Một NGƯỜI = các dòng nối nhau bởi:
+ *  · cùng SĐT và cùng tên (đúng định nghĩa `_kh` — nhưng cột X để trống khi dòng chưa có Mã KH nên không dựa vào nó) — khách gia hạn
+ *    hợp đồng mới (Mã KH mới, hoặc chưa điền Mã KH) vẫn là một người (chủ studio 05/11: từng thành "người mới" #tên ở trang đặt lịch);
+ *  · cùng `_kh` và cùng tên (khi đã có);
+ *  · cùng Mã KH và cùng tên; hoặc cùng Mã KH và CẢ HAI dòng còn hiệu lực (gói A/B — như trước). Một Mã KH gõ nhầm ở dòng cũ đã hết
+ *    hạn của người khác tên không kéo hai người thành một;
+ *  · dòng không có Mã KH, _kh lẫn SĐT: theo tên (khoá #tên như trước). Cùng SĐT mà khác tên (người nhà dùng chung số) không nối.
  * Chỉ người có ít nhất một dòng còn hiệu lực (còn buổi, chưa quá hạn) mới là hội viên: số buổi còn = tổng các dòng còn hiệu lực;
- * hết hạn = xa nhất; bắt đầu = sớm nhất; gói/loại/coach/khung giờ theo dòng bắt đầu muộn nhất nhưng ≤ hôm nay.
- * Khoá = Mã KH của dòng đó (đúng mã BA đang hiện); dòng đó chưa có Mã KH → Mã KH gần nhất của cùng người → #tên.
+ * hết hạn = xa nhất; bắt đầu = sớm nhất; gói/loại/coach/khung giờ theo "dòng đang tính" (bắt đầu muộn nhất nhưng ≤ hôm nay).
+ * Khoá = Mã KH dòng đang tính (đúng mã BA đang hiện); dòng đó chưa có Mã KH → Mã KH của người này chọn theo cùng luật (mã không dùng
+ * chung với người khác) → #tên. SĐT xác minh như trước: SĐT đầu tiên của các dòng mang đúng khoá.
  * list.alias: mọi Mã KH cũ / #tên cũ của cùng người → khoá hiện tại — sổ đặt lịch, mã nhớ máy, lời mời ghi bằng mã cũ vẫn là của người đó.
  */
+function pickRow(list, today) {
+  let pick = null;
+  list.forEach(r => {
+    const ok = !r.start || r.start <= today;
+    if (!pick) pick = r;
+    else {
+      const pOk = !pick.start || pick.start <= today;
+      if (ok && (!pOk || (r.start || '') >= (pick.start || ''))) pick = r;
+      else if (!ok && !pOk && (r.start || '') < (pick.start || '')) pick = r;
+    }
+  });
+  return pick;
+}
 export function persons(rows, today) {
   const par = rows.map((_, i) => i), seen = {};
   const find = i => { while (par[i] !== i) { par[i] = par[par[i]]; i = par[i]; } return i; };
   const join = (a, b) => { a = find(a); b = find(b); if (a !== b) { if (a < b) par[b] = a; else par[a] = b; } };
+  const live = r => r.left > 0 && !(r.exp && r.exp < today);
   rows.forEach((r, i) => {
-    const ks = [];
-    if (r.code) ks.push('c:' + r.code);
-    if (r.kh) ks.push('p:' + r.kh + '|' + nameKey(r.name));
-    if (!ks.length) ks.push('n:' + nameKey(r.name));
+    const nk = nameKey(r.name), ks = [];
+    if (r.code) { ks.push('c:' + r.code + '|' + nk); if (live(r)) ks.push('a:' + r.code); }
+    if (r.kh) ks.push('p:' + r.kh + '|' + nk);
+    if (r.phone) ks.push('s:' + r.phone + '|' + nk);
+    if (!ks.length) ks.push('n:' + nk);
     ks.forEach(k => { if (seen[k] === undefined) seen[k] = i; else join(seen[k], i); });
   });
-  const comp = {}, order = [];
-  rows.forEach((r, i) => { const c = find(i); if (!comp[c]) comp[c] = { all: [], act: [] }; comp[c].all.push(r); });
+  const comp = {}, order = [], codeComp = {};
   rows.forEach((r, i) => {
-    if (!(r.left > 0) || (r.exp && r.exp < today)) return;
+    const ci = find(i), c = comp[ci] || (comp[ci] = { all: [], act: [], person: null });
+    c.all.push(r);
+    if (r.code) codeComp[r.code] = codeComp[r.code] === undefined || codeComp[r.code] === c ? c : null;   /* null: mã nằm ở hơn một người */
+  });
+  rows.forEach((r, i) => {
+    if (!live(r)) return;
     const c = comp[find(i)];
     if (!c.act.length) order.push(c);
     c.act.push(r);
   });
   const used = {}, out = [];
   order.forEach(c => {
-    let pick = null, left = 0, exp = '', noExp = false, start = '';
+    let left = 0, exp = '', noExp = false, start = '';
     c.act.forEach(r => {
       left += r.left;
       if (!r.exp) noExp = true; else if (r.exp > exp) exp = r.exp;
       if (r.start && (!start || r.start < start)) start = r.start;
-      const ok = !r.start || r.start <= today;
-      if (!pick) pick = r;
-      else {
-        const pOk = !pick.start || pick.start <= today;
-        if (ok && (!pOk || (r.start || '') >= (pick.start || ''))) pick = r;
-        else if (!ok && !pOk && (r.start || '') < (pick.start || '')) pick = r;
-      }
     });
-    let key = pick.code, last = null;
+    const pick = pickRow(c.act, today);
+    let key = pick.code;
     if (!key) {
-      c.all.forEach(r => { if (r.code && (!last || (r.start || '') >= (last.start || ''))) last = r; });
-      key = last ? last.code : '#' + nameKey(pick.name);
-      if (!last && used[key]) key += '|' + (pick.kh || pick.phone || out.length);   /* hai người cùng tên đều chưa có mã: không trùng khoá */
+      const own = c.all.filter(r => r.code && codeComp[r.code] === c);
+      key = own.length ? pickRow(own, today).code : '#' + nameKey(pick.name);
     }
+    if (used[key] && key.charAt(0) === '#') key += '|' + (pick.no || out.length);   /* hai người cùng tên đều chưa có mã: khoá không trùng, không chứa SĐT */
     used[key] = 1;
     let phone = '';
+    c.all.forEach(r => { if (!phone && r.phone && r.code === key) phone = r.phone; });
+    if (!phone) phone = pick.phone || '';
     c.all.forEach(r => { if (!phone && r.phone) phone = r.phone; });
-    out.push({ key: key, name: pick.name, toks: nameKey(pick.name).split(' '), short: short(pick.name), call: callName(pick.name),
-               coach: pick.coach, kind: pick.kind || '1:1', pkg: pkgLabel(pick.pkg, pick.total), left: left,
-               exp: noExp ? '' : exp, start: start, phone: phone, code: pick.code || '', off: !!pick.off, _all: c.all });
+    const p = { key: key, name: pick.name, toks: nameKey(pick.name).split(' '), short: short(pick.name), call: callName(pick.name),
+                coach: pick.coach, kind: pick.kind || '1:1', pkg: pkgLabel(pick.pkg, pick.total), left: left,
+                exp: noExp ? '' : exp, start: start, phone: phone, code: pick.code || '', off: !!pick.off };
+    c.person = p;
+    out.push(p);
   });
-  /* bí danh: #tên cũ (chỉ khi đúng một người mang tên đó) → Mã KH cũ / _kh → khoá hiện tại (ghi sau thắng) */
+  /* bí danh: #tên cũ (chỉ khi đúng một người — kể cả người đã hết gói — mang tên đó) → Mã KH cũ (chỉ của đúng một người) → khoá
+     hiện tại (ghi sau thắng) */
   const alias = {}, nameOwner = {};
   for (const ci in comp) {
     const c = comp[ci], mine = {};
     c.all.forEach(r => { mine['#' + nameKey(r.name)] = 1; });
-    for (const n in mine) nameOwner[n] = nameOwner[n] === undefined ? c : null;   /* tên của hơn một người (kể cả người đã hết gói): không đoán */
+    for (const n in mine) nameOwner[n] = nameOwner[n] === undefined ? c : null;
   }
-  out.forEach(p => { p._comp = null; });
-  order.forEach((c, i) => { c.person = out[i]; });
   for (const n in nameOwner) if (nameOwner[n] && nameOwner[n].person) alias[n] = nameOwner[n].person.key;
-  out.forEach(p => {
-    p._all.forEach(r => { if (r.code) alias[r.code] = p.key; });
-    delete p._all; delete p._comp;
-  });
+  for (const code in codeComp) if (codeComp[code] && codeComp[code].person) alias[code] = codeComp[code].person.key;
   out.forEach(p => { alias[p.key] = p.key; });
   Object.defineProperty(out, 'alias', { value: alias, enumerable: false });
   return out;

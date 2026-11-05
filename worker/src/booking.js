@@ -593,7 +593,8 @@ export class BookingCore {
   async loadState(ctx, person, list, ba) {
     const L = await this.getLog(), marks = await this.marksFor(ctx);
     if (list) this.maybeSnapshot(list, ba.cap, ctx.now);
-    return this.withIds(C.stateOf(ctx, person, C.envOf(ctx, C.canonRows(L.rows, list), this.trialsFor(ctx, ba), ba.closed, ba.cap, ba.sched), C.mine(C.canonRows(L.rows, list), person, ctx), marks, list));
+    const cr = C.canonRows(L.rows, list);   /* mã cũ của khách gia hạn → khoá hiện tại */
+    return this.withIds(C.stateOf(ctx, person, C.envOf(ctx, cr, this.trialsFor(ctx, ba), ba.closed, ba.cap, ba.sched), C.mine(cr, person, ctx), marks, list));
   }
   /** Gói 1:2: danh sách bạn để mời mang Mã KH → đổi sang id (như lt_find) trước khi trả cho trình duyệt. */
   async withIds(st) {
@@ -812,7 +813,8 @@ export class BookingCore {
         if (r.fail) { j.resolve(r.fail === 'loi_he_thong' ? { ok: false, error: 'loi_he_thong', detail: r.detail, now: this.now() } : { ok: false, error: r.fail, now: this.now() }); continue; }
         if (!marks) marks = await this.marksFor(ctx);
         const L = this.log, trials = this.trialsFor(ctx, ba);
-        const st = await this.withIds(C.stateOf(ctx, j.pre.me, C.envOf(ctx, C.canonRows(L.rows, j.pre.list), trials, j.pre.closed, j.pre.cap, j.pre.sched), C.mine(C.canonRows(L.rows, j.pre.list), j.pre.me, ctx), marks, j.pre.list));
+        const cr = C.canonRows(L.rows, j.pre.list);
+        const st = await this.withIds(C.stateOf(ctx, j.pre.me, C.envOf(ctx, cr, trials, j.pre.closed, j.pre.cap, j.pre.sched), C.mine(cr, j.pre.me, ctx), marks, j.pre.list));
         if (r.dup) st.dup = true;
         if (!r.ok) {
           st.ok = false;

@@ -272,7 +272,7 @@ function ltMemberRows_() {
   function col() { for (var i = 0; i < arguments.length; i++) { var k = H.indexOf(arguments[i]); if (k >= 0) return k; } return -1; }
   var c = { name: col('ten'), pkg: col('goi'), total: col('so buoi'), kind: col('loai'), coach: col('coach'),
             phone: col('sdt', 'so dien thoai', 'dien thoai'), left: col('con lai'), start: col('ngay bat dau'),
-            exp: col('ngay het han'), code: col('ma kh'), kh: col('_kh'), tier: col('khung gio') };
+            exp: col('ngay het han'), code: col('ma kh'), kh: col('_kh'), no: col('#'), tier: col('khung gio') };
   var first = hd.r + 2, n = lastR - first + 1;
   if (n <= 0) return [];
   var v = sh.getRange(first, 1, n, lastC).getValues(), out = [];
@@ -284,61 +284,75 @@ function ltMemberRows_() {
                kind: String(g(x, 'kind') || '').trim(), coach: ltCoach_(g(x, 'coach')), phone: ltDigits_(g(x, 'phone')),
                left: Number(g(x, 'left')) || 0, start: ltCellIso_(g(x, 'start'), tz, true),
                exp: ltCellIso_(g(x, 'exp'), tz, true), code: String(g(x, 'code') || '').trim(), kh: String(g(x, 'kh') || '').trim(),
-               off: ltIsOffPeak_(g(x, 'tier')) });
+               no: String(g(x, 'no') || '').trim(), off: ltIsOffPeak_(g(x, 'tier')) });
   }
   return out;
 }
 
 /**
- * Gộp dòng MEMBERS thành hội viên (giống persons của Worker). Một NGƯỜI = các dòng nối nhau bởi: cùng Mã KH (gói A/B), HOẶC cùng `_kh`
- * (MEMBERS X: Mã KH dòng đầu cùng SĐT) và cùng tên — khách gia hạn hợp đồng mới có Mã KH mới vẫn là một người (chủ studio 05/11).
- * Dòng không có Mã KH lẫn _kh: nối theo tên như trước (khoá #tên). Cùng SĐT mà khác tên không nối.
- * Chỉ người có dòng còn hiệu lực (còn buổi, chưa quá hạn) mới là hội viên: số buổi còn = tổng; hết hạn = xa nhất; bắt đầu = sớm nhất;
- * gói, loại, coach, khung giờ theo dòng bắt đầu muộn nhất nhưng ≤ hôm nay (giống công thức _mrow).
- * Khoá = Mã KH của dòng đó; chưa có → Mã KH gần nhất của cùng người → #tên. persons.alias: Mã KH cũ / #tên cũ → khoá hiện tại.
+ * Gộp dòng MEMBERS thành hội viên (giống persons của Worker). Một NGƯỜI = các dòng nối nhau bởi: cùng SĐT và cùng tên (định nghĩa
+ * `_kh` — cột X để trống khi dòng chưa có Mã KH nên không dựa vào nó) · cùng `_kh` và cùng tên · cùng Mã KH và cùng tên, hoặc cùng
+ * Mã KH và cả hai dòng còn hiệu lực (gói A/B như trước) · dòng không có Mã KH, _kh lẫn SĐT: theo tên. Cùng SĐT khác tên không nối.
+ * Chỉ người có dòng còn hiệu lực mới là hội viên: số buổi còn = tổng; hết hạn = xa nhất; bắt đầu = sớm nhất; gói, loại, coach, khung
+ * giờ theo dòng đang tính (bắt đầu muộn nhất nhưng ≤ hôm nay — giống công thức _mrow). Khoá = Mã KH dòng đó; chưa có → Mã KH của
+ * người này theo cùng luật (không dùng chung với người khác) → #tên. persons.alias: Mã KH cũ / #tên cũ → khoá hiện tại.
  */
+function ltPickRow_(list, today) {
+  var pick = null;
+  list.forEach(function (r) {
+    var ok = !r.start || r.start <= today;
+    if (!pick) pick = r;
+    else {
+      var pOk = !pick.start || pick.start <= today;
+      if (ok && (!pOk || (r.start || '') >= (pick.start || ''))) pick = r;
+      else if (!ok && !pOk && (r.start || '') < (pick.start || '')) pick = r;
+    }
+  });
+  return pick;
+}
 function ltPersons_(rows, today) {
   var par = rows.map(function (_, i) { return i; }), seen = {};
   function find(i) { while (par[i] !== i) { par[i] = par[par[i]]; i = par[i]; } return i; }
   function join(a, b) { a = find(a); b = find(b); if (a !== b) { if (a < b) par[b] = a; else par[a] = b; } }
+  function live(r) { return r.left > 0 && !(r.exp && r.exp < today); }
   rows.forEach(function (r, i) {
-    var ks = [];
-    if (r.code) ks.push('c:' + r.code);
-    if (r.kh) ks.push('p:' + r.kh + '|' + ltName_(r.name));
-    if (!ks.length) ks.push('n:' + ltName_(r.name));
+    var nk = ltName_(r.name), ks = [];
+    if (r.code) { ks.push('c:' + r.code + '|' + nk); if (live(r)) ks.push('a:' + r.code); }
+    if (r.kh) ks.push('p:' + r.kh + '|' + nk);
+    if (r.phone) ks.push('s:' + r.phone + '|' + nk);
+    if (!ks.length) ks.push('n:' + nk);
     ks.forEach(function (k) { if (seen[k] === undefined) seen[k] = i; else join(seen[k], i); });
   });
-  var comp = {}, order = [];
-  rows.forEach(function (r, i) { var c = find(i); if (!comp[c]) comp[c] = { all: [], act: [] }; comp[c].all.push(r); });
+  var comp = {}, order = [], codeComp = {};
   rows.forEach(function (r, i) {
-    if (!(r.left > 0) || (r.exp && r.exp < today)) return;
+    var ci = find(i), c = comp[ci] || (comp[ci] = { all: [], act: [], person: null });
+    c.all.push(r);
+    if (r.code) codeComp[r.code] = codeComp[r.code] === undefined || codeComp[r.code] === c ? c : null;
+  });
+  rows.forEach(function (r, i) {
+    if (!live(r)) return;
     var c = comp[find(i)];
     if (!c.act.length) order.push(c);
     c.act.push(r);
   });
   var used = {}, out = [];
   order.forEach(function (c) {
-    var pick = null, left = 0, exp = '', noExp = false, start = '';
+    var left = 0, exp = '', noExp = false, start = '';
     c.act.forEach(function (r) {
       left += r.left;
       if (!r.exp) noExp = true; else if (r.exp > exp) exp = r.exp;
       if (r.start && (!start || r.start < start)) start = r.start;
-      var ok = !r.start || r.start <= today;
-      if (!pick) pick = r;
-      else {
-        var pOk = !pick.start || pick.start <= today;
-        if (ok && (!pOk || (r.start || '') >= (pick.start || ''))) pick = r;
-        else if (!ok && !pOk && (r.start || '') < (pick.start || '')) pick = r;
-      }
     });
-    var key = pick.code, last = null;
+    var pick = ltPickRow_(c.act, today), key = pick.code;
     if (!key) {
-      c.all.forEach(function (r) { if (r.code && (!last || (r.start || '') >= (last.start || ''))) last = r; });
-      key = last ? last.code : '#' + ltName_(pick.name);
-      if (!last && used[key]) key += '|' + (pick.kh || pick.phone || out.length);   /* hai người cùng tên đều chưa có mã: không trùng khoá */
+      var own = c.all.filter(function (r) { return r.code && codeComp[r.code] === c; });
+      key = own.length ? ltPickRow_(own, today).code : '#' + ltName_(pick.name);
     }
+    if (used[key] && key.charAt(0) === '#') key += '|' + (pick.no || out.length);   /* hai người cùng tên đều chưa có mã: khoá không trùng, không chứa SĐT */
     used[key] = 1;
     var phone = '';
+    c.all.forEach(function (r) { if (!phone && r.phone && r.code === key) phone = r.phone; });
+    if (!phone) phone = pick.phone || '';
     c.all.forEach(function (r) { if (!phone && r.phone) phone = r.phone; });
     var p = { key: key, name: pick.name, toks: ltName_(pick.name).split(' '), short: ltShort_(pick.name), call: ltCall_(pick.name),
               coach: pick.coach, kind: pick.kind || '1:1', pkg: ltPkg_(pick.pkg, pick.total), left: left,
@@ -346,15 +360,15 @@ function ltPersons_(rows, today) {
     c.person = p;
     out.push(p);
   });
-  /* bí danh: #tên cũ (chỉ khi đúng một người — kể cả người đã hết gói — mang tên đó) → Mã KH cũ → khoá hiện tại (ghi sau thắng) */
-  var alias = {}, nameOwner = {}, ci, n;
+  /* bí danh: #tên cũ (chỉ khi đúng một người — kể cả người đã hết gói — mang tên đó) → Mã KH cũ (chỉ của đúng một người) → khoá hiện tại */
+  var alias = {}, nameOwner = {}, ci, n, code;
   for (ci in comp) {
     var mine = {};
     comp[ci].all.forEach(function (r) { mine['#' + ltName_(r.name)] = 1; });
     for (n in mine) nameOwner[n] = nameOwner[n] === undefined ? comp[ci] : null;
   }
   for (n in nameOwner) if (nameOwner[n] && nameOwner[n].person) alias[n] = nameOwner[n].person.key;
-  order.forEach(function (c) { c.all.forEach(function (r) { if (r.code) alias[r.code] = c.person.key; }); });
+  for (code in codeComp) if (codeComp[code] && codeComp[code].person) alias[code] = codeComp[code].person.key;
   out.forEach(function (p) { alias[p.key] = p.key; });
   Object.defineProperty(out, 'alias', { value: alias, enumerable: false });
   return out;
