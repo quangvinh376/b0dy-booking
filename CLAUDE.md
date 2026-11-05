@@ -58,8 +58,8 @@ ID hai file Google Sheets: `BA_ID` (file BA: MEMBERS · SESSION LOG · TRIAL · 
   Apps Script dự phòng" — lần đầu bộ kiểm quyền chặn) "Lich tap tuan (booking.b0dy.studio) - nhan dien khach gia han theo nguoi, 05/11",
   ID giữ; LichTuan.gs `d11f0645…` đọc lại ở tab mới, Code.gs / Discord.gs không đổi → `/exec` `lt_boot` tuần 45 · `lt_find` 'zqxj' → `[]`
   · tìm một khách gia hạn ra 1 kết quả như Worker.
-  Còn biết: `Bảng lịch tập` đếm HỘI VIÊN ĐÃ ĐẶT / Chưa đặt lịch theo Mã KH thô của sổ → tuần có buổi dưới mã cũ + mã mới của cùng người
-  đếm hai lần. Mã nhớ máy `#tên` của người đã bị xoá khỏi MEMBERS có thể vào người cùng tên (rất hiếm). Dòng HĐ mới nên điền đủ SĐT ngay.
+  `Bảng lịch tập` đếm HỘI VIÊN ĐÃ ĐẶT / Chưa đặt lịch theo Mã KH thô của sổ → tuần có buổi dưới mã cũ + mã mới của cùng người đếm hai
+  lần — **giữ nguyên** (chủ studio 05/11: hai hợp đồng khác nhau, đếm riêng là đúng bản chất; không đổi mã dòng sổ cũ). Mã nhớ máy `#tên` của người đã bị xoá khỏi MEMBERS có thể vào người cùng tên (rất hiếm). Dòng HĐ mới nên điền đủ SĐT ngay.
 
 - **1.8.2 live 04/11 ~23:10** (chủ studio 04/11 20:47: "Cho phép đổi giờ trong ngày" — chốt: giữ buổi đang có ≥ 24 giờ, khung mới ≥ 12 giờ;
   đổi trong ngày tính 1 lượt như mọi lần đổi; "Ghép" vào nhóm 1:2 vẫn miễn lượt). Nguồn: khách 1:1 không dời được T6 19:00 → T6 07:00 vì
