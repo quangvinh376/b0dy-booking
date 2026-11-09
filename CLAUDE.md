@@ -50,6 +50,10 @@ ID hai file Google Sheets: `BA_ID` (file BA: MEMBERS · SESSION LOG · TRIAL · 
   Tới cuối lần đầu / lần sau / ở cuối, vượt câu hỏi, Home · End, cổng QC trên trang thật — đã thử bật `KE_LIVE` → test trượt) · ui_states 119 ·
   ui_qc 84 · ui_duo 48 · ui_live 28 · ui_notice 110 · ui_smoke 24 · ui_sw 8 · ui_peak 71 · ui_tk3d 81 · ui_png 93 · b0b_check 31 · rv_* PASS.
   `ui_ke` chờ tải PNG 8 → 20 s (một lượt trượt vì máy test vẽ bằng CPU). Worker / Apps Script không đổi.
+  Deploy trang: `main` `aa021c3` (12 tệp SHA-256 khớp raw tại commit) · Pages success 21:42:13 · trang thật (Claude in Chrome) 11 tệp (index ·
+  app.js · app.css · sw.js · ke.html · ke.js · ke-core.js · ke.css · ke-b0b.js · qc.js · qc-ke.js) khớp commit, `?v=1.9.1` 5 thẻ index + 4 thẻ
+  ke.html, `__lt.ver` 1.9.1, bộ đệm SW chỉ `lt-1.9.1`, máy đang đăng nhập sẵn (phiếu) không có thẻ / câu gợi ý / `ke_*` trong phiên,
+  `lt_ping` pending 0, không lỗi console của trang. Worker thật vẫn `1ce87d6` — không cần deploy tới khi bật live.
 
 - **1.9.0 · "Để B0DY kể về bạn" + header L3** (chủ studio 09/11 16:30: "dev lên bản booking QC toàn bộ journey, đảm bảo chuẩn với artifact").
   (1) **Header L3, mọi khách**: bỏ tín hiệu "Đang mở đặt · Tuần N" và dãy bước (chủ studio 09/11: vô nghĩa). Trái: logo · ngày giờ Hà Nội
