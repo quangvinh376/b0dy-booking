@@ -7,6 +7,8 @@
      không tải thư viện ngoài (CSP script-src 'self').
    · Lưu ảnh: máy cảm ứng có bảng chia sẻ tệp → bảng chia sẻ (iPhone: "Lưu hình ảnh"); còn lại tải tệp.
    · Đi tới khoảnh khắc biệt danh → ghi localStorage 'ke_done:<id>:<phiên bản>' = biệt danh (trang đặt lịch đổi chữ trên thẻ header).
+   · Thanh truyện (chủ studio 09/11): chạm đoạn nào → tới thẳng khoảnh khắc đó (bỏ qua câu hỏi chưa trả lời). Đã xem tới khoảnh khắc cuối
+     một lần ('ke_end:<id>:<phiên bản>') → từ đó có nút "Tới cuối →" góc trên phải.
    ===================================================================== */
 (() => {
 'use strict';
@@ -313,7 +315,18 @@ const scrs = L.map(m => {
   stage.appendChild(s);
   return s;
 });
-scrs.forEach(() => segs.appendChild(document.createElement('i')));
+/* thanh truyện: mỗi đoạn một nút (vạch 2 px, vùng chạm cao 26 px) — chạm là tới thẳng khoảnh khắc đó */
+const NAMES = { cover: 'Mở đầu', rules: 'Luật chơi', a1: 'Số buổi đã tập', clock: 'Khung giờ quen', days: 'Ngày hay tập', gap: 'Tuần vắng', room: 'Một sự thật',
+  streak: 'Chuỗi tuần', mtn: 'Tạ đã nâng', lift: 'Mức tạ', body: 'Cân nặng và khối cơ', pull: 'Hít xà', coach: 'Lời coach', lead: 'Trước biệt danh', nick: 'Biệt danh',
+  bands: 'Bảng màu', card: 'Thẻ khoe thành tích', next: 'Tuần sau' };
+L.forEach((m, i) => {
+  const b = document.createElement('button'); b.type = 'button';
+  b.setAttribute('aria-label', 'Khoảnh khắc ' + (i + 1) + ' / ' + L.length + ': ' + (m.g ? m.lb : NAMES[m.id] || m.id));
+  b.addEventListener('click', () => jump(i));
+  segs.appendChild(b);
+});
+const LAST = scrs.length - 1, toEnd = document.getElementById('toend');
+const seenEnd = () => !!LS.get('ke_end:' + SID);
 
 /* ============================== CĂN QUANG HỌC + TỰ VỪA KHUNG (như artifact) ============================== */
 const MC = document.createElement('canvas').getContext('2d');
@@ -394,7 +407,8 @@ function paint(i) {
   app.style.setProperty('--bg', COL[bg]); app.style.background = COL[bg]; document.body.style.background = COL[bg]; document.body.style.color = FG[bg];
   document.getElementById('top').style.color = FG[bg];
   if (theme) theme.setAttribute('content', COL[bg]);
-  [...segs.children].forEach((e, k) => e.classList.toggle('done', k <= i));
+  [...segs.children].forEach((e, k) => { e.classList.toggle('done', k <= i); if (k === i) e.setAttribute('aria-current', 'step'); else e.removeAttribute('aria-current'); });
+  toEnd.hidden = !(seenEnd() && i < LAST);   /* "Tới cuối →" chỉ từ lần xem thứ hai, ẩn khi đã ở cuối */
   document.getElementById('sprev').disabled = i === 0; document.getElementById('snext').disabled = i === scrs.length - 1;
   document.getElementById('pos').textContent = 'Khoảnh khắc ' + (i + 1) + ' trên ' + scrs.length;
 }
@@ -413,12 +427,15 @@ function enter(i) {
     requestAnimationFrame(step);
   });
   if (s.dataset.id === 'nick') LS.set('ke_done:' + SID, M.nick.name);
+  if (i === LAST) LS.set('ke_end:' + SID, '1');                     /* đã xem hết một lượt */
   if (s.dataset.id === 'card') { drawCard(); ovf(); }
 }
-function go(i) {
+/** jump: chạm thanh truyện / "Tới cuối" / Home · End — đi thẳng, không bắt trả lời câu hỏi đang mở */
+function jump(i) { go(i, true); }
+function go(i, free) {
   if (busy || i < 0 || i >= scrs.length || i === cur) return;
   const s = scrs[cur];
-  if (i > cur && s.dataset.guess && ans[s.dataset.guess] == null) { const g = s.querySelector('.guess,.opts'); g.classList.remove('nudge'); void g.offsetWidth; g.classList.add('nudge'); return; }
+  if (!free && i > cur && s.dataset.guess && ans[s.dataset.guess] == null) { const g = s.querySelector('.guess,.opts'); g.classList.remove('nudge'); void g.offsetWidth; g.classList.add('nudge'); return; }
   closeSheet();
   if (RM.matches) { cur = i; paint(i); enter(i); return; }
   busy = true; const w = document.getElementById('wipe'); w.style.background = COL[scrs[i].dataset.bg];
@@ -444,10 +461,13 @@ document.addEventListener('keydown', e => {
   if (e.target && e.target.tagName === 'INPUT' && /^Arrow/.test(e.key)) return;
   if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); go(cur + 1); }
   else if (e.key === 'ArrowLeft') { e.preventDefault(); go(cur - 1); }
+  else if (e.key === 'Home') { e.preventDefault(); jump(0); }
+  else if (e.key === 'End') { e.preventDefault(); jump(LAST); }
 });
 document.getElementById('sprev').addEventListener('click', () => go(cur - 1));
 document.getElementById('snext').addEventListener('click', () => go(cur + 1));
 document.getElementById('close').addEventListener('click', home);
+toEnd.addEventListener('click', () => jump(LAST));
 stage.querySelectorAll('[data-next]').forEach(b => b.addEventListener('click', () => go(cur + 1)));
 
 /* ============================== PHẢN ỨNG KHI CHỐT ============================== */

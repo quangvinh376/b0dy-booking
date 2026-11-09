@@ -169,6 +169,14 @@ const pnb = t => { for (const p of PPHR) t = t.split(p).join(p.replace(/ /g, ' 
     eq('gói Ban ngày: gợi ý 18:00 không đặt được → khung đặt được gần nhất (16:00)', hs.slot.time, '16:00');
     const p1 = KE.derive(Object.assign({}, st, { pullup: { first: '2026-09-23', reps: 1 } }));
     eq('hít xà mới 1 cái', SP(KE.script(p1, null).find(x => x.id === 'pull').stmt), 'Một cái thôi, nhưng là cái đầu tiên.');
+    /* số tạ (logbook app coach) chỉ có từ giữa chừng: núi + ngày đầu tính từ tuần đầu có số tạ, không từ buổi đầu tiên */
+    const lk = Object.keys(st.load).sort(), part = n => KE.derive(Object.assign({}, st, { load: Object.fromEntries(lk.slice(lk.length - n).map(k => [k, st.load[k]])) }));
+    const P8 = part(8), L8 = KE.script(P8, null), m8 = L8.find(x => x.id === 'mtn'), m7 = KE.script(part(7), null).find(x => x.id === 'mtn');
+    eq('số tạ có từ W35 (T2 24.08, có buổi) → núi 8 tuần, 24.08 → 16.10', [m8.vol.length, m8.d0, m8.d1], [8, '24.08', '16.10']);
+    eq('… câu hỏi nói rõ từ hôm nào, bản in ghi "từ 24.08"', [SP(L8.find(x => x.g === 'g4').q), KE.printRows(P8).find(r => r[0] === 'Tổng tạ đã nâng')[1]],
+       ['Từ hôm 24/8 đến giờ, đoán xem bạn đã nâng bao nhiêu tấn tạ ở B0DY?', '70,6 tấn · từ 24.08']);
+    eq('số tạ có từ W36 (T2 31.08 không tập) → ngày đầu = buổi đầu tuần đó (02.09)', [m7.vol.length, m7.d0], [7, '02.09']);
+    eq('đủ số tạ cả 33 tuần → núi 33 tuần từ 03.03 (như artifact)', [T[11].vol.length, T[11].d0], [33, '03.03']);
   }
 
   /* không đủ để kể */

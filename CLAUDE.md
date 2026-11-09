@@ -35,6 +35,22 @@ ID hai file Google Sheets: `BA_ID` (file BA: MEMBERS · SESSION LOG · TRIAL · 
 
 ## Đang ở đâu (09/11/2026)
 
+- **1.9.1 · hành trình CHỈ Ở QC + thanh truyện bấm được + "Tới cuối →"** (chủ studio 09/11 20:42: "… Cho tới khi tư duy được hết những
+  thứ này, và thời điểm hợp lý để trigger journey lên cho khách xem thì mới đẩy lên live. Tạm thời hiện tại cứ để nó ở QC đã").
+  (1) `KE_LIVE = false` (`app.js`): trang thật không hỏi `lt_story`, không bao giờ hiện thẻ / câu gợi ý; chỉ `?qc` có hành trình. Bật =
+  `KE_LIVE = true` + deploy Worker (`lt_story`) + tab "Kể về bạn" thật — **chỉ sau khi chủ studio chốt** đề xuất ở project doc
+  `claude/b0dy-booking-ke-ve-ban-khi-nao-ke.md` (kể theo chương gắn cửa sổ gia hạn; gói 12 ở buổi 10; chương giữa gói 48 · 72; 7 câu chốt).
+  (2) Thanh truyện `ke.html`: mỗi đoạn một nút (vạch 2 px đúng chỗ artifact — so điểm ảnh 0 lệch; vùng chạm 22 px nằm TRÊN hàng
+  "← Đặt lịch · Tới cuối →" để chạm sát vạch không rời trang), chạm → tới thẳng khoảnh khắc đó, vượt được câu hỏi chưa trả lời (màn đáp án
+  hiện không câu phản ứng; Tiếp / chạm màn vẫn bắt chốt); `aria-current` + nhãn từng đoạn; phím Home / End. (3) "Tới cuối →" góc trên phải:
+  chỉ sau khi đã tới khoảnh khắc cuối một lần (`ke_end:<id>:<phiên bản>` — mỗi câu chuyện / chương riêng), ẩn khi đang ở cuối.
+  (4) Số tạ chỉ có từ giữa chừng (logbook từ 26/09): `M.loadFrom` / `M.loadK0` — núi, ngày đầu, câu hỏi "Từ hôm d/m đến giờ, đoán xem bạn đã
+  nâng bao nhiêu tấn tạ ở B0DY?", câu đáp dự phòng "… từ hôm d/m tới buổi gần nhất." và bản in "… tấn · từ dd.mm" (chữ mới, chờ soát).
+  Test: `ke_core` 3115 · `gas_lt` 404 · parity 457 · concurrency 37 · robust 86 · http 13 · live 25 · story 37 · ui_ke 126 (thêm: thanh truyện,
+  Tới cuối lần đầu / lần sau / ở cuối, vượt câu hỏi, Home · End, cổng QC trên trang thật — đã thử bật `KE_LIVE` → test trượt) · ui_states 119 ·
+  ui_qc 84 · ui_duo 48 · ui_live 28 · ui_notice 110 · ui_smoke 24 · ui_sw 8 · ui_peak 71 · ui_tk3d 81 · ui_png 93 · b0b_check 31 · rv_* PASS.
+  `ui_ke` chờ tải PNG 8 → 20 s (một lượt trượt vì máy test vẽ bằng CPU). Worker / Apps Script không đổi.
+
 - **1.9.0 · "Để B0DY kể về bạn" + header L3** (chủ studio 09/11 16:30: "dev lên bản booking QC toàn bộ journey, đảm bảo chuẩn với artifact").
   (1) **Header L3, mọi khách**: bỏ tín hiệu "Đang mở đặt · Tuần N" và dãy bước (chủ studio 09/11: vô nghĩa). Trái: logo · ngày giờ Hà Nội
   (desktop, cách logo 32) · `#hdOff` "Mất kết nối" (chỉ khi đang xem bản lưu trên máy) · `#sigN` số người đang xem. Phải `#hdR`: thẻ H4

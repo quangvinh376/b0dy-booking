@@ -63,7 +63,7 @@ Máy chủ của trang **booking.b0dy.studio**, thay cho Apps Script để mọi
     Tối đa 20 dòng mời + từ chối / hội viên / tuần (`qua_luot_moi`). Bảng lịch tập lọc "Đã đặt" nên không hiện các dòng này.
   - State của khách 1:2 thêm `duo: {duoHours, wait, pairs, invOut, invIn, peers}` — chỉ **tên gọi** của khách 1:2 cùng coach, `peers`
     mang id (HMAC), không bao giờ có Mã KH / SĐT. Khách 1:1 không có `duo`.
-- **"Để B0DY kể về bạn"** (1.9.0, 09/11 — chỉ Worker; Apps Script dự phòng chưa có, trả `unknown_action` → trang không hiện thẻ):
+- **"Để B0DY kể về bạn"** (1.9.0, 09/11 — chỉ Worker; Apps Script dự phòng chưa có, trả `unknown_action` → trang không hiện thẻ. Trang 1.9.1 chỉ gọi ở chế độ QC — `KE_LIVE = false`, chờ chủ studio chốt thời điểm kể):
   `lt_story {tok, dev}` → `{ok: true, story: null | {...}}`. Đọc tab **"Kể về bạn"** của file Lịch tập tuần (`LT.STORY`): hàng 1 tiêu đề,
   từ hàng 2 mỗi hàng một hội viên — **A Mã KH · B phiên bản · C cập nhật · D dữ liệu JSON** (một ô ≤ 50.000 ký tự). Chỉ trả câu chuyện của
   CHÍNH hội viên đã xác minh (mã ở cột A so theo khoá hiện tại — mã cũ của khách gia hạn vẫn khớp); tên lấy từ MEMBERS (tên gọi, vd "Đức

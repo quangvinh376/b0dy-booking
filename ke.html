@@ -14,7 +14,7 @@
 <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
 <link rel="preload" href="fonts/ArchivoExtraCondensed-ExtraBold.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/SVN-Switzer-Medium.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="ke.css?v=1.9.0">
+<link rel="stylesheet" href="ke.css?v=1.9.1">
 </head>
 <body>
 <!-- Hành trình "Để B0DY kể về bạn": trang đặt lịch (app.js) để sẵn dữ liệu câu chuyện trong sessionStorage rồi mở trang này.
@@ -22,9 +22,10 @@
 <button class="side prev" id="sprev" type="button" aria-label="Khoảnh khắc trước"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M12.5 4L6.5 10l6 6"/></svg></button>
 <main id="app" aria-roledescription="câu chuyện" aria-label="Để B0DY kể về bạn">
   <div class="top" id="top">
-    <div class="segs" id="segs" aria-hidden="true"></div>
+    <nav class="segs" id="segs" aria-label="Các khoảnh khắc"></nav>
     <div class="nav">
       <button id="close" type="button" aria-label="Về trang đặt lịch">← Đặt lịch</button>
+      <button id="toend" type="button" aria-label="Tới khoảnh khắc cuối" hidden>Tới cuối →</button>
       <span class="sr" id="pos" aria-live="polite"></span>
     </div>
   </div>
@@ -34,8 +35,8 @@
 <button class="side next" id="snext" type="button" aria-label="Khoảnh khắc tiếp"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M7.5 4l6 6-6 6"/></svg></button>
 <div id="printpage" aria-hidden="true"></div>
 <noscript><p class="nojs">Trang này cần bật JavaScript.</p></noscript>
-<script src="ke-core.js?v=1.9.0" defer></script>
-<script src="ke-b0b.js?v=1.9.0" defer></script>
-<script src="ke.js?v=1.9.0" defer></script>
+<script src="ke-core.js?v=1.9.1" defer></script>
+<script src="ke-b0b.js?v=1.9.1" defer></script>
+<script src="ke.js?v=1.9.1" defer></script>
 </body>
 </html>

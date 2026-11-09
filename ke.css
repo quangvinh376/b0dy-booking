@@ -60,11 +60,17 @@ button{font:inherit;color:inherit;cursor:pointer;-webkit-tap-highlight-color:tra
 /* thanh truyện: cùng lề với nội dung, vùng chạm 44 px */
 .top{position:absolute;inset:0 0 auto;z-index:30;padding:calc(env(safe-area-inset-top,0px) + 10px) var(--m) 0;pointer-events:none}
 .top>*{pointer-events:auto}
-.segs{display:flex;gap:3px}
-.segs i{flex:1;height:2px;border-radius:1px;background:currentColor;opacity:.22;transition:opacity .4s var(--ease)}
-.segs i.done{opacity:1}
-.nav{display:flex;justify-content:space-between;align-items:center;height:44px;font-family:var(--f-mono);font-size:var(--fs-lb);letter-spacing:.14em;text-transform:uppercase}
-.nav button{background:none;border:0;padding:0;min-height:44px;letter-spacing:inherit;text-transform:uppercase}
+/* thanh truyện: mỗi đoạn là một nút — vạch 2 px đúng chỗ artifact, vùng chạm cao 22 px (12 px trên vạch, 8 px dưới; không đẩy bố cục),
+   khe 3 px giữa hai vạch nằm trong vùng chạm (đệm 1,5 px mỗi bên). Nằm TRÊN hàng "← Đặt lịch · Tới cuối →" (hai nút này cao 44 px, bắt đầu
+   ngay dưới vạch): chạm sát vạch luôn là chạm thanh truyện, không lỡ tay rời trang */
+.segs{display:flex;margin:-12px -1.5px -8px;position:relative;z-index:1}
+.segs button{flex:1;min-width:0;height:22px;padding:12px 1.5px 0;border:0;background:none;color:inherit;display:flex;align-items:flex-start;cursor:pointer}
+.segs button::before{content:'';flex:1;height:2px;border-radius:1px;background:currentColor;opacity:.22;transition:opacity .4s var(--ease),transform .2s var(--ease)}
+.segs button.done::before{opacity:1}
+@media (hover:hover) and (pointer:fine){ .segs button:hover::before{opacity:.6;transform:scaleY(2)} .segs button.done:hover::before{opacity:1} }
+.segs button:focus-visible{outline-offset:-4px}
+.nav{display:flex;justify-content:space-between;align-items:center;height:44px;font-family:var(--f-mono);font-size:var(--fs-lb);letter-spacing:.14em;text-transform:uppercase;pointer-events:none}
+.nav button{background:none;border:0;padding:0;min-height:44px;letter-spacing:inherit;text-transform:uppercase;pointer-events:auto}
 .nav .pos{opacity:.6}
 
 /* điều hướng cạnh khung trên màn lớn */

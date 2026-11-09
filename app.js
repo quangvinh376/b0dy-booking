@@ -9,7 +9,7 @@
 'use strict';
 
 /* ============================== CẤU HÌNH ============================== */
-var VER = '1.9.0';
+var VER = '1.9.1';
 var API_URL = 'https://b0dy-booking-api.little-bonus-1d87.workers.dev/';
 var API_SLOW = false;                 /* true khi chạy Apps Script (chậm hơn nhiều) → nới thời gian chờ */
 /* kênh live: Worker chỉ nhận từ trang thật (ALLOW_ORIGINS) → trang chạy chỗ khác (test trên máy) không nối, khỏi gõ cửa máy chủ thật.
@@ -597,6 +597,9 @@ function chipHTML() {
    KE.derive (ke-core.js) quyết định có đủ để kể không (≥ 12 buổi, ≥ 4 tuần). Bấm thẻ → để câu chuyện + tuần sau vào sessionStorage
    ('ke_payload') rồi mở ke.html. Bộ nhớ máy theo hội viên + phiên bản câu chuyện (id:ver): ke_seen (đã mở → hết chấm Cam) ·
    ke_done (đã tới biệt danh → nhãn thẻ = biệt danh; ke.js ghi) · ke_hint (đã hiện câu gợi ý lần đầu). */
+/* CHƯA BẬT CHO KHÁCH THẬT (chủ studio 09/11 20:42: "tạm thời cứ để nó ở QC" — chờ chốt thời điểm kể + cách kể theo gói). false → trang thật
+   không hỏi lt_story, không bao giờ hiện thẻ; chỉ chế độ QC (?qc) có hành trình. Bật: đổi thành true sau khi chủ studio chốt. */
+var KE_LIVE = false;
 var KS = { st: null, M: null, who: '', req: null, at: 0, for: '' };
 function keSid() { return KS.st ? String(KS.st.id || '') + ':' + String(KS.st.ver || '') : ''; }
 function keSeen() { return !!KS.st && !!LS.get('ke_seen:' + keSid()); }
@@ -614,6 +617,7 @@ function keSet(story, who) {
 function keReset() { KS.st = null; KS.M = null; KS.who = ''; KS.at = 0; KS.for = ''; KS.req = null; SS.del('ke_story'); SS.del('ke_payload'); keHintOff(true); hdRight(); }
 /* gọi khi đã vào màn của hội viên (routeAuthed): hiện ngay bản đã có trong phiên, hỏi lại máy chủ tối đa 10 phút một lần */
 function keFetch() {
+  if (!QC && !KE_LIVE) return;
   var who = whoOf(S.st); if (!who || !window.KE) return;
   if (KS.who !== who) { var c = jget(SS, 'ke_story'); keSet(c && c.who === who ? c.story : null, who); }
   if ((KS.req && KS.req.who === who) || (KS.for === who && Date.now() - KS.at < 10 * 60e3)) return;

@@ -155,6 +155,12 @@ function derive(story) {
   var tot = W.reduce(function (s, w) { return s + w.kg; }, 0), wl = W.filter(function (w) { return w.kg > 0; }).length;
   M.tons = tot >= 1000 && wl >= 4 ? Math.round(tot / 100) / 10 : null;
   M.loadKg = tot;
+  /* số tạ có từ đâu: logbook app coach chỉ có từ 26.09.2026 — khách tập từ trước thì tổng chỉ tính từ tuần đầu có số tạ.
+     loadK0 = tuần đầu có số tạ · loadFrom = buổi đầu tiên của tuần đó (núi, nhãn ngày, câu hỏi, bản in đều tính từ đây) */
+  var k0 = 0; while (k0 < W.length && !W[k0].kg) k0++;
+  if (k0 >= W.length) k0 = 0;
+  var q0 = 0; while (q0 < S.length - 1 && S[q0].d < W[k0].mon) q0++;
+  M.loadK0 = k0; M.loadFrom = S[q0].d;
 
   /* mức tạ: bài nặng nhất có tiến bộ rõ là bài chính (thanh tạ) */
   M.lifts = (Array.isArray(story.lifts) ? story.lifts : []).map(function (l) {
@@ -368,11 +374,15 @@ function script(M, next) {
   }
   /* 10 · hỏi số tấn · 11 · ngọn núi — có tải từng tuần */
   if (M.tons) {
-    ask({ id: 'q', g: 'g4', bg: 'paper', q: 'Đoán xem bạn đã nâng bao nhiêu tấn tạ trong suốt khoảng thời gian vừa qua ở B0DY?', unit: 'tấn', r: rangeT(M.tons), aria: 'Số tấn bạn đoán' });
+    /* số tạ chỉ có từ giữa chừng (M.loadFrom sau buổi đầu) → câu hỏi / câu đáp nói rõ "từ hôm …", núi không vẽ phần phẳng chưa có dữ liệu */
+    var part = M.loadFrom > M.first;
+    ask({ id: 'q', g: 'g4', bg: 'paper', q: part ? 'Từ hôm ' + dm(M.loadFrom) + ' đến giờ, đoán xem bạn đã nâng bao nhiêu tấn tạ ở B0DY?'
+                                                : 'Đoán xem bạn đã nâng bao nhiêu tấn tạ trong suốt khoảng thời gian vừa qua ở B0DY?', unit: 'tấn', r: rangeT(M.tons), aria: 'Số tấn bạn đoán' });
     var times = M.bw ? M.loadKg / M.bw : 0;
     push({ id: 'mtn', bg: 'ink', lb: 'ĐÁP ÁN SẼ KHIẾN BẠN BẤT NGỜ', value: M.tons,
-           say: times >= 10 ? 'Tức là bằng ' + num(times >= 1000 ? round(times, 100) : round(times, 10), 0) + ' lần bạn tự nhấc chính cơ thể mình lên.' : 'Cộng dồn từng rep của bạn, từ buổi đầu tới buổi gần nhất.',
-           vol: M.weeks.map(function (w) { return w.kg; }), d0: ddmm(M.first), d1: ddmm(M.last) });
+           say: times >= 10 ? 'Tức là bằng ' + num(times >= 1000 ? round(times, 100) : round(times, 10), 0) + ' lần bạn tự nhấc chính cơ thể mình lên.'
+                            : 'Cộng dồn từng rep của bạn, từ ' + (part ? 'hôm ' + dm(M.loadFrom) : 'buổi đầu') + ' tới buổi gần nhất.',
+           vol: M.weeks.slice(M.loadK0).map(function (w) { return w.kg; }), d0: ddmm(M.loadFrom), d1: ddmm(M.last) });
   }
   /* 12 · thanh tạ — bài chính có tiến bộ rõ */
   if (M.hero) {
@@ -452,7 +462,7 @@ function printRows(M) {
   if (M.habit) R.push(['Giờ quen', hh(M.topH) + ' · ' + M.topHn + ' / ' + M.n + ' buổi']);
   if (M.dowOk) R.push(['Thứ tập nhiều nhất', DOWF[M.topDow] + ' · ' + M.topDown + ' buổi']);
   if (M.streak.cur >= FULL) R.push(['Chuỗi hiện tại', M.streak.cur + ' tuần liền']);
-  if (M.tons) R.push(['Tổng tạ đã nâng', num(M.tons) + ' tấn']);
+  if (M.tons) R.push(['Tổng tạ đã nâng', num(M.tons) + ' tấn' + (M.loadFrom > M.first ? ' · từ ' + ddmm(M.loadFrom) : '')]);
   M.lifts.slice(0, 4).forEach(function (l) { R.push([l.name, l === M.hero ? num(l.from) + ' → ' + num(l.to) + ' kg' : num(l.to) + ' kg']); });
   var ch = function (lbl, f, unit) { var c = M.change(f); if (c && Math.abs(c) >= 0.5) R.push([lbl, (c < 0 ? 'Giảm ' : 'Tăng ') + num(Math.abs(c)) + ' ' + unit]); };
   ch('Cân nặng', 'kg', 'kg'); ch('Khối cơ', 'muscle', 'kg'); ch('Vòng eo', 'waist', 'cm'); ch('Vòng hông', 'hip', 'cm'); ch('Vòng ngực', 'chest', 'cm'); ch('Vòng đùi', 'thigh', 'cm');

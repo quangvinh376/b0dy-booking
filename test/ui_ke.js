@@ -5,11 +5,13 @@
    phản ứng đúng · đi tới biệt danh → nhãn thẻ = biệt danh, hết chấm · thẻ chia sẻ PNG 1080 × 1920 · PDF A4 hợp lệ (xref đúng byte) ·
    "Đặt lịch tuần 43" về trang đặt lịch · mở thẳng ke.html không có dữ liệu → về trang đặt lịch · hội viên không có câu chuyện → không thẻ ·
    "Không phải bạn?" → thẻ biến mất · 0 lỗi console / CSP · không lệnh nào ra máy chủ thật. Desktop 1440 × 900 + mobile 393 × 852.
+   1.9.1: thanh truyện bấm được (tới thẳng đoạn đó, kể cả vượt câu hỏi chưa trả lời; Tiếp vẫn bắt chốt) · "Tới cuối →" chỉ sau khi đã xem
+   hết một lần (theo từng câu chuyện), ẩn ở khoảnh khắc cuối · Home / End · trang thật (không ?qc) KHÔNG hỏi lt_story, không có thẻ (KE_LIVE).
    node test/ui_ke.js */
 'use strict';
 const { chromium } = require('playwright');
 const fs = require('fs');
-const { startServer, API } = require('./ui_harness');
+const { startServer, backend, attach, vn, API } = require('./ui_harness');
 
 const EXE = require('./pw_exe');
 const ARGS = ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'];
@@ -107,10 +109,26 @@ async function run(browser, server, mobile) {
   await page.waitForFunction(() => window.__ke && document.querySelector('.scr.on'));
   await sleep(800);
   const k0 = await page.evaluate(() => ({ n: window.__ke.L.length, ids: window.__ke.L.map(x => x.id), cover: [...document.querySelectorAll('.scr.on h1 .ln')].map(x => x.textContent),
-    lb: document.querySelector('.scr.on .lb').textContent, say: document.querySelector('.scr.on .say').textContent.replace(/ /g, ' '), segs: document.querySelectorAll('#segs i').length,
+    lb: document.querySelector('.scr.on .lb').textContent, say: document.querySelector('.scr.on .say').textContent.replace(/ /g, ' '), segs: document.querySelectorAll('#segs button').length,
     hidden: [...document.querySelectorAll('.scr')].filter(s => !s.classList.contains('on')).every(s => s.inert && s.getAttribute('aria-hidden') === 'true') }));
   ok(tag + ': ke.html — 22 khoảnh khắc (bộ số artifact), bìa "Minh / Khôi", nhãn "33 tuần · 03.03 → 16.10"', k0.n === 22 && k0.segs === 22 && k0.cover.join('|') === 'Minh|Khôi' && k0.lb === '33 tuần · 03.03 → 16.10' &&
      k0.say === 'Để B0DY kể về 33 tuần tập luyện chăm chỉ vừa qua của Khôi nhé.' && k0.hidden, k0);
+  /* thanh truyện (1.9.1): mỗi đoạn một nút · đoạn đang xem aria-current · "Tới cuối →" chỉ từ lần xem thứ hai, ẩn ở khoảnh khắc cuối */
+  const bar = () => page.evaluate(() => {
+    const B = [...document.querySelectorAll('#segs button')], te = document.getElementById('toend'), r = e => e.getBoundingClientRect();
+    return { n: B.length, cur: B.findIndex(b => b.getAttribute('aria-current') === 'step'), done: B.filter(b => b.classList.contains('done')).length,
+             toend: !te.hidden && te.getClientRects().length > 0, end: Object.keys(localStorage).filter(k => /^qc:ke_end:/.test(k)).length,
+             h: B.length ? Math.round(r(B[0]).height) : 0, gap: B.length > 1 ? +(r(B[1]).left - r(B[0]).right).toFixed(2) : -1, at: window.__ke.cur(),
+             te: te.hidden ? null : { r: Math.round(r(te).right), t: Math.round(r(te).top), h: Math.round(r(te).height), txt: te.textContent },
+             cl: (b => ({ l: Math.round(b.left), t: Math.round(b.top) }))(r(document.getElementById('close'))), app: (b => ({ l: Math.round(b.left), r: Math.round(b.right) }))(r(document.getElementById('app'))),
+             lab: B.length ? B[0].getAttribute('aria-label') + ' | ' + B[2].getAttribute('aria-label') : '',
+             /* chạm sát dưới vạch đoạn 1 (đè lên nút "← Đặt lịch") vẫn là đoạn 1 */
+             hitLow: B.length ? document.elementFromPoint((r(B[0]).left + r(B[0]).right) / 2, r(B[0]).bottom - 1) === B[0] : false,
+             line: B.length ? +(r(B[0]).top + parseFloat(getComputedStyle(B[0]).paddingTop)).toFixed(1) : 0, top0: +parseFloat(getComputedStyle(document.getElementById('top')).paddingTop).toFixed(1) };
+  });
+  let b0 = await bar();
+  ok(tag + ': thanh truyện = 22 nút chạm (cao 22 px, liền nhau, nằm trên nút ← Đặt lịch), đoạn 1 aria-current; lần xem đầu không có "Tới cuối →"', b0.n === 22 && b0.cur === 0 && b0.done === 1 && b0.h === 22 && b0.gap === 0 && b0.hitLow &&
+     !b0.toend && b0.end === 0 && b0.line === b0.top0 && b0.lab === 'Khoảnh khắc 1 / 22: Mở đầu | Khoảnh khắc 3 / 22: Câu 1 / 4', b0);
   /* chơi hết bằng bàn phím / chạm như khách */
   /* máy test vẽ WebGL bằng CPU: B0B lớn làm khung hình chậm → đợi hết chuyển cảnh trước mỗi lần bấm, rồi đợi đã sang khoảnh khắc mới */
   const idle = () => until(() => page.evaluate(() => !window.__ke.busy()), 5000);
@@ -145,6 +163,7 @@ async function run(browser, server, mobile) {
   for (const id of ['pull', 'coach', 'lead', 'nick']) { await next(); ok(tag + ': → ' + id, await curId() === id); }
   const done = await page.evaluate(() => Object.keys(localStorage).filter(k => /^qc:ke_done:/.test(k)).map(k => localStorage.getItem(k)));
   ok(tag + ': tới biệt danh → ghi ke_done = "Người giữ hẹn" (khoá qc:)', done.length === 1 && done[0] === 'Người giữ hẹn', done);
+  b0 = await bar(); ok(tag + ': lần xem đầu, giữa chừng (biệt danh) → vẫn chưa có "Tới cuối →"', !b0.toend && b0.end === 0 && b0.cur === 18 && b0.done === 19, b0);
   await next(); ok(tag + ': → bảng màu', await curId() === 'bands');
   await next(); await sleep(900);
   /* thẻ chia sẻ */
@@ -153,11 +172,11 @@ async function run(browser, server, mobile) {
   await page.click('.scr.on .pick-c >> nth=2'); await sleep(200);
   ok(tag + ': chọn chip thứ 7 → bỏ chip chọn sớm nhất, vẫn 6', await page.evaluate(() => document.querySelectorAll('.scr.on .pick-c.sel').length === 6 && document.querySelector('.scr.on .pick-c:nth-child(3)').classList.contains('sel')));
   if (!mobile) {
-    const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 8000 }), page.click('#saveimg')]);
+    const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 20000 }), page.click('#saveimg')]);
     const p = await dl.path(), b = fs.readFileSync(p);
     ok(tag + ': "Lưu ảnh" → tải B0DY-nguoi-giu-hen.png, PNG 1080 × 1920', dl.suggestedFilename() === 'B0DY-nguoi-giu-hen.png' && b.slice(1, 4).toString() === 'PNG' && b.readUInt32BE(16) === 1080 && b.readUInt32BE(20) === 1920, [dl.suggestedFilename(), b.length]);
     await page.click('#printv'); await page.waitForSelector('.sheet'); await sleep(600);
-    const [dp] = await Promise.all([page.waitForEvent('download', { timeout: 8000 }), page.click('.sheet .btn:not(.ghost)')]);
+    const [dp] = await Promise.all([page.waitForEvent('download', { timeout: 20000 }), page.click('.sheet .btn:not(.ghost)')]);
     const pdf = fs.readFileSync(await dp.path()), txt = pdf.toString('latin1');
     const sx = +/startxref\n(\d+)\n%%EOF\n$/.exec(txt)[1], offs = [...txt.slice(sx).matchAll(/(\d{10}) 00000 n /g)].map(m => +m[1]);
     const objOk = offs.length === 5 && offs.every((o, i) => txt.startsWith((i + 1) + ' 0 obj\n', o));
@@ -173,6 +192,30 @@ async function run(browser, server, mobile) {
     slot: document.querySelector('.scr.on .slot') && document.querySelector('.scr.on .slot').textContent }));
   ok(tag + ': tuần sau — "Lịch tuần sau đã mở." · ô 18:00 Thứ Hai · "Đặt lịch tuần 43"', nx.lb === 'Tuần sau · 19.10 → 25.10' && nx.h.replace(/ /g, ' ') === 'Lịch tuần sau đã mở.' && nx.btn === 'Đặt lịch tuần 43' &&
      /Thứ Hai · 19\.10/.test(nx.slot) && /18:00/.test(nx.slot) && /Coach Quyết Hán/.test(nx.slot) && /Còn 30 buổi · hết hạn 01\.03/.test(nx.slot), nx);
+  b0 = await bar();
+  ok(tag + ': tới khoảnh khắc cuối → ghi ke_end; ở cuối thì không có "Tới cuối →"', b0.end === 1 && b0.cur === 21 && b0.done === 22 && !b0.toend, b0);
+  /* chạm một đoạn bất kỳ → tới thẳng khoảnh khắc đó */
+  const seg = async k => { await idle(); const L = page.locator('#segs button').nth(k); if (mobile) await L.tap(); else await L.click(); await until(() => page.evaluate(k => window.__ke.cur() === k, k), 3000); await idle(); };
+  await seg(5);
+  b0 = await bar();
+  ok(tag + ': chạm đoạn 6 → câu 2 / 4 (vẫn giữ đáp án T4 đã chốt), đoạn 1–6 sáng', b0.at === 5 && b0.cur === 5 && b0.done === 6 && (await page.textContent('.scr.on .lb')) === 'Câu 2 / 4' &&
+     await page.evaluate(() => [...document.querySelectorAll('.scr.on .opts .opt[aria-pressed="true"]')].map(o => o.textContent).join() === 'T4'), b0);
+  ok(tag + ': đã xem hết một lần → có "Tới cuối →" ở góc trên phải (cùng hàng "← Đặt lịch", cùng lề)', b0.toend && b0.te && b0.te.txt === 'Tới cuối →' && b0.te.t === b0.cl.t && b0.te.h === 44 &&
+     Math.abs((b0.app.r - b0.te.r) - (b0.cl.l - b0.app.l)) <= 1, b0);
+  await seg(13);
+  ok(tag + ': chạm đoạn 14 → câu 4 / 4', (await page.evaluate(() => window.__ke.L[window.__ke.cur()].id)) === 'q' && (await page.textContent('.scr.on .lb')) === 'Câu 4 / 4');
+  await seg(0);
+  ok(tag + ': chạm đoạn 1 → về bìa', (await bar()).at === 0);
+  if (mobile) await page.locator('#toend').tap(); else await page.click('#toend');
+  await until(() => page.evaluate(() => window.__ke.cur() === window.__ke.L.length - 1), 3000); await idle();
+  b0 = await bar();
+  ok(tag + ': "Tới cuối →" → khoảnh khắc cuối, nút tự ẩn', b0.at === 21 && !b0.toend, b0);
+  if (!mobile) {
+    await page.keyboard.press('Home'); await until(() => page.evaluate(() => window.__ke.cur() === 0), 3000); await idle();
+    const hm = (await bar()).at;
+    await page.keyboard.press('End'); await until(() => page.evaluate(() => window.__ke.cur() === 21), 3000); await idle();
+    ok(tag + ': phím Home → bìa · End → khoảnh khắc cuối', hm === 0 && (await bar()).at === 21, hm);
+  }
   await page.click('#book');
   await page.waitForURL(u => !/ke\.html/.test(u)); await page.waitForSelector('.qc-tab'); await waitView(page, 'book');
   await sleep(600);
@@ -215,7 +258,21 @@ async function run(browser, server, mobile) {
   const kl = await page.evaluate(() => ({ ids: window.__ke.L.map(x => x.id).join(','), last: window.__ke.L[window.__ke.L.length - 1] }));
   ok(tag + ': Diệu Linh — 18 khoảnh khắc (không số đo cơ thể / hít xà / bảng màu), cuối "Xem phiếu tuần 43" T2 07:00',
      kl.ids === 'cover,rules,q,a1,clock,pick,days,gap,room,streak,q,mtn,lift,coach,lead,nick,card,next' && kl.last.btn === 'Xem phiếu tuần 43' && kl.last.slot.time === '07:00' && /Thứ Hai · 19\.10/.test(kl.last.slot.lb), kl);
-  await page.evaluate(() => window.__ke.go(window.__ke.L.length - 1)); await sleep(700);
+  /* câu chuyện khác (khác ke_end) → lần đầu: không có "Tới cuối →"; chạm thanh truyện vượt câu hỏi chưa trả lời */
+  await sleep(600); b0 = await bar();
+  ok(tag + ': Diệu Linh lần đầu → 18 đoạn, không có "Tới cuối →" (ke_end của Minh Khôi không tính)', b0.n === 18 && !b0.toend && b0.end === 1, b0);
+  await seg(3);
+  const ja = await page.evaluate(() => ({ id: window.__ke.L[window.__ke.cur()].id, lb: document.querySelector('.scr.on .lb').textContent, say: document.querySelector('.scr.on .say.lg').textContent }));
+  ok(tag + ': chạm đoạn 4 khi chưa trả lời câu 1 → tới thẳng đáp án (không rung nhắc, không câu phản ứng)', ja.id === 'a1' && ja.lb === 'Đáp án' && ja.say === '', ja);
+  await seg(2);
+  if (mobile) await page.mouse.click(382, 300); else await page.keyboard.press('ArrowRight');
+  await sleep(500);
+  ok(tag + ': về câu 1 bằng thanh truyện, bấm Tiếp → vẫn phải chốt đáp án trước (rung nhắc)', await page.evaluate(() => window.__ke.L[window.__ke.cur()].id === 'q' && !!document.querySelector('.scr.on .guess.nudge')));
+  await seg(17);
+  b0 = await bar();
+  ok(tag + ': chạm đoạn cuối → "Tuần sau", ghi ke_end của Diệu Linh', b0.at === 17 && b0.end === 2 && !b0.toend, b0);
+  await seg(0);
+  ok(tag + ': … rồi về bìa → có "Tới cuối →"', (await bar()).toend);
   await page.click('#close');
   await page.waitForURL(u => !/ke\.html/.test(u)); await page.waitForSelector('.qc-tab'); await waitView(page, 'ticket');
   ok(tag + ': "← Đặt lịch" → về phiếu', true);
@@ -225,10 +282,31 @@ async function run(browser, server, mobile) {
   await t.ctx.close();
 }
 
+/* trang thật (không ?qc): hành trình CHƯA bật cho khách (chủ studio 09/11 20:42) → không hỏi lt_story, không có thẻ, dù đã xác minh */
+async function gate(browser, server) {
+  console.log('\n== trang thật (không ?qc) ==');
+  const t = backend(vn('2026-10-18', '20:15'));
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } }), page = await ctx.newPage(), errs = [];
+  page.on('pageerror', e => errs.push('pageerror: ' + e.message));
+  page.on('console', m => { if (m.type() === 'error') errs.push(m.type() + ': ' + m.text()); });
+  await attach(page, t);
+  await page.goto(server.url);
+  await page.waitForSelector('.pg-find');
+  await page.fill('#q', 'duc nam'); await page.waitForSelector('.rrow'); await page.locator('.rrow').first().click();
+  await page.waitForSelector('.pg-verify'); await page.keyboard.type('0001'); await page.click('#vgo');
+  await page.waitForSelector('.pg-book'); await sleep(2500);
+  const g = await page.evaluate(() => ({ ke: !!window.KE, chip: !!document.querySelector('#kchip'), hint: !!document.querySelector('#khint'), ver: window.__lt && window.__lt.ver,
+    ss: Object.keys(sessionStorage).filter(k => /ke_/.test(k)) }));
+  ok('trang thật: đã xác minh, ke-core có nạp, nhưng KHÔNG hỏi lt_story · không thẻ · không gợi ý · không lưu gì của hành trình',
+     g.ke && !g.chip && !g.hint && g.ss.length === 0 && t.calls.indexOf('lt_story') < 0 && t.calls.indexOf('lt_verify') >= 0, Object.assign(g, { calls: t.calls }));
+  ok('trang thật: VER 1.9.1 · 0 lỗi console', g.ver === '1.9.1' && errs.length === 0, [g.ver, errs]);
+  await ctx.close();
+}
+
 (async () => {
   const browser = await chromium.launch({ executablePath: EXE, args: ARGS });
   const server = await startServer();
-  try { await run(browser, server, false); await run(browser, server, true); }
+  try { await gate(browser, server); await run(browser, server, false); await run(browser, server, true); }
   catch (e) { fail++; console.log('  FAIL  lỗi chạy test: ' + (e && e.stack || e)); }
   await browser.close(); server.srv.close();
   console.log('\n' + pass + ' PASS, ' + fail + ' FAIL');
