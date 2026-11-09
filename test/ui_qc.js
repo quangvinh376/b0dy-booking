@@ -101,8 +101,8 @@ async function strayKeys(page) {
   const t = await open(browser, server, false), page = t.page;
   await waitView(page, 'find');
   ok('Lần đầu mở ?qc: kịch bản CN 18.10 07:00, trang tìm tên', (await page.textContent('#clock')).indexOf('CN 18.10 · 07:0') >= 0, await page.textContent('#clock'));
-  const bx = await boxes(page, ['.qc-tab', '.wm', '#sig', '#steps', '#clock']);
-  ok('Nút QC ở mép trên giữa, cao ≈ 18 px, không đè wordmark / tín hiệu / các bước / đồng hồ',
+  const bx = await boxes(page, ['.qc-tab', '.wm', '#clock', '#hdR']);
+  ok('Nút QC ở mép trên giữa, cao ≈ 18 px, không đè wordmark / ngày giờ / góc phải header',
      bx[0] && bx[0].y === 0 && Math.abs(bx[0].height - 18) < 1 && bx.slice(1).every(b => !b || !overlap(bx[0], b)), bx);
 
   /* đặt lịch: Trịnh Minh Khôi · 1111 → T2 18:00 + T4 07:00 */
@@ -304,11 +304,11 @@ async function strayKeys(page) {
   await waitView(page, 'ticket');
   await qc(page, '[data-qc="offline"]', true);
   await waitView(page, 'ticket');
-  await page.waitForFunction(() => /Mất kết nối/.test(document.querySelector('#sigD').textContent), null, { timeout: 8000 });
+  await page.waitForFunction(() => !document.querySelector('#hdOff').hidden, null, { timeout: 8000 });
   ok('Mất mạng hoàn toàn → phiếu từ bộ nhớ máy + header "Mất kết nối"', true);
   await qc(page, '[data-qc="offline"]', true);
-  await page.waitForFunction(() => /Đang mở đặt/.test(document.querySelector('#sigD').textContent), null, { timeout: 8000 });
-  ok('Có mạng lại → header "Đang mở đặt · Tuần 43"', true);
+  await page.waitForFunction(() => document.querySelector('#hdOff').hidden, null, { timeout: 8000 });
+  ok('Có mạng lại → header hết "Mất kết nối"', true);
 
   /* kịch bản giữa tuần: T4 21.10 08:30 */
   await qc(page, '[data-qc="scn"][data-k="giua"]', true);
@@ -347,7 +347,8 @@ async function strayKeys(page) {
   await waitView(page, 'closed');
   ok('05:59:30 → màn chưa mở + đồng hồ đếm', /Chưa tới giờ đặt/.test(await page.textContent('main')));
   await waitView(page, 'find', 45000);
-  ok('Tới 06:00 → trang tự mở tìm tên', /Đang mở đặt · Tuần 43/.test(await page.textContent('#sigD')), await page.textContent('#sigD'));
+  const op6 = await page.evaluate(() => { const w = window.__lt.S.pub && window.__lt.S.pub.week; return w ? w.phase + ' ' + w.no : ''; });
+  ok('Tới 06:00 → trang tự mở tìm tên (tuần 43 đang mở đặt)', op6 === 'open 43', op6);
 
   ok('Không một lệnh nào ra máy chủ thật trong chế độ QC', t.hits === 0, t.hits);
   ok('0 lỗi console / pageerror (desktop)', t.errs.length === 0, t.errs);
@@ -364,8 +365,8 @@ async function strayKeys(page) {
   console.log('\n== mobile 393×852 ==');
   const m = await open(browser, server, true), mp = m.page;
   await waitView(mp, 'find');
-  const mb = await boxes(mp, ['.qc-tab', '.wm', '#sig', '#stepn']);
-  ok('Mobile: nút QC không đè wordmark / tín hiệu / số bước', mb[0] && mb.slice(1).every(b => !b || !overlap(mb[0], b)), mb);
+  const mb = await boxes(mp, ['.qc-tab', '.wm', '#hdR']);
+  ok('Mobile: nút QC không đè wordmark / góc phải header', mb[0] && mb.slice(1).every(b => !b || !overlap(mb[0], b)), mb);
   await panel(mp, true);
   const pb = await mp.evaluate(() => { const r = document.querySelector('#qcp').getBoundingClientRect(); return { top: r.top, bottom: r.bottom, h: r.height, vh: innerHeight }; });
   ok('Mobile: bảng QC là tấm trượt đáy, cao ≤ 80 % màn, cuộn được', Math.abs(pb.bottom - pb.vh) < 1 && pb.h <= pb.vh * 0.8 + 1, pb);

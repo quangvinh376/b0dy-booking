@@ -39,6 +39,7 @@ const DEFAULTS = {
   READ_MS: 8e3, WRITE_MS: 20e3,                     // hạn giờ gọi Google
   META_RECHECK: 5 * 60e3,                           // chưa có tab "Lịch coach": dò lại tên tab sau bấy lâu
   META_TRY: 30e3,                                   // … và không thử dò quá một lần mỗi bấy lâu (Google lỗi thì không dò dồn)
+  TTL_STORY: 5 * 60e3,                              // tab "Kể về bạn": đọc lại sau bấy lâu (tab chưa có cũng dò lại sau bấy lâu)
   BUSY_WINDOW: 30 * 60e3,                           // cron làm mới điểm danh đều khi 30 phút gần đây có người dùng
   IDLE_REFRESH: 10 * 60e3                           // … còn không thì 10 phút một lần
 };
@@ -515,6 +516,7 @@ export class BookingCore {
       if (a === 'lt_change') return await this.apiChange(p, now);
       if (a === 'lt_invite') return await this.apiInvite(p, now);
       if (a === 'lt_decline') return await this.apiDecline(p, now);
+      if (a === 'lt_story') return await this.apiStory(p, now);
       return { ok: false, error: 'unknown_action', now: now };
     } catch (e) {
       return { ok: false, error: 'loi_he_thong', detail: msg(e), now: now };
@@ -587,6 +589,48 @@ export class BookingCore {
     st.tok = await sg.tokMake(me.key, p.dev, ttl, now);
     st.tokExp = now + ttl;
     return st;
+  }
+
+  /** "Để B0DY kể về bạn": câu chuyện của hội viên đã xác minh (chỉ của chính họ). Tên lấy từ MEMBERS (luôn đúng tên hiện tại),
+      coach lấy từ dữ liệu (người viết lời nhận xét) hoặc MEMBERS. Chưa có tab / chưa có hàng → story: null (trang không hiện thẻ). */
+  async apiStory(p, now) {
+    const sg = await this.signer(), t = p.tok ? await sg.tokRead(p.tok, p.dev, now) : null;
+    if (!t) return { ok: false, error: 'het_phien', now: now };
+    const ctx = C.weekCtx(now), ba = await this.getBA(), list = this.persons(ctx, ba), me = C.findPerson(list, t.k);
+    if (!me) return { ok: false, error: 'het_goi', now: now };
+    const s = C.storyOf(await this.getStories(), list, me);
+    if (!s) return { ok: true, now: now, story: null };
+    /* tên trên bìa / thẻ = tên gọi của trang đặt lịch ("Đức Nam"); B0B gọi bằng chữ cuối ("Nam") trừ khi dữ liệu ghi rõ một phần của tên */
+    /* chỉ các trường của dạng v1 (ke-core.js): công cụ sinh dữ liệu có ghi thêm gì vào JSON cũng không lộ ra trình duyệt */
+    const d = s.data, c = typeof d.call === 'string' ? d.call.trim() : '', story = {};
+    ['asOf', 'sessions', 'load', 'lifts', 'pullup', 'body', 'goals', 'note', 'room'].forEach(k => { if (d[k] !== undefined) story[k] = d[k]; });
+    Object.assign(story, {
+      v: 1, name: me.call, call: c && (' ' + me.call + ' ').indexOf(' ' + c + ' ') >= 0 ? c : '', coach: String(d.coach || me.coach || '').slice(0, 40),
+      code: /^[A-Z0-9]{3,16}$/.test(me.key) ? me.key : '', ver: s.ver, id: await sg.idOf(me.key)
+    });
+    return { ok: true, now: now, story: story };
+  }
+  /** Các hàng của tab "Kể về bạn" (A2:D), giữ trong bộ nhớ cfg.TTL_STORY. Tên tab dò theo danh sách tab (so dạng NFC như mọi tab khác —
+      tên gõ tiếng Việt có thể ở dạng tổ hợp); chưa có tab → [] (dò lại sau TTL). Google lỗi → bản cũ nếu có, và không gọi lại Google
+      trong cfg.META_TRY (lượt sau trả ngay bản cũ / lỗi thay vì đợi hết hạn giờ). */
+  async getStories() {
+    const c = this.storyCache, t = this.now();
+    if (c && t - c.at < this.cfg.TTL_STORY) return c.rows;
+    if (this.storyFailAt && t - this.storyFailAt < this.cfg.META_TRY) { if (c) return c.rows; throw new Error('story_google_loi'); }
+    return this.once('story', async () => {
+      let rows = [];
+      try {
+        const n = LT.STORY.normalize('NFC'), tab = (await this.g.meta(this.OUT)).find(x => String(x.title).normalize('NFC') === n);
+        if (tab) rows = (await this.g.batchGet(this.OUT, [q(tab.title) + '!A2:D' + (LT.STORY_ROWS + 1)]))[0] || [];
+      } catch (e) {
+        this.storyFailAt = this.now();
+        if (c) return c.rows;                                             /* Google lỗi: dùng bản cũ nếu có */
+        throw e;
+      }
+      this.storyFailAt = 0;
+      this.storyCache = { at: this.now(), rows: rows };
+      return rows;
+    });
   }
 
   /** Dựng state cho một hội viên (lượt XEM). */

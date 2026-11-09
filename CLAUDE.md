@@ -33,7 +33,35 @@ ID hai file Google Sheets: `BA_ID` (file BA: MEMBERS · SESSION LOG · TRIAL · 
 6. Sau mỗi lần đẩy: xác minh commit bằng hash và SHA-256 từng tệp trên `raw.githubusercontent.com/quangvinh376/b0dy-booking/<commit>/…`.
 7. Chỉ MỘT tiến trình Playwright / Chromium một lúc (máy test nhỏ từng hết RAM).
 
-## Đang ở đâu (05/11/2026, 13:35)
+## Đang ở đâu (09/11/2026)
+
+- **1.9.0 · "Để B0DY kể về bạn" + header L3** (chủ studio 09/11 16:30: "dev lên bản booking QC toàn bộ journey, đảm bảo chuẩn với artifact").
+  (1) **Header L3, mọi khách**: bỏ tín hiệu "Đang mở đặt · Tuần N" và dãy bước (chủ studio 09/11: vô nghĩa). Trái: logo · ngày giờ Hà Nội
+  (desktop, cách logo 32) · `#hdOff` "Mất kết nối" (chỉ khi đang xem bản lưu trên máy) · `#sigN` số người đang xem. Phải `#hdR`: thẻ H4
+  `#kchip` (Figma 02d `1893:6213`: 181 × 40 / 159 × 36, khối Chàm, dải Cam 8 / 6 → 14 / 10 khi rê, nhãn Archivo XC 20 / 18, chấm Cam
+  = chưa mở, đã xem tới biệt danh → nhãn = biệt danh) chỉ khi hội viên đã xác minh có câu chuyện; hoặc nút "← Phiếu" (`.hd-back`,
+  `data-a="back-ticket"`) trong đổi lịch / thêm buổi (thay bước "01 Phiếu" desktop + "← Phiếu" mobile). Câu gợi ý lần đầu dưới thẻ (một
+  lần / hội viên / phiên bản câu chuyện, 6 s, chạm đâu cũng tắt). (2) **Hành trình** = trang riêng `ke.html` (+ `ke.css` · `ke.js` ·
+  `ke-core.js` · `ke-b0b.js`, phông Archivo tự host `fonts/Archivo*.woff2` + OFL): bản artifact 3.3 (22 khoảnh khắc, hướng chữ C), dữ
+  liệu theo hội viên — `ke-core.js` sinh mọi câu; bộ số artifact ra đúng từng câu + đúng nbsp (test so từng câu), khoảnh khắc thiếu dữ
+  liệu tự bỏ. Bấm thẻ → `sessionStorage` `ke_payload` = {story, next, nav, tk = đuôi mã nhớ máy} rồi mở ke.html (không gọi máy chủ,
+  CSP `connect-src 'none'`; không đúng phiên → về trang đặt lịch). Khác artifact có chủ đích: "← Đặt lịch" (bỏ Sảnh), PDF tự viết một
+  trang ("TRANG 1 / 1", không tải jsPDF), điện thoại "Lưu ảnh" mở bảng chia sẻ. (3) **Máy chủ** `lt_story` (chỉ Worker; Apps Script
+  trả `unknown_action` → không thẻ): tab **"Kể về bạn"** của file Lịch tập tuần (A Mã KH · B phiên bản · C cập nhật · D JSON v1, dạng ở
+  `worker/README.md`) — **chưa có tab trên file thật → bản thật chưa ai thấy thẻ**; công cụ sinh JSON từ dữ liệu tập (logbook app coach +
+  SESSION LOG + số đo) là việc sau. (4) **QC**: tab 205 giả (`qc-ke.js`) — Trịnh Minh Khôi 1111 = bộ số artifact (22 khoảnh khắc, "Đặt
+  lịch tuần 43"), Phùng Diệu Linh 7777 = dạng khác (07:00, thứ Bảy, nghỉ 2 tuần, 18 khoảnh khắc, "Xem phiếu tuần 43"); `WORLD_V` 8.
+  Chữ mới (ngoài artifact) chờ chủ studio soát: câu ngày tập T3–CN · "Hồi đầu / giữa tháng …" · "ngủ khò những k tuần" · "Kỷ lục …" ·
+  tỉ lệ mức tạ / so cân nặng · giảm ≥ 6 kg / tăng cân · hít xà 1 cái · mục tiêu đạt hết / còn nhiều · 4 biệt danh (giữ nhịp · nhấc núi ·
+  quay lại · bền bỉ) · tuần sau đã đặt / chưa mở / không đặt được · câu gợi ý header.
+  Test: `ke_core` 3111 (mới) · `gas_lt` 404 · parity 457 (1075 lượt giống hệt) · concurrency 37 · robust 86 · http 13 · live 25 · story 37
+  (mới) · ui_states 119 · ui_qc 84 · ui_duo 48 · ui_live 28 · ui_notice 110 · ui_smoke 24 · ui_sw 8 · ui_peak 71 · ui_ke 97 (mới) · ui_tk3d
+  81 · ui_png 93 · rv_* PASS (`rv_tilt` trượt mốc lắc gợi ý rồi chạy lại PASS 2/2 · `b0b_check` trượt "Idle ~30 fps" — nhiễu máy test, b0b.js
+  không đổi) · realdata / workerd bỏ qua (máy này không có fixture / Miniflare). So ảnh 22 khoảnh khắc với bản artifact (393 × 852 và 1440 × 900): khớp (lệch ≤ 2,3 % điểm ảnh — B0B đang chuyển động); 10 cỡ màn
+  (320 × 568 → 2560 × 1080, cả ngang) × 2 dạng câu chuyện: không tràn, không lỗi.
+  Rà soát độc lập 1 vòng (agent riêng): 2 lỗi thật + 8 lỗi nhỏ — đã sửa + có test (đăng xuất trên máy dùng chung vẫn mở lại được câu chuyện
+  người trước qua nút Tiến → xoá `ke_payload` + kiểm phiên; chuỗi tuần / "0 tuần nghỉ thêm" tính tới tuần của `asOf`; "Thiếu mất 0 tấn";
+  lời coach dài tràn bản in; tên tab dạng tổ hợp; Mã KH chữ thường; Google lỗi không gọi dồn; chỉ trả trường v1; lượt hỏi cũ sau đăng xuất).
 
 - **1.8.3 · nhận diện hội viên theo NGƯỜI** (chủ studio 05/11: "sửa tận gốc, không muốn trường hợp này xảy ra nữa"). Sự cố: một khách
   gia hạn hợp đồng, dòng MEMBERS của HĐ mới chưa có Mã KH → máy chủ coi là người mới (khoá `#tên`, phiếu "Đặt" bản 1, buổi cùng tuần không
@@ -280,16 +308,17 @@ ID hai file Google Sheets: `BA_ID` (file BA: MEMBERS · SESSION LOG · TRIAL · 
 
 ## Phiên bản trang
 
-Mỗi lần đổi tệp tĩnh: tăng `VER` trong `app.js` **và** `sw.js`, cùng `?v=` trong `index.html` (app.css, b0b.js, tk3d.js, app.js).
-`qc.js` / `qc.css` tự theo `VER`. Bảng các bản đã phát hành: runbook.
+Mỗi lần đổi tệp tĩnh: tăng `VER` trong `app.js` **và** `sw.js`, cùng `?v=` trong `index.html` (app.css, b0b.js, ke-core.js, tk3d.js, app.js) **và**
+`ke.html` (ke.css, ke-core.js, ke-b0b.js, ke.js). `qc.js` / `qc.css` tự theo `VER` (`qc-ke.js`, `worker/src` nạp không kèm `?v=`: bộ đệm SW theo `VER`). Bảng các bản đã phát hành: runbook.
 
 ## Test (phải PASS trước khi đẩy)
 
 ```bash
 npm i playwright && npx playwright install chromium   # máy mới; hoặc PW_CHROMIUM=<đường dẫn chrome>
 node test/gas_lt.js                      # luật + Apps Script (358)
-cd worker && node test/run_all.mjs       # parity · concurrency · robust · http · realdata
-node test/ui_states.js && node test/ui_qc.js && node test/ui_duo.js && node test/ui_live.js && node test/ui_notice.js && node test/ui_smoke.js && node test/ui_sw.js && node test/ui_peak.js
+cd worker && node test/run_all.mjs       # parity · concurrency · robust · http · live · story · realdata
+node test/ke_core.js                     # "Để B0DY kể về bạn": câu chữ đúng artifact + dữ liệu ngẫu nhiên
+node test/ui_states.js && node test/ui_qc.js && node test/ui_duo.js && node test/ui_live.js && node test/ui_notice.js && node test/ui_smoke.js && node test/ui_sw.js && node test/ui_peak.js && node test/ui_ke.js
 node test/ui_tk3d.js all && node test/ui_png.js all && node test/b0b_check.js && for f in test/rv_*.js; do node $f; done
 ```
 

@@ -63,12 +63,12 @@ function ok(label, cond, extra) {
   const nav = await page.evaluate(() => { const n = performance.getEntriesByType('navigation')[0]; return { resp: Math.round(n.responseEnd), dcl: Math.round(n.domContentLoadedEventEnd), wk: n.workerStart > 0 }; });
   ok('Mất mạng, tải lại → trang mở từ bộ nhớ, thấy ngay phiếu (' + (Date.now() - t0) + ' ms · HTML ' + nav.resp + ' ms · DOM ' + nav.dcl + ' ms)', nav.resp < 1500, nav);
   await sleep(1200);
-  const sig = await page.textContent('#sigM');
+  const sig = await page.evaluate(() => document.querySelector('#hdOff').hidden ? '' : document.querySelector('#hdOff').textContent);
   ok('Mất mạng: header báo "Mất kết nối" (đang xem bản lưu trên máy)', /mất kết nối/i.test(sig), sig);
   await ctx.setOffline(false);
   t.fail = null;
   await page.evaluate(() => window.dispatchEvent(new Event('online')));
-  await page.waitForFunction(() => !/mất kết nối/i.test(document.querySelector('#sigM').textContent), null, { timeout: 6000 });
+  await page.waitForFunction(() => document.querySelector('#hdOff').hidden, null, { timeout: 6000 });
   ok('Có mạng lại → tự làm mới, header hết báo mất kết nối', true);
 
   /* đổi VER: SW mới cài, bộ nhớ cũ bị xoá */

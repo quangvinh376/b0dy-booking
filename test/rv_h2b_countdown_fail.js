@@ -15,7 +15,7 @@ const { vn } = R.H;
     t.fail = b => { if (b.action === 'lt_boot' && first) { first = false; return mode === 'net' ? 'net' : null; } return null; };
     if (mode === 'busy') { const orig = t.env.ltDoPost_; let once = true; t.env.ltDoPost_ = b => { if (b.action === 'lt_boot' && once) { once = false; return { ok: false, error: 'he_thong_ban', now: t.clock.now }; } return orig(b); }; }
     await R.sleep(20000);
-    const st = await page.evaluate(() => ({ view: window.__lt.S.view, cd: document.querySelector('#cdv') && document.querySelector('#cdv')._s, sig: document.querySelector('#sigM').textContent }));
+    const st = await page.evaluate(() => ({ view: window.__lt.S.view, cd: document.querySelector('#cdv') && document.querySelector('#cdv')._s, off: !document.querySelector('#hdOff').hidden }));
     R.info(mode + ': 20 s after 06:00', { st, calls: t.calls.slice(n0) });
     R.ok('H2b ' + mode + ': a failed zero-refresh is retried and the page opens', st.view !== 'closed', st);
     await page._ctx.close();

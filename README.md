@@ -24,8 +24,9 @@ của buổi đã đặt trước đó, nếu có).
 | `index.html` · `app.css` · `app.js` | Trang (JavaScript thuần, không build). Luật khung giờ chạy cả ở trang (hiện bảng) lẫn máy chủ (quyết định). Hào quang Acid của thẻ kích cầu ghép cặp (Figma 00e): `beamMount` trong `app.js` — Web Animations chỉ transform / opacity trên compositor, 3 chu kỳ 8 s rồi đứng tĩnh |
 | `b0b.js` | Linh vật B0B 1.1 (WebGL): hệ thần kinh 7 lớp — biểu cảm (lò xo tới hạn), chú ý (ngăn ưu tiên), đầu – mắt (giật mắt, bám, vi giật), cử chỉ, chớp mắt, hơi thở, bộ não (rảnh, ngủ gật, ngủ). Trang chỉ kể việc qua `B0B.emit(loại, dữ liệu)` (cầu nối `bobBridge` / `bobWatch` trong `app.js`), B0B tự phản ứng. Giảm chuyển động → tư thế tĩnh |
 | `tk3d.js` | Phiếu giấy 3D (WebGL2) vẽ lại đúng phiếu DOM, xoay theo chuột / vuốt (`TK3D.rot`; không có GPU → vé DOM nghiêng bằng CSS 3D). `TK3D.snapshot(vé)` vẽ lại đúng vé đang hiện bằng canvas 2D cho "Lưu về máy" (desktop vé ngang, mobile vé dọc) |
+| `ke.html` · `ke.css` · `ke.js` · `ke-core.js` · `ke-b0b.js` | **"Để B0DY kể về bạn"** (1.9.0): hành trình kể lại quá trình tập của hội viên (bản artifact 3.3 — 22 khoảnh khắc, hướng chữ C). `ke-core.js` = lõi thuần (dữ liệu → mô hình → kịch bản + mọi câu chữ; chạy cả trong Node để test) · `ke.js` = dựng trang, thẻ chia sẻ 1080 × 1920 + bản in A4 bằng canvas, PDF tự viết · `ke-b0b.js` = B0B của bản artifact. Trang đặt lịch hiện thẻ ở góc phải header khi máy chủ có câu chuyện (`lt_story`), bấm → để dữ liệu vào sessionStorage rồi mở `ke.html` (trang này không gọi máy chủ) |
 | `sw.js` | Service worker: mở lại trang tức thì, không bao giờ chạm vào lệnh gọi máy chủ |
-| `qc.js` · `qc.css` | Chế độ QC (`?qc`): máy chủ giả chạy ngay trong trình duyệt bằng chính mã `worker/src`, dữ liệu giả, không gọi mạng |
+| `qc.js` · `qc.css` · `qc-ke.js` | Chế độ QC (`?qc`): máy chủ giả chạy ngay trong trình duyệt bằng chính mã `worker/src`, dữ liệu giả, không gọi mạng · `qc-ke.js` = câu chuyện giả (Minh Khôi = bộ số artifact, Diệu Linh = dạng khác) |
 | `worker/` | Máy chủ chính: Cloudflare Worker + Durable Object (`b0dy-booking-api`). Xem `worker/README.md` |
 | `backend/LichTuan.gs` | Cùng hợp đồng API trên Apps Script (máy chủ dự phòng); parity test so từng phản hồi với Worker |
 | `test/` | Test Playwright (giả máy chủ bằng chính `LichTuan.gs`), test Apps Script, test B0B |
@@ -49,6 +50,8 @@ node test/ui_qc.js                  # chế độ QC: kịch bản, hội viên 
 node test/ui_duo.js                 # gói 1:2: nhận lời mời bằng dời trong ngày, Ghép khác ngày, rời cặp tính lượt, từ chối → "Mời bạn khác"
 node test/ui_live.js                # kênh live: người khác đặt → bảng tự cập nhật, ô đang chọn bị lấy, "N người đang xem", nối lại / lui
 node test/ui_notice.js              # thẻ thông báo + tia viền thẻ ghép cặp: chỉ compositor (0 Paint), đi đều liền qua góc, nối pha khi vẽ lại, cửa sổ che → dừng tại chỗ, mặt thẻ thống nhất
+node test/ke_core.js                # "Để B0DY kể về bạn": bộ số artifact ra đúng từng câu + nbsp như artifact, dữ liệu dạng khác / ngẫu nhiên không hỏng
+node test/ui_ke.js                  # thẻ header (kích thước Figma, chấm, gợi ý), hành trình QC từ đầu tới cuối, ảnh PNG, PDF, quay về
 node test/ui_smoke.js && node test/ui_sw.js && node test/ui_tk3d.js all && node test/ui_png.js all && node test/b0b_check.js
 node test/rv_h6_rid_discard.js      # … và các rv_*.js: tái hiện lỗi đã sửa (mất phản hồi, máy dùng chung, 06:00, …)
 node test/rv_find_dynamic.js        # tìm tên gõ tới đâu ra tới đó: tô phần khớp, more, giữ danh sách khi chờ, máy chủ cũ (need: 2)

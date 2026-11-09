@@ -34,6 +34,9 @@ export const LT = {
   FIND_MAX: 300,                                     // lượt tìm tên / máy / khung 10 phút cố định (trang tìm theo từng chữ gõ: ~8 lượt / người)
   FIND_TOP: 6,                                       // tối đa 6 người mỗi lượt tìm; nhiều hơn → more: true
   LOG: 'Sổ đặt lịch', DATA: '_dữ liệu', SCHED: 'Lịch coach',
+  /* "Để B0DY kể về bạn" (09/11): tab của file Lịch tập tuần, một hàng một hội viên — A Mã KH · B phiên bản · C cập nhật · D dữ liệu JSON
+     (dạng v1: ke-core.js · worker/README.md). Ô Google Sheets chứa tối đa 50.000 ký tự. Chưa có tab / chưa có hàng → không có câu chuyện. */
+  STORY: 'Kể về bạn', STORY_ROWS: 1000, STORY_MAX: 50000,
   ON: 'Đã đặt', MOVED: 'Đã đổi',
   /* Ghép lớp 1:2 (chủ studio chốt 18/10 14:13): người đặt trước mời được một bạn 1:2 cùng coach (dòng sổ "Mời"), bạn kia nhận
      (đặt / thêm / dời vào) hoặc từ chối (dòng "Từ chối"); dời một buổi ĐANG LẺ vào cặp đang chờ = "Ghép" — không tính lượt đổi, được
@@ -970,6 +973,27 @@ export function publicOf(ctx, why, closed, sched, list) {
 export function snapshotRows(list) {
   return list.slice().sort((a, b) => a.name.localeCompare(b.name, 'vi'))
     .map(p => [p.name, p.short, p.coach, p.left, p.exp, p.key, p.short + ' · ' + initials(p.coach)].map(String));
+}
+/**
+ * Câu chuyện của person trong tab "Kể về bạn" (rows: các hàng A:D từ hàng 2). Mã ở cột A so theo khoá hiện tại (mã cũ của khách gia hạn
+ * vẫn khớp nhờ canonKey). Hàng hỏng (JSON sai, không phải dạng v1, quá dài) bị bỏ; nhiều hàng khớp → hàng dưới cùng thắng.
+ * Trả {ver, at, data} hoặc null.
+ */
+export function storyOf(rows, list, person) {
+  let best = null;
+  const up = k => String(k == null ? '' : k).toUpperCase(), me = up(person.key);
+  (rows || []).forEach(r => {
+    const code = String((r || [])[0] == null ? '' : r[0]).trim();
+    /* so không phân biệt hoa thường (Mã KH gõ "b901dy" ở tab này hay ở MEMBERS đều khớp); mã cũ → khoá hiện tại qua canonKey */
+    if (!code || (up(canonKey(list, code)) !== me && up(canonKey(list, up(code))) !== me)) return;
+    const raw = String(r[3] == null ? '' : r[3]);
+    if (!raw || raw.length > LT.STORY_MAX) return;
+    let o = null;
+    try { o = JSON.parse(raw); } catch (e) { return; }
+    if (!o || typeof o !== 'object' || Array.isArray(o) || o.v !== 1 || !Array.isArray(o.sessions)) return;
+    best = { ver: String(r[1] == null ? '' : r[1]).trim() || '1', at: String(r[2] == null ? '' : r[2]).trim(), data: o };
+  });
+  return best;
 }
 export function findPerson(list, key) {
   key = canonKey(list, key);

@@ -57,8 +57,8 @@ async function E01() {
     await sleep(1500);
     const cd = await page.evaluate(() => document.querySelector('#cdv')._s);
     ok('E01 ' + k + ': đồng hồ đếm 07:19:5x → 06:00 CN', /^07:1[89]:\d\d$/.test(cd), cd);
-    const sig = await page.textContent(k === 'd' ? '#sigD' : '#sigM');
-    ok('E01 ' + k + ': header "CHƯA MỞ … 43", chấm rỗng', /chưa mở/i.test(sig) && /43/.test(sig) && await page.evaluate(() => document.querySelector('#sig').classList.contains('off')), sig);
+    const hd = await page.evaluate(() => ({ sig: !!document.querySelector('#sig,#steps,#stepn'), off: document.querySelector('#hdOff').hidden, r: document.querySelector('#hdR').innerHTML }));
+    ok('E01 ' + k + ': header L3 (09/11) — không tín hiệu tuần / dãy bước, không "Mất kết nối", góc phải trống (chưa xác minh)', !hd.sig && hd.off && hd.r === '', hd);
     /* Figma E01 (17/10): không dãy bước · nút "Đặt hẹn nhắc lịch" (desktop dưới đồng hồ L56, mobile thanh đáy M48 rộng hết, kẻ 10 %) ·
        đồng hồ mỗi ký tự .57em (khoảng chữ −3 %) */
     const g = await page.evaluate(() => {
@@ -66,7 +66,7 @@ async function E01() {
       const btns = Array.from(document.querySelectorAll('[data-a="remind"]')).filter(vis);
       const b = btns[0], r = b && b.getBoundingClientRect(), mb = document.querySelector('#mbar');
       const dg = document.querySelector('#cdv .dg'), fs = parseFloat(getComputedStyle(document.querySelector('#cdv')).fontSize);
-      return { steps: document.querySelectorAll('#steps .step').length, n: btns.length, txt: b && b.textContent.trim(), inBar: !!b && mb.contains(b),
+      return { steps: document.querySelectorAll('#steps .step, .step').length, n: btns.length, txt: b && b.textContent.trim(), inBar: !!b && mb.contains(b),
                w: r && Math.round(r.width), h: r && Math.round(r.height), vw: innerWidth, ke: mb.classList.contains('mb-ke'),
                line: getComputedStyle(mb).borderTopColor, dgw: dg && +(dg.getBoundingClientRect().width / fs).toFixed(3) };
     });
@@ -89,8 +89,8 @@ async function E01() {
        nên chờ '.pg-find' trúng ngay màn đó (18/10 12:40 đã gặp) */
     await page.waitForFunction(() => window.__lt && window.__lt.S.view === 'find' && !document.querySelector('.page.leave-fwd,.page.leave-back'), null, { timeout: 15000 });
     await sleep(900);
-    const g = await page.evaluate(() => ({ steps: document.querySelectorAll('#steps .step').length, ke: document.querySelector('#mbar').classList.contains('mb-ke') }));
-    ok('E01 ' + k + ' → 06:00 mở: sang Tìm tên, dãy bước 4 mục hiện lại, thanh đáy bỏ kẻ 10 %', g.steps === 4 && !g.ke, g);
+    const g = await page.evaluate(() => ({ steps: document.querySelectorAll('.step').length, ke: document.querySelector('#mbar').classList.contains('mb-ke') }));
+    ok('E01 ' + k + ' → 06:00 mở: sang Tìm tên, không dãy bước (header L3), thanh đáy bỏ kẻ 10 %', g.steps === 0 && !g.ke, g);
     await close(page);
   }
 }
@@ -162,7 +162,7 @@ async function E11() {
     t.fail = b => b.action === 'lt_book' ? 'net' : null;
     await tap(page, ctaSel(desk));
     await waitResend(page);
-    ok('E11a ' + k + ': nút chốt thành "Gửi lại", header MẤT KẾT NỐI', /mất kết nối/i.test(await page.textContent(desk ? '#sigD' : '#sigM')));
+    ok('E11a ' + k + ': nút chốt thành "Gửi lại", header MẤT KẾT NỐI', await page.evaluate(() => !document.querySelector('#hdOff').hidden && /mất kết nối/i.test(document.querySelector('#hdOff').textContent)));
     const pend = await pendOf(page);
     ok('E11a ' + k + ': lệnh chờ lưu trên máy (3 buổi, có mã yêu cầu)', pend && pend.body && pend.body.picks.length === 3 && /^[\w-]{16,}$/.test(pend.body.rid), pend && pend.body);
     await shot(page, 'E11-' + k, 700);
@@ -260,8 +260,8 @@ async function E08() {
     ok('E08 ' + k + ': ô khoá đầu tiên của T3 ghi "Dưới 12 giờ"', /Dưới 12 giờ/.test(lbl), lbl);
     const n = k === 'd' ? await page.textContent('#floor .nt-t') : await page.textContent('.mnt-t');
     ok('E08 ' + k + ': thông báo đặt muộn', /Đặt muộn/.test(n), n);
-    const sig = await page.textContent(k === 'd' ? '#sigD' : '#sigM');
-    ok('E08 ' + k + ': header ĐẶT MUỘN', /đặt muộn/i.test(sig), sig);
+    const hd8 = await page.evaluate(() => ({ old: !!document.querySelector('#sig,#steps,#stepn'), off: document.querySelector('#hdOff').hidden }));
+    ok('E08 ' + k + ': header L3 — không còn tín hiệu "Đặt muộn · Tuần" (thông báo trên trang đã nói), không "Mất kết nối"', !hd8.old && hd8.off, hd8);
     await shot(page, 'E08-' + k, 900);
     if (k === 'm') {
       ok('E08 m: có thông báo → ẩn dòng gói dưới lời chào (như Figma)', !(await page.isVisible('.hello .info')));
@@ -461,7 +461,8 @@ async function E09drawer() {
     ok('E09 ' + k + ': không còn nút Xác nhận đổi', await page.locator(vis(desk ? '#cta' : '#ctaM')).count() === 0);
     await shot(page, 'E09-' + k, 900);
     /* back về phiếu bằng nút header */
-    await tap(page, desk ? '.step.go' : '#stepn');
+    ok('E09 ' + k + ': góc phải header = nút "← Phiếu" (không phải thẻ câu chuyện)', await page.evaluate(() => { const b = document.querySelector('#hdR .hd-back'); return !!b && b.dataset.a === 'back-ticket' && /Phiếu/.test(b.textContent) && !document.querySelector('#kchip'); }));
+    await tap(page, '#hdR .hd-back');
     await page.waitForSelector(vis('[data-a="gochg"]'));
     ok('E09 ' + k + ': nút quay lại phiếu (header) hoạt động', true);
     await close(page);

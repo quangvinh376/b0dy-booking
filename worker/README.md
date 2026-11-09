@@ -9,7 +9,7 @@ Máy chủ của trang **booking.b0dy.studio**, thay cho Apps Script để mọi
 | 30 người bấm cùng lúc lúc 06:00 | xếp hàng từng người | trả lời tức thì, gom thành 1–2 lệnh ghi, không bao giờ quá sức chứa (4 suất coach/khung), không coach nào hai suất một khung |
 | Google chậm / lỗi khi ghi | báo lỗi, hội viên bấm lại | vẫn nhận đặt lịch; nhật ký tự ghi lên sổ khi Google ổn lại |
 
-**Hợp đồng API giống hệt `backend/LichTuan.gs`** (`lt_ping` · `lt_boot` · `lt_find` · `lt_verify` · `lt_book` · `lt_change` · `lt_invite` · `lt_decline`, cùng trường, cùng mã lỗi; riêng `lt_ping` có thêm 4 trường tình trạng, xem dưới). Trang web chỉ đổi một hằng số URL. Sổ **"Sổ đặt lịch"** trên Google Sheets vẫn là nguồn sự thật: anh sửa tay vẫn được, và Apps Script vẫn dùng lại được làm đường lùi (dòng ghi ra giống hệt từng ô).
+**Hợp đồng API giống hệt `backend/LichTuan.gs`** (`lt_ping` · `lt_boot` · `lt_find` · `lt_verify` · `lt_book` · `lt_change` · `lt_invite` · `lt_decline`, cùng trường, cùng mã lỗi; riêng `lt_ping` có thêm 4 trường tình trạng, xem dưới). Riêng Worker: `lt_story` ("Để B0DY kể về bạn", 1.9.0). Trang web chỉ đổi một hằng số URL. Sổ **"Sổ đặt lịch"** trên Google Sheets vẫn là nguồn sự thật: anh sửa tay vẫn được, và Apps Script vẫn dùng lại được làm đường lùi (dòng ghi ra giống hệt từng ô).
 
 ## Cách chạy
 
@@ -63,6 +63,20 @@ Máy chủ của trang **booking.b0dy.studio**, thay cho Apps Script để mọi
     Tối đa 20 dòng mời + từ chối / hội viên / tuần (`qua_luot_moi`). Bảng lịch tập lọc "Đã đặt" nên không hiện các dòng này.
   - State của khách 1:2 thêm `duo: {duoHours, wait, pairs, invOut, invIn, peers}` — chỉ **tên gọi** của khách 1:2 cùng coach, `peers`
     mang id (HMAC), không bao giờ có Mã KH / SĐT. Khách 1:1 không có `duo`.
+- **"Để B0DY kể về bạn"** (1.9.0, 09/11 — chỉ Worker; Apps Script dự phòng chưa có, trả `unknown_action` → trang không hiện thẻ):
+  `lt_story {tok, dev}` → `{ok: true, story: null | {...}}`. Đọc tab **"Kể về bạn"** của file Lịch tập tuần (`LT.STORY`): hàng 1 tiêu đề,
+  từ hàng 2 mỗi hàng một hội viên — **A Mã KH · B phiên bản · C cập nhật · D dữ liệu JSON** (một ô ≤ 50.000 ký tự). Chỉ trả câu chuyện của
+  CHÍNH hội viên đã xác minh (mã ở cột A so theo khoá hiện tại — mã cũ của khách gia hạn vẫn khớp); tên lấy từ MEMBERS (tên gọi, vd "Đức
+  Nam"), coach lấy từ JSON (người viết nhận xét) hoặc MEMBERS; thêm `ver` (cột B), `id` (HMAC như `lt_find`), `code` (Mã KH của chính mình).
+  Hàng hỏng (JSON sai, không phải `v: 1`, quá dài) bị bỏ; nhiều hàng cùng mã → hàng dưới cùng. Tab giữ trong bộ nhớ 5 phút (`TTL_STORY`);
+  chưa có tab = không có câu chuyện (tạo tab sau khi deploy được nhận trong 5 phút). Google lỗi → bản cũ nếu có, không thì `loi_he_thong`.
+  Dạng JSON v1 (ke-core.js · `KE.derive`; dữ liệu mẫu: `qc-ke.js`):
+  `{v: 1, asOf: 'YYYY-MM-DD', sessions: [['YYYY-MM-DD', giờ], …], load: {'2026-W10': kg tạ cả tuần, …}, lifts: [{name, from, to}],
+  pullup: {first: 'YYYY-MM-DD', reps}, body: [{d, kg, fat, muscle, waist, hip, chest, thigh}], goals: [{t, done, lift?, target?}],
+  note: 'lời coach, nguyên văn', coach?: 'tên coach', call?: 'tên gọi', room: {blankAgain: số trên 100 người}}`. Thiếu phần nào thì hành
+  trình bỏ khoảnh khắc đó; dưới 12 buổi hoặc dưới 4 tuần → không kể (trang không hiện thẻ). `asOf` = ngày dữ liệu tính tới (hôm xuất):
+  chuỗi tuần đủ 3 buổi tính tới tuần của `asOf` — tuần trọn vẹn không tập sau buổi cuối làm đứt chuỗi (và bỏ màn "0 tuần nghỉ thêm"), tuần
+  của `asOf` còn dở thì chưa tính là đứt. Thiếu `asOf` → lấy ngày buổi cuối.
 - **Bản phiếu (`base`)**: `lt_book` / `lt_change` gửi kèm bản phiếu trang đang xem (`mine.ver`). Sổ đã lên bản khác → `ban_cu`, không ghi gì (kèm state mới nhất). Chặn trường hợp một lệnh mất phản hồi đã vào sổ rồi khách gửi thêm lựa chọn khác (thành thêm buổi ngoài ý muốn) hoặc một lệnh đổi cũ tới sau. Kiểm trùng `rid` chạy trước nên gửi lại đúng lệnh cũ vẫn ra `dup`. Không gửi `base` thì không kiểm (máy khách cũ). Apps Script (`ltLocked_`) kiểm y hệt.
 - Lỗi theo khung (`khong_hop_le` kèm `why` của một khung cụ thể) trả thêm `date` + `h` để trang gọi đúng tên khung.
 - Bộ đếm tìm tên / sai mã / khoá máy / khoá tên nằm trong storage của DO, cùng ngưỡng với Apps Script.
@@ -108,7 +122,7 @@ Máy chủ của trang **booking.b0dy.studio**, thay cho Apps Script để mọi
 | `src/crypto.js` | Mã nhớ máy + mã hội viên (HMAC, giống hệt Apps Script) |
 | `src/http.js` · `src/index.js` | CORS, giới hạn body 8 KB, gọi DO qua RPC, cron, alarm · cổng kênh live (`liveGate`) + sự kiện WebSocket của DO |
 | `src/live.js` | Kênh live: nhận / đếm kết nối theo mã máy, gom tin `bump` / `n`, giới hạn kết nối |
-| `test/*.mjs` | `node test/run_all.mjs` — parity với Apps Script, đồng thời + tốc độ, lỗi ghi / DO khởi động lại / đọc chạy đua, HTTP, dữ liệu thật (chỉ chạy khi có bản xuất cục bộ, không nằm trong repo), workerd (chỉ chạy khi đã `npm i`) |
+| `test/*.mjs` | `node test/run_all.mjs` — parity với Apps Script, đồng thời + tốc độ, lỗi ghi / DO khởi động lại / đọc chạy đua, HTTP, `lt_story` (story.mjs), dữ liệu thật (chỉ chạy khi có bản xuất cục bộ, không nằm trong repo), workerd (chỉ chạy khi đã `npm i`) |
 
 ## Triển khai (chủ studio làm, khoảng 10 phút)
 

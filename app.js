@@ -9,7 +9,7 @@
 'use strict';
 
 /* ============================== CẤU HÌNH ============================== */
-var VER = '1.8.3';
+var VER = '1.9.0';
 var API_URL = 'https://b0dy-booking-api.little-bonus-1d87.workers.dev/';
 var API_SLOW = false;                 /* true khi chạy Apps Script (chậm hơn nhiều) → nới thời gian chờ */
 /* kênh live: Worker chỉ nhận từ trang thật (ALLOW_ORIGINS) → trang chạy chỗ khác (test trên máy) không nối, khỏi gõ cửa máy chủ thật.
@@ -530,14 +530,12 @@ function bobWatch() {
   BB.sheet = son;
 }
 
-/* ============================== HEADER ============================== */
-var HD = { flow: '', steps: null };
-var FLOW_BOOK = ['01 Tên', '02 Xác minh', '03 Lịch', '04 Phiếu'], FLOW_CHG = ['01 Phiếu', '02 Đổi lịch', '03 Phiếu mới'], FLOW_ADD = ['01 Phiếu', '02 Thêm buổi', '03 Phiếu mới'];
-function setSig(on, d, m) {
-  var sig = $('#sig'); sig.classList.toggle('off', !on);
-  line($('#sigD'), d, 1); line($('#sigM'), m, 1);
-}
-/* số người đang xem (kênh live) = trạng thái của CẢ PHÒNG → nằm trong tín hiệu header, cạnh "Đang mở đặt · Tuần N" (chủ studio 21/10:
+/* ============================== HEADER (L3 · chủ studio 09/11) ==============================
+   Chủ studio 09/11 bỏ tín hiệu "Đang mở đặt · Tuần N" và dãy bước "01 Tên · 02 Xác minh…" (vô nghĩa với khách). Còn lại:
+   trái — logo · ngày giờ Hà Nội (desktop) · "Mất kết nối" (chỉ khi đang xem bản lưu trên máy) · số người đang xem;
+   phải — thẻ "Để B0DY kể về bạn" (H4, chỉ khi hội viên đã xác minh có câu chuyện) hoặc nút "← Phiếu" trong luồng đổi lịch / thêm buổi
+   (thay bước "01 Phiếu" bấm được của desktop và "← Phiếu" của mobile). */
+/* số người đang xem (kênh live) = trạng thái của CẢ PHÒNG → nằm trên header, sau ngày giờ (từ 09/11 không còn tín hiệu tuần) (chủ studio 21/10:
    câu cũ dưới chân B0B đè thẻ thông báo ở mobile, sát đáy màn ở desktop, và biến B0B thành một ô chữ của giao diện). Hiển thị gọn:
    icon mắt + số (chủ studio 21/10 17:05); câu đủ "N người đang xem" cho trình đọc màn hình + chú thích khi rê chuột.
    n < 2 (chỉ mình) → mờ đi rồi gỡ khỏi dòng; đổi số → số trượt theo chiều tăng / giảm */
@@ -557,32 +555,6 @@ function sigCount(n) {
   w.classList.remove('in'); w.classList.add('out');
   SIGN.t = setTimeout(function () { if (SIGN.n < 2) { w.hidden = true; w.classList.remove('out'); } }, 220);
 }
-function setSteps(flow, cur, back) {
-  /* flow 'none': màn đứng ngoài luồng (E01 Chưa mở đặt) — header không có dãy bước */
-  var list = flow === 'none' ? [] : flow === 'chg' ? FLOW_CHG : flow === 'add' ? FLOW_ADD : FLOW_BOOK, el = $('#steps');
-  var key = flow + ':' + cur + ':' + (back ? 1 : 0);
-  if (HD.steps === key) return;
-  var prev = HD.steps; HD.steps = key;
-  var h = '';
-  list.forEach(function (t, i) {
-    var st = cur < 0 ? '' : i < cur ? 'done' : i === cur ? 'cur' : '';
-    var fresh = st === 'done' && prev && prev.split(':')[0] === flow && +prev.split(':')[1] <= i ? ' fresh' : '';
-    var go = back && i === 0 && st === 'done' ? ' go' : '';
-    if (i) h += '<li class="step-sep" aria-hidden="true">·</li>';
-    h += '<li class="step ' + st + fresh + go + '"' + (go ? ' data-a="back-ticket" role="button" tabindex="0"' : '') + (st === 'cur' ? ' aria-current="step"' : '') + '>' +
-         '<svg class="ck" viewBox="0 0 13 13" aria-hidden="true"><path d="M1.6 7L5 10.2L11.4 3"/></svg><span>' + esc(t) + '</span></li>';
-  });
-  var apply = function () { el.innerHTML = h; };
-  if (prev && prev.split(':')[0] !== flow) fadeSwap(el, apply, 'steps'); else apply();
-  /* mobile: "03 / 04" hoặc nút "← Phiếu" ở luồng đổi / thêm */
-  var n = $('#stepn');
-  if (back) {
-    if (!n.classList.contains('stepn-back')) { n.outerHTML = '<button class="stepn m stepn-back" id="stepn" data-a="back-ticket" aria-label="Quay lại phiếu">' + ico('left') + '<span>Phiếu</span></button>'; }
-  } else {
-    if (n.classList.contains('stepn-back')) { n.outerHTML = '<span class="stepn m" id="stepn"></span>'; n = $('#stepn'); }
-    line(n.querySelector('.ln') || (n.innerHTML = lnHTML(''), n.querySelector('.ln')), cur < 0 ? '' : pad2(cur + 1) + ' / ' + pad2(list.length), 1);
-  }
-}
 var CLOCKT = 0;
 function clockTick() {
   var p = parts(now());
@@ -591,17 +563,120 @@ function clockTick() {
   clearTimeout(CLOCKT); CLOCKT = setTimeout(clockTick, 60000 - (now() % 60000) + 50);
   nowLine();
 }
-/* tín hiệu header theo màn + tuần */
 function headerFor() {
-  var w = S.st ? S.st.week : S.pub ? S.pub.week : weekCtx(now());
-  if (S.net) { setSig(false, 'Mất kết nối', 'Mất kết nối'); return; }
-  if (S.view === 'closed') { setSig(false, 'Chưa mở đặt · Tuần ' + w.nextNo, 'Chưa mở · T' + w.nextNo); return; }
-  if (S.view === 'fail' || S.view === 'loading') { setSig(false, 'Đang kết nối', 'Đang kết nối'); return; }
-  if (w.phase === 'open') { setSig(true, 'Đang mở đặt · Tuần ' + w.no, 'Mở đặt · T' + w.no); return; }
-  var has = S.st && S.st.mine && S.st.mine.sessions.length;
-  if (has) setSig(true, 'Đổi lịch · Tuần ' + w.no, 'Đổi lịch · T' + w.no);
-  else setSig(true, 'Đặt muộn · Tuần ' + w.no, 'Đặt muộn · T' + w.no);
+  var off = $('#hdOff'); if (off) off.hidden = !S.net;
+  hdRight();
 }
+/* góc phải header: 'back' · 'chip:<nhãn>:<đã mở>' · '' — chỉ dựng lại khi đổi */
+var HDR = { key: '' };
+function hdBack() { return S.view === 'change' || (S.view === 'book' && !!S.addMode); }
+function hdRight() {
+  var el = $('#hdR'); if (!el) return;
+  var back = hdBack(), chip = !back && !!KS.M && !!S.st && (S.view === 'book' || S.view === 'ticket' || S.view === 'closed');
+  var key = back ? 'back' : chip ? 'chip:' + keDone() + ':' + (keSeen() ? 1 : 0) : '';
+  if (HDR.key === key) return;
+  var prev = HDR.key; HDR.key = key;
+  function apply() {
+    if (HDR.key !== key) return;
+    el.innerHTML = back ? '<button class="hd-back" type="button" data-a="back-ticket" aria-label="Quay lại phiếu">' + ico('left') + '<span>Phiếu</span></button>' : chip ? chipHTML() : '';
+    if (chip && !prev) { var c = $('#kchip'); if (c && !rm()) c.classList.add('in'); }
+    if (chip) keHint(); else keHintOff(true);
+  }
+  /* thẻ đổi nhãn tại chỗ (đã mở / biệt danh): thay ngay · đổi loại (thẻ ↔ nút Phiếu ↔ trống): mờ ra rồi vào */
+  if (prev.split(':')[0] === key.split(':')[0] || !prev) apply(); else fadeSwap(el, apply, 'hdr');
+}
+function chipHTML() {
+  var done = keDone(), seen = keSeen(), M = KS.M;
+  var aria = done ? done + ': xem lại câu chuyện ' + M.W + ' tuần tập của bạn' : 'Để B0DY kể về bạn: ' + M.W + ' tuần tập của bạn' + (seen ? '' : '. Mới');
+  return '<button class="kchip" id="kchip" type="button" data-a="ke-open" aria-label="' + esc(aria) + '"><span class="kc-tab" aria-hidden="true"></span>' +
+    '<span class="kc-t">' + esc(done || 'Để B0DY kể về bạn') + '</span>' + ico('right', 'kc-ar') + (seen ? '' : '<i class="kc-dot" aria-hidden="true"></i>') + '</button>';
+}
+
+/* ============================== "ĐỂ B0DY KỂ VỀ BẠN" (09/11) ==============================
+   Máy chủ (lt_story) trả câu chuyện của chính hội viên đã xác minh — chỉ khi đã có dữ liệu (tab "Kể về bạn"); không có → không có thẻ.
+   KE.derive (ke-core.js) quyết định có đủ để kể không (≥ 12 buổi, ≥ 4 tuần). Bấm thẻ → để câu chuyện + tuần sau vào sessionStorage
+   ('ke_payload') rồi mở ke.html. Bộ nhớ máy theo hội viên + phiên bản câu chuyện (id:ver): ke_seen (đã mở → hết chấm Cam) ·
+   ke_done (đã tới biệt danh → nhãn thẻ = biệt danh; ke.js ghi) · ke_hint (đã hiện câu gợi ý lần đầu). */
+var KS = { st: null, M: null, who: '', req: null, at: 0, for: '' };
+function keSid() { return KS.st ? String(KS.st.id || '') + ':' + String(KS.st.ver || '') : ''; }
+function keSeen() { return !!KS.st && !!LS.get('ke_seen:' + keSid()); }
+function keDone() { var v = KS.st ? LS.get('ke_done:' + keSid()) : ''; return v ? String(v).slice(0, 40) : ''; }
+function keSet(story, who) {
+  var M = story && window.KE ? window.KE.derive(story) : null;
+  KS.st = M ? story : null; KS.M = M; KS.who = who;
+  /* nhãn thẻ dùng Archivo XC (chỉ tải khi có câu chuyện): đợi phông (tối đa 1,5 s) để thẻ không nháy phông dự phòng */
+  if (M && document.fonts && document.fonts.load) {
+    var go2 = function () { if (KS.M === M) hdRight(); };
+    Promise.race([document.fonts.load('800 20px "Archivo XC"'), new Promise(function (r) { setTimeout(r, 1500); })]).then(go2, go2);
+  } else hdRight();
+}
+/* đăng xuất / hết phiên: bỏ câu chuyện, cả dữ liệu đã để sẵn cho ke.html (máy dùng chung: người sau không mở lại được), bỏ lượt hỏi đang bay */
+function keReset() { KS.st = null; KS.M = null; KS.who = ''; KS.at = 0; KS.for = ''; KS.req = null; SS.del('ke_story'); SS.del('ke_payload'); keHintOff(true); hdRight(); }
+/* gọi khi đã vào màn của hội viên (routeAuthed): hiện ngay bản đã có trong phiên, hỏi lại máy chủ tối đa 10 phút một lần */
+function keFetch() {
+  var who = whoOf(S.st); if (!who || !window.KE) return;
+  if (KS.who !== who) { var c = jget(SS, 'ke_story'); keSet(c && c.who === who ? c.story : null, who); }
+  if ((KS.req && KS.req.who === who) || (KS.for === who && Date.now() - KS.at < 10 * 60e3)) return;
+  var tok = TOK.get(); if (!tok) return;
+  var my = KS.req = { who: who };
+  call('lt_story', { tok: tok }).then(function (r) {
+    if (KS.req !== my) return;                                       /* lượt cũ (đã đăng xuất / có lượt mới hơn) */
+    KS.req = null;
+    if (tok !== TOK.get() || whoOf(S.st) !== who) return;            /* đã đăng xuất / người khác vào trong lúc chờ */
+    if (!r || !r.ok) return;                                         /* máy chủ chưa có lt_story (unknown_action) / lỗi: giữ như cũ */
+    KS.at = Date.now(); KS.for = who;
+    var story = r.story && typeof r.story === 'object' ? r.story : null;
+    if (story) SS.set('ke_story', JSON.stringify({ who: who, story: story })); else SS.del('ke_story');
+    keSet(story, who);
+  }, function () { if (KS.req === my) KS.req = null; });
+}
+/* tuần sau cho khoảnh khắc cuối: open (đang mở, chưa đặt) · booked (đã đặt, buổi đầu) · later (mở 06:00 CN) · none (không đặt được) */
+function keNext() {
+  var st = S.st, w = st.week, me = st.me || {}, o = { coach: me.coach || '', left: me.left, exp: me.exp || '', hours: st.offpeak && st.offpeak.hours || st.slots || SLOTS };
+  if (w.phase === 'open') {
+    o.no = w.no; o.mon = w.mon;
+    var ss = (st.mine && st.mine.sessions || []).slice().sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : a.h - b.h; });
+    if (st.mode === 'ticket' && ss.length) { o.state = 'booked'; o.slot = { d: ss[0].date, h: ss[0].h }; }
+    else o.state = st.mode === 'book' ? 'open' : 'none';
+  } else { o.no = w.nextNo; o.mon = addD(w.mon, 7); o.state = 'later'; }
+  if (o.state !== 'booked' && ((o.exp && o.exp < o.mon) || !(+me.left > 0))) o.state = 'none';
+  return o;
+}
+function keOpen() {
+  if (!KS.st || !KS.M || !S.st) return;
+  if (S.sending) { toast('Đang gửi lịch. Chờ một chút rồi mở nhé.'); return; }
+  LS.set('ke_seen:' + keSid(), '1'); keHintOff(true);
+  /* tk: đuôi mã nhớ máy — ke.html chỉ mở khi máy còn đúng phiên này */
+  var ok = SS.set('ke_payload', JSON.stringify({ story: KS.st, next: keNext(), nav: true, tk: String(TOK.get()).slice(-16) }));
+  if (!ok) { toast('Trình duyệt đang chặn bộ nhớ tạm. Chưa mở được câu chuyện.'); hdRight(); return; }
+  location.href = 'ke.html' + (QC ? '?qc' : '');
+}
+/* câu gợi ý lần đầu: B0B nhìn thẻ, một câu dưới thẻ 6 giây (chạm đâu cũng tắt) */
+var KH = { t: 0 };
+function keHint() {
+  if (!KS.M || keSeen() || LS.get('ke_hint:' + keSid()) || $('#khint')) return;
+  clearTimeout(KH.t);
+  KH.t = setTimeout(function () {
+    var chip = $('#kchip'); if (!chip || keSeen() || $('#khint') || LS.get('ke_hint:' + keSid())) return;
+    LS.set('ke_hint:' + keSid(), '1');
+    var tip = document.createElement('div'); tip.className = 'khint'; tip.id = 'khint'; tip.setAttribute('role', 'status');
+    tip.textContent = KS.M.call + ' ơi, mình kể lại ' + KS.M.W + ' tuần tập của bạn rồi. Bấm vào xem nhé.';
+    $('#hd').appendChild(tip);
+    bobEmit('toast', { el: chip });
+    KH.t = setTimeout(function () { keHintOff(); }, 6000);
+  }, 1200);
+}
+function keHintOff(instant) {
+  clearTimeout(KH.t);
+  var t = $('#khint'); if (!t) return;
+  t.removeAttribute('id');
+  if (instant || rm()) { t.remove(); return; }
+  t.classList.add('out'); setTimeout(function () { t.remove(); }, 200);
+}
+document.addEventListener('pointerdown', function () { if ($('#khint')) keHintOff(); }, true);
+/* quay lại từ ke.html (bộ nhớ đệm trang / tab hiện lại): thẻ đọc lại đã mở / biệt danh */
+window.addEventListener('pageshow', function () { hdRight(); });
+document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') hdRight(); });
 
 /* ============================== KHUNG MÀN (vào / ra như app coach) ============================== */
 function show(page, dir, instant) {
@@ -670,7 +745,6 @@ function go(view, dir, op) {
   setMbar(r.mbar || '', r.mbarAfter, op.instant);
   $('#mbar').classList.toggle('mb-ke', !!r.mbarKe);   /* E01: kẻ trên thanh đáy 10 % (các thanh khác 8 %) */
   headerFor();
-  setSteps(r.flow || 'book', r.step == null ? -1 : r.step, !!r.back);
   bobMood(r.mood || 'observe');
   if (r.after) r.after();
   if (op.push && history.pushState) history.pushState({ v: view }, '');
@@ -699,7 +773,6 @@ function morphTicket(op) {
   setMbar(r.mbar || '', function () { if (S.view === 'ticket' && S.page === page) { tkFit(true); tkPaper(); } });
   $('#mbar').classList.toggle('mb-ke', !!r.mbarKe);
   headerFor();
-  setSteps(r.flow || 'book', r.step == null ? -1 : r.step, !!r.back);
   bobMood(r.mood || 'observe');
   if (op.push && history.pushState) history.pushState({ v: 'ticket' }, '');
   if (!tx || !ntx) return;
@@ -1610,6 +1683,7 @@ function routeAuthed(dir, op) {
   op = op || {};
   var st = S.st, w = st.week;
   S.addMode = false; S.chg = { from: null, to: null };
+  keFetch();
   if (w.phase === 'before') { go('closed', dir, op); return; }
   var lp = landedOf(mineP(jget(LS, 'lt_pend'), st), st);
   if (lp) { landPending(lp); return; }
@@ -3445,7 +3519,7 @@ function toast(msg) {
 /* ============================== HÀNH ĐỘNG ============================== */
 function signedOut(why) {
   bumpGen();                                       /* mọi phản hồi đang bay của phiên này đều bỏ (không hiện lại phiếu người trước) */
-  TOK.clear(); S.st = null; S.picks = []; S.gone = []; S.notice = null; S.pending = null; savePend(); S.addMode = false;
+  TOK.clear(); S.st = null; S.picks = []; S.gone = []; S.notice = null; S.pending = null; savePend(); S.addMode = false; keReset();
   S.chg = { from: null, to: null }; S.moved = null; S.sending = false; unSending();
   S.who = null; S.pin = ''; S.q = ''; S.results = []; S.qState = 'idle';
   if (why === 'het_goi') toast('Gói của bạn đã hết hoặc chưa kích hoạt.');
@@ -3483,6 +3557,7 @@ var ACT = {
   goadd: function () { S.addMode = true; S.picks = []; S.gone = []; S.notice = null; go('book', 'fwd', { push: true }); },
   gochg: function () { S.chg = { from: null, to: null }; S.notice = null; go('change', 'fwd', { push: true }); },
   'back-ticket': function () { if (S.sending) return; if (S.view === 'change' || (S.view === 'book' && S.addMode)) leaveToTicket(); },
+  'ke-open': keOpen,
   retry: function () { refresh(); },
   /* gói 1:2 · tập đôi */
   pairs: function (b) { openPairs(b.dataset.d ? { date: b.dataset.d, h: +b.dataset.h, sel: '' } : null); },
@@ -3525,7 +3600,6 @@ document.addEventListener('keydown', function (e) {
     if (!$('#drawer').hidden) { closeDrawer(); return; }
     if (S.view === 'change' || (S.view === 'book' && S.addMode)) { ACT['back-ticket'](); return; }
   }
-  if ((e.key === 'Enter' || e.key === ' ') && e.target.classList && e.target.classList.contains('step') && e.target.dataset.a) { e.preventDefault(); ACT[e.target.dataset.a](); return; }
   /* nhóm chọn bạn để mời (radiogroup): mũi tên chuyển + chọn người kế tiếp */
   if (/^Arrow(Left|Right|Up|Down)$/.test(e.key) && e.target.classList && e.target.classList.contains('pr-opt')) {
     var os = $$('.pr-opt', e.target.parentNode), i = os.indexOf(e.target), n = os[(i + (/Right|Down/.test(e.key) ? 1 : os.length - 1)) % os.length];
@@ -3605,7 +3679,7 @@ function refresh(quiet) {
     if (r.auth) { applyAuthed(r, quiet); return; }
     if (tok || S.st) {
       var keepWho = r.why === 'het_phien' || r.why === 'het_goi';
-      bumpGen(); TOK.clear(); S.st = null; S.picks = []; S.addMode = false; S.pending = null; S.notice = null;
+      bumpGen(); TOK.clear(); S.st = null; S.picks = []; S.addMode = false; S.pending = null; S.notice = null; keReset();
       if (keepWho) toast(r.why === 'het_goi' ? 'Gói của bạn đã hết hoặc chưa kích hoạt.' : 'Phiên đã hết hạn. Xác minh lại để tiếp tục.');
       S.pub = r;
       go(r.week.phase === 'before' || r.open === false ? 'closed' : 'find', 'back');

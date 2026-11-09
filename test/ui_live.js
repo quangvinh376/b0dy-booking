@@ -70,15 +70,15 @@ async function run(browser, server, mobile) {
   await sleep(450);
   const hc = await page.evaluate(m => {
     const e = document.querySelector('#sigN'), hd = document.querySelector('#hd').getBoundingClientRect(), r = e.getBoundingClientRect();
-    const v = document.querySelector('#sigNv'), ic = e.querySelector('svg.ic'), icr = ic ? ic.getBoundingClientRect() : null, st = document.querySelector(m ? '#sigM' : '#sigD').getBoundingClientRect();
-    const oth = document.querySelector(m ? '#stepn' : '#steps'), o = oth && oth.getClientRects().length ? oth.getBoundingClientRect() : null;
+    const v = document.querySelector('#sigNv'), ic = e.querySelector('svg.ic'), icr = ic ? ic.getBoundingClientRect() : null, st = document.querySelector(m ? '.wm' : '#clock').getBoundingClientRect();
+    const oth = document.querySelector('#hdR'), o = oth && oth.getClientRects().length ? oth.getBoundingClientRect() : null;
     return { shown: !e.hidden, t: v ? v.textContent : '', inHd: r.top >= hd.top - .5 && r.bottom <= hd.bottom + .5, inView: r.left >= 0 && r.right <= innerWidth + .5,
-             clear: !o || !o.width || r.right <= o.left - 4, after: r.left >= st.right - .5, op: +getComputedStyle(e).opacity, st: document.querySelector(m ? '#sigM' : '#sigD').textContent,
+             clear: !o || !o.width || r.right <= o.left - 4, after: r.left >= st.right - .5, op: +getComputedStyle(e).opacity, st: m ? 'logo' : document.querySelector('#clock').textContent,
              eye: !!icr && icr.width === 14 && icr.height === 14 && icr.right <= v.getBoundingClientRect().left + .5 && ic.getAttribute('aria-hidden') === 'true',
              sr: document.querySelector('#sigNs').textContent, title: e.title, vh: v.getAttribute('aria-hidden'), w: Math.round(r.width),
              cap: !!document.querySelector('.bob-cap'), vw: window.__vw.slice() };
   }, mobile);
-  ok('Thêm 2 người đang xem → icon mắt 14 px + "3" trong tín hiệu header, sau trạng thái tuần, trong khung header, không chạm ' + (mobile ? 'số bước' : 'dãy bước') + ' · gọn (≤ 48 px) · không còn chữ dưới chân B0B',
+  ok('Thêm 2 người đang xem → icon mắt 14 px + "3" trong header, sau ' + (mobile ? 'logo' : 'ngày giờ') + ', trong khung header, không chạm góc phải (thẻ / nút Phiếu) · gọn (≤ 48 px) · không còn chữ dưới chân B0B',
      hc.shown && hc.t === want && hc.eye && hc.inHd && hc.inView && hc.clear && hc.after && hc.op === 1 && !hc.cap && hc.w <= 48, hc);
   ok('… câu đủ "3 người đang xem" cho trình đọc màn hình (icon + số ẩn với trình đọc) và làm chú thích khi rê chuột', hc.sr === '3 người đang xem' && hc.title === '3 người đang xem' && hc.vh === 'true', hc);
   ok('B0B (người dẫn đường) nhận "viewers" kèm đúng phần tử con số trên header để nhìn tới, không tự đọc số', hc.vw.length === 1 && hc.vw[0].n === 3 && hc.vw[0].el === 'sigN', hc.vw);

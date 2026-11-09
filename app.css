@@ -6,10 +6,12 @@
    ===================================================================== */
 @font-face{font-family:'SVN-Switzer';src:url('fonts/SVN-Switzer-Medium.woff2') format('woff2');font-weight:500;font-style:normal;font-display:swap}
 @font-face{font-family:'JetBrains Mono';src:url('fonts/JetBrainsMono-Medium.woff2') format('woff2');font-weight:500;font-style:normal;font-display:swap}
+@font-face{font-family:'Archivo XC';src:url('fonts/ArchivoExtraCondensed-ExtraBold.woff2') format('woff2');font-weight:800;font-style:normal;font-display:swap}   /* chỉ nhãn thẻ "Để B0DY kể về bạn" */
 
 :root{
   --giay:#FAFAFA; --giay2:#F2F2F2; --suong:#EFEFEF; --xuong:#E5E5E5; --tro:#B0B0B0; --da:#737373; --than:#4A4A4A; --muc:#0A0A0A;
   --acid:#D4FF00; --acidg:#B1EA00;
+  --cham:#2A1FA8; --cam:#FF5B1A;      /* màu chiến dịch "Để B0DY kể về bạn" (thẻ header) */
   --ke:rgba(10,10,10,.10); --ke-manh:rgba(10,10,10,.08); --ke-giay:rgba(250,250,250,.14);
   --bong-mem:rgba(10,10,10,.09); --bong-cham:rgba(10,10,10,.34); --man-che:rgba(250,250,250,.6);
   --sans:'SVN-Switzer','Switzer',-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif;
@@ -76,19 +78,22 @@ svg{display:block;flex:none}
 .busy.on{opacity:1}
 .busy.on::after{animation-play-state:running}
 
-/* ---------- header ---------- */
-.hd{position:relative;z-index:20;display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;
+/* ---------- header (L3 · chủ studio 09/11) ----------
+   Trái: logo · ngày giờ Hà Nội (desktop) · "Mất kết nối" khi đang xem bản lưu trên máy · số người đang xem. Phải: thẻ "Để B0DY kể về bạn"
+   (H4) hoặc nút "← Phiếu" trong luồng đổi lịch / thêm buổi. Bỏ tín hiệu "Đang mở đặt · Tuần N" và dãy bước (chủ studio 09/11). */
+.hd{position:relative;z-index:20;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;column-gap:24px;
     height:var(--hdh);padding:0 48px;background:var(--giay);border-bottom:1px solid var(--ke-manh)}
-.hd-l{display:flex;align-items:center;gap:20px;min-width:0}
+.hd-l{display:flex;align-items:center;gap:32px;min-width:0;overflow:hidden}   /* màn hẹp: cụm trái nhường chỗ cho thẻ bên phải, không đè */
+.hd-m{display:flex;align-items:center;gap:8px;min-width:0;white-space:nowrap}
 .hd-r{display:flex;justify-content:flex-end;align-items:center;min-width:0}
 .wm{display:block;width:62px;height:20px;color:var(--muc);flex:none}
 .wm svg{width:100%;height:100%}
-.sig{display:flex;align-items:center;gap:8px;min-width:0;white-space:nowrap}
-.sig-dot{width:8px;height:8px;border-radius:50%;border:1px solid var(--muc);background:var(--acid);flex:none;transition:background-color .3s var(--eio),border-color .3s var(--eio)}
-.sig.off .sig-dot{background:transparent;border-color:var(--da)}
+.sig-dot{width:8px;height:8px;border-radius:50%;border:1px solid var(--da);background:transparent;flex:none}
 .sig-t{font-family:var(--mono);font-size:10px;line-height:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--than);overflow:hidden;text-overflow:ellipsis}
-/* số người đang xem (kênh live): phần đuôi của tín hiệu — icon mắt (bộ icon lưới 24, nét 1,5) + số Mono · không bao giờ bị cắt (trạng
-   thái phía trước cắt trước) · hiện: mờ vào + trồi 4 px · ẩn: mờ đi rồi gỡ khỏi dòng (app.js · sigCount) */
+.hd-off{display:flex;align-items:center;gap:8px;flex:none}
+.hd-off .sig-t{overflow:visible}
+/* số người đang xem (kênh live): icon mắt (bộ icon lưới 24, nét 1,5) + số Mono · hiện: mờ vào + trồi 4 px · ẩn: mờ đi rồi gỡ khỏi dòng
+   (app.js · sigCount) */
 .sig-n{display:flex;align-items:center;gap:8px;flex:none}
 .sig-n[hidden]{display:none}
 .sig-n .ic{width:14px;height:14px;stroke:var(--than);margin-right:-3px}
@@ -97,20 +102,33 @@ svg{display:block;flex:none}
 .sig-n.in{animation:sigIn .32s var(--eo) both}
 .sig-n.out{opacity:0;transition:opacity .2s linear}
 @keyframes sigIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
-.steps{display:flex;align-items:center;gap:16px;list-style:none;white-space:nowrap}
-.step{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11px;line-height:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--tro);transition:color .3s var(--eio)}
-.step .ck{width:13px;height:13px;stroke:var(--da);stroke-width:1.2;fill:none;display:none}
-.step .ck path{stroke-dasharray:24;stroke-dashoffset:0}
-.step.done{color:var(--da)}
-.step.done .ck{display:block}
-.step.done.fresh .ck path{animation:drawck .36s var(--eo) both}
-.step.cur{color:var(--muc)}
-.step.go{cursor:pointer}
-.step-sep{font-family:var(--mono);font-size:11px;line-height:13px;color:var(--tro)}
 .clock{font-size:16px;line-height:19px;color:var(--than);white-space:nowrap;letter-spacing:-.01em}
-.stepn{font-family:var(--mono);font-size:11px;line-height:13px;letter-spacing:.08em;color:var(--muc);white-space:nowrap}
-button.stepn{display:flex;align-items:center;gap:6px;height:32px;padding:0 0 0 8px;text-transform:uppercase}
-button.stepn .ic{width:16px;height:16px}
+.hd-back{display:flex;align-items:center;gap:6px;height:40px;padding:0 4px 0 8px;font-family:var(--mono);font-size:11px;line-height:13px;letter-spacing:.08em;
+         text-transform:uppercase;color:var(--muc);white-space:nowrap}
+.hd-back .ic{width:16px;height:16px}
+/* thẻ "Để B0DY kể về bạn" (H4 · Figma 02d): khối Chàm, dải Cam bên trái, nhãn Archivo XC Giấy, mũi tên → · chấm Cam viền Giấy = chưa mở.
+   Rê chuột: dải Cam rộng ra, khoảng cách nới 4 px, đổ bóng · bấm: lún .97 */
+.kchip{position:relative;display:flex;align-items:center;height:40px;padding:0 14px 0 0;border-radius:var(--r);background:var(--cham);color:var(--giay);white-space:nowrap;
+       transition:box-shadow var(--hov),transform .12s var(--eo)}
+.kc-tab{align-self:stretch;width:8px;flex:none;background:var(--cam);border-radius:var(--r) 0 0 var(--r);transition:width .22s var(--eo)}
+.kc-t{margin-left:10px;font-family:'Archivo XC','Arial Narrow',var(--sans);font-weight:800;font-size:20px;line-height:21px;letter-spacing:0;transition:margin-left .22s var(--eo)}
+.kchip .kc-ar{width:16px;height:16px;margin-left:10px;stroke:var(--giay);stroke-width:1.75;transition:margin-left .22s var(--eo)}
+.kc-dot{position:absolute;top:-4px;right:-4px;width:10px;height:10px;border-radius:50%;background:var(--cam);box-shadow:0 0 0 2px var(--giay);pointer-events:none}
+.kchip.in{animation:kcIn .36s var(--eo) both}
+@keyframes kcIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+@media (hover:hover) and (pointer:fine){
+  .kchip:hover{box-shadow:0 6px 18px rgba(42,31,168,.28)}
+  .kchip:hover .kc-tab{width:14px}
+  .kchip:hover .kc-t,.kchip:hover .kc-ar{margin-left:14px}
+}
+.kchip:active{transform:scale(.97)}
+.kchip:focus-visible{outline:2px solid var(--muc);outline-offset:3px}
+/* lần đầu thấy thẻ: một câu của B0B dưới thẻ (6 giây, chạm đâu cũng tắt; mỗi hội viên / mỗi phiên bản câu chuyện một lần) */
+.khint{position:absolute;top:calc(100% + 10px);right:48px;z-index:25;max-width:300px;padding:12px 14px;border-radius:var(--r);background:var(--muc);color:var(--giay);
+       font-size:14px;line-height:19px;letter-spacing:-.01em;pointer-events:none;animation:khIn .32s var(--eo) both}
+.khint::before{content:'';position:absolute;bottom:100%;right:26px;border:7px solid transparent;border-bottom-color:var(--muc)}
+.khint.out{opacity:0;transition:opacity .18s linear}
+@keyframes khIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
 
 /* ---------- chữ ---------- */
 .h56{font-size:56px;line-height:60px;letter-spacing:-.025em}
@@ -164,8 +182,7 @@ button.stepn .ic{width:16px;height:16px}
   .btn-chu:hover .bt::after{transform:scaleX(1)}
   .ib:hover{box-shadow:inset 0 0 0 1px var(--muc)}
   .ib-tron:hover{background:var(--ke-manh);box-shadow:none}
-  .step.go:hover{color:var(--muc)}
-  .step.go:hover .ck{stroke:var(--muc)}
+  .hd-back:hover{color:var(--than)}
 }
 .btn:active:not(:disabled){transform:translateY(1px)}
 
@@ -669,9 +686,18 @@ button.stepn .ic{width:16px;height:16px}
      khi không tô (sau điều hướng trong trang — WebKit 305546) chữ cuộn lên lọt vào khe phía trên header. Dải Giấy dính theo header che khe đó */
   .hd::before{content:"";position:absolute;left:0;right:0;bottom:100%;height:240px;background:var(--giay);pointer-events:none}
   .hd-l{gap:10px}
+  .hd-m,.hd-off,.sig-n{gap:6px}
   .wm{width:50px;height:16px}
-  .sig,.sig-n{gap:6px}
   .sig-dot{width:7px;height:7px}
+  /* không có ngày giờ: mục đầu của cụm không cần dấu · */
+  .hd-off .sig-x,.hd-off[hidden]+.sig-n .sig-x{display:none}
+  .hd-back{height:36px}
+  .kchip{height:36px;padding-right:12px}
+  .kc-tab{width:6px}
+  .kc-t{margin-left:8px;font-size:18px;line-height:19px}
+  .kchip .kc-ar{width:14px;height:14px;margin-left:8px}
+  .khint{right:16px;max-width:min(300px,calc(100vw - 32px))}
+  .khint::before{right:22px}
   .floor{display:none}
   .mbar{position:fixed;left:0;right:0;bottom:0;z-index:30;display:flex;flex-direction:column;gap:10px;padding:12px 16px max(8px, var(--sab));background:var(--giay);border-top:1px solid var(--ke-manh)}
   .mbar:empty{display:none}
@@ -801,6 +827,7 @@ button.stepn .ic{width:16px;height:16px}
 
 /* máy rất hẹp (< 360 px: iPhone SE đời 1, Android 320): giờ trong ô đang chọn vẫn đủ 5 ký tự, không bị cắt */
 @media (max-width:359.98px){
+  .hd-off .sig-t{display:none}   /* 320 px: "Mất kết nối" chỉ còn chấm rỗng (câu đủ ở title + trình đọc màn hình) */
   .c.sel,.c.moving,.c.mine.tm,.mb-wk .dc.t{font-size:9px;line-height:11px;letter-spacing:.02em}
 }
 
