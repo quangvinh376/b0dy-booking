@@ -62,6 +62,13 @@ ID hai file Google Sheets: `BA_ID` (file BA: MEMBERS · SESSION LOG · TRIAL · 
   Rà soát độc lập 1 vòng (agent riêng): 2 lỗi thật + 8 lỗi nhỏ — đã sửa + có test (đăng xuất trên máy dùng chung vẫn mở lại được câu chuyện
   người trước qua nút Tiến → xoá `ke_payload` + kiểm phiên; chuỗi tuần / "0 tuần nghỉ thêm" tính tới tuần của `asOf`; "Thiếu mất 0 tấn";
   lời coach dài tràn bản in; tên tab dạng tổ hợp; Mã KH chữ thường; Google lỗi không gọi dồn; chỉ trả trường v1; lượt hỏi cũ sau đăng xuất).
+  Deploy trang: `main` `e4ba537` (28 tệp SHA-256 khớp raw tại commit) · Pages success 18:34:36 · trang thật (Claude in Chrome, tab
+  booking.b0dy.studio) 13 tệp (index · app.js · app.css · sw.js · ke.html · ke.js · ke-core.js · ke.css · ke-b0b.js · qc.js · qc-ke.js · 2
+  phông) khớp commit, 4 thẻ `?v=1.9.0`, header L3 hiện đúng (logo · ngày giờ, góc phải trống vì chưa có câu chuyện), ke.html không có dữ liệu
+  → về `/`, `lt_ping` pending 0, không lỗi console của trang. **Worker CHƯA deploy** (Chrome chưa đăng nhập dash.cloudflare.com — không
+  tự nhập mật khẩu): Worker thật vẫn `1ce87d6`, `lt_story` trả `unknown_action` → trang 1.9.0 không hiện thẻ (an toàn, QC chạy `worker/src`
+  của repo nên đủ). Khi chủ studio đăng nhập: `node tools/worker_deploy_snippet.mjs e4ba537` → Console tab dash → `lt_ping`. Apps Script
+  không đổi (V44).
 
 - **1.8.3 · nhận diện hội viên theo NGƯỜI** (chủ studio 05/11: "sửa tận gốc, không muốn trường hợp này xảy ra nữa"). Sự cố: một khách
   gia hạn hợp đồng, dòng MEMBERS của HĐ mới chưa có Mã KH → máy chủ coi là người mới (khoá `#tên`, phiếu "Đặt" bản 1, buổi cùng tuần không
