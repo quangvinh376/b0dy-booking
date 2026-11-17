@@ -33,7 +33,53 @@ ID hai file Google Sheets: `BA_ID` (file BA: MEMBERS · SESSION LOG · TRIAL · 
 6. Sau mỗi lần đẩy: xác minh commit bằng hash và SHA-256 từng tệp trên `raw.githubusercontent.com/quangvinh376/b0dy-booking/<commit>/…`.
 7. Chỉ MỘT tiến trình Playwright / Chromium một lúc (máy test nhỏ từng hết RAM).
 
-## Đang ở đâu (09/11/2026)
+## Đang ở đâu (17/11/2026)
+
+- **1.10.0 · NHÁNH `claude/ke-ve-ban-2` — CHƯA LIVE** (chủ studio 17/11 13:12: "chúng ta cứ tiếp tục xây dựng based on this chứ chưa
+  đưa lên bản live. Vẫn còn những vấn đề chưa được giải quyết, Châu Khang chỉ là ví dụ"). `main` vẫn 1.9.1 (`889260d`), Worker thật
+  `1ce87d6`, Apps Script V44 — **không deploy gì từ nhánh này tới khi chủ studio nói** (luật 3 không áp dụng cho nhánh). Khi lên: trang
+  trước (hiểu `ended`), rồi Worker + Apps Script cùng lúc (máy chủ mới cho khách hết gói tìm thấy + xác minh → trang 1.9.1 không hiểu
+  `mode: 'ended'`); `KE_LIVE` giữ `false` tới khi có nguồn câu chuyện thật (khi đó khách hết gói chỉ thấy màn "Gói tập đã kết thúc").
+  Câu trả lời của chủ studio (17/11): 4 số cuối SĐT luôn là chìa khoá, trang cho MỌI khách tìm · đang tập → trang đặt lịch, thẻ ở góc phải
+  header chỉ ở tuần cuối của gói · đã hết gói → vào thẳng hành trình, mở sẵn ở "Khoe thành tích", header "← Tới đầu" + "Tới cuối →" ·
+  số liệu từ logbook phải ghi rõ số buổi sinh ra nó · câu kết do coach ghi thẳng vào file dữ liệu · tab "Kể về bạn" trong file Lịch tập
+  tuần: bỏ (Sheets đang phân mảnh, chủ studio tìm kho bền vững hơn).
+  (1) **Khách hết gói** (`core.js` · `persons(...).ended`, không liệt kê được, có khoá + bí danh riêng, không bao giờ trùng khoá người
+  đang tập / `LichTuan.gs` · `ltEndedOf_`, parity): người không còn dòng MEMBERS hiệu lực. `lt_find` trả cả hai danh sách; `lt_verify` /
+  `lt_boot` → `endedStateOf` (`ended: true`, `mode: 'ended'`, không phiếu). Trang: hỏi `lt_story` → có câu chuyện: mở thẳng `ke.html` ở
+  "Khoe thành tích" (một lần / tab — `ke_auto`); Back của trình duyệt → màn "Gói tập đã kết thúc." + "Xem lại câu chuyện" + "Không phải
+  bạn?" (cả khi trang lấy từ bfcache); không có → màn đó không nút xem. `ke.html` chế độ hết gói: "← Tới đầu" (ẩn ở bìa) + "Tới cuối →"
+  (ẩn ở cuối), màn cuối "Lời kết" = câu kết coach nguyên văn + "Không phải bạn?" (`./?out` → đăng xuất, đường dẫn sạch).
+  (2) **Đang tập: thẻ chỉ ở tuần cuối** (`C.lastWeek`: số buổi đã đặt từ hôm nay chưa điểm danh ≥ còn lại, hoặc hạn rơi vào tuần đặt) —
+  chưa tới → `{story: null, why: 'chua_toi'}`; đặt xong buổi cuối → thẻ hiện ngay (`keSig` đổi → hỏi lại); màn cuối không hứa tuần sau
+  khi buổi đã đặt dùng hết số còn lại.
+  (3) **Nguồn câu chuyện** thay tab: `deps.stories(person, {ended, ctx}) → {ver, data} | null` (bản thật CHƯA có nguồn → story null, an
+  toàn; QC = `qc-ke.js`). Dữ liệu **v2**: `sessions [[ngày, giờ | null]]` · `load {ngày: kg}` · `lifts [{name, from, to, n, d0}]` · body
+  · goals · note · `closing` · room; máy chủ chỉ trả `C.STORY_KEYS`, khách hết gói thêm `ended: true` + bỏ `asOf`. `tools/ke_facts.mjs` =
+  bản mẫu dựng v2 từ SESSION LOG + logbook app coach + Tổng hợp bài + Sổ đặt lịch.
+  (4) **Máy kể**: buổi thiếu giờ vẫn đếm · tạ chỉ cộng ngày có buổi tập, cần ≥ 4 buổi, mọi con số có cơ sở ("Từ 8 buổi tập" · "Qua 5 buổi
+  tập · từ 17.09" · "Đo 01.06 → 05.10" · câu hỏi "Trong 8 buổi tập có ghi số tạ, …" · biệt danh "… từ N buổi tập" · bản in) · khách hết
+  gói: không chuỗi hiện tại / "Có một sự thật" · "Người giữ nhịp" nói đúng trường hợp (mọi tuần · N tuần liền · N trên M tuần · có lúc N
+  tuần liền).
+  (5) **Dữ liệu thật** (17/11, chỉ đếm: `ke_fixture.py` → `ke_real.mjs`): 53 đang tập (42 đủ để kể) · 16 hết gói (15) · buổi rõ giờ 17 % /
+  7 % → không ai có "giờ quen" / bảng màu · logbook phủ 51 % buổi từ 26.09 · không ai có số đo (logbook không ghi mỡ / cơ), hít xà, câu
+  kết · "Có một sự thật" thật = 21 / 100 (artifact 43) — chưa đưa vào, chờ định nghĩa · biệt danh: quay lại 19 · giữ nhịp 15 · bền bỉ 8.
+  QC (`WORLD_V` 9): Thanh Hằng 2222 có câu chuyện, đặt buổi cuối → thẻ · Hà Minh Quân 9999 có câu chuyện chưa tới tuần cuối · Quốc Bảo
+  3333 tuần cuối không câu chuyện · Khôi / Linh hạn 25.10 · **Thạch Bảo Ngân 1515** (hết gói, có câu chuyện + câu kết, tạ 8 / 36 buổi) ·
+  **Phó Đăng Khoa 1616** (hết gói, chưa có). Tên bịa so MEMBERS · TRIAL · SESSION LOG · logbook: 0 trùng tên, 0 trùng 2 chữ cuối.
+  Chữ mới chờ chủ studio soát: màn "Gói tập đã kết thúc." + "Cảm ơn {tên} đã tập cùng B0DY. Muốn tập tiếp, nhắn coach {coach} nhé." ·
+  "Xem lại câu chuyện" · "← Tới đầu" · "Lời kết" · các dòng cơ sở · câu hỏi tạ · 4 câu "Người giữ nhịp".
+  Test: `ke_core` 3734 · `gas_lt` 409 · parity 461 (1079 lượt giống hệt) · concurrency 37 · robust 86 · http 13 · live 25 · story 31
+  (viết lại: tuần cuối, hết gói, nguồn câu chuyện, buổi hôm nay đã điểm danh) · realdata 18 (khách hết gói Worker = Apps Script, tìm mọi
+  khách) · ui_ke 160 (Bảo Ngân / Đăng Khoa / Back → màn hết gói / Thanh Hằng đặt buổi cuối → thẻ / Quốc Bảo tuần cuối không thẻ) ·
+  ui_states 119 · ui_qc 84 · ui_duo 48 · ui_live 28 · ui_notice 110 · ui_smoke 24 · ui_sw 8 · ui_peak 71 · ui_tk3d 81 · ui_png 93 ·
+  b0b_check 31 · rv_* PASS. `ui_states` trượt 2 lượt ở ca tràn ngang (chờ phiếu quá 30 s khi máy test bận) rồi PASS 3 lượt liền; `rv_tilt`
+  trượt mốc lắc gợi ý như cũ, chạy lại PASS. `ui_ke`: máy test vẽ bằng CPU có lúc 400–800 ms / khung trên phiếu (main 1.9.1 cũng vậy) →
+  test chờ thẻ trồi vào / mờ ra xong mới đo.
+  Rà soát độc lập 1 vòng (agent riêng): chuỗi / "Có một sự thật" của khách hết gói · thẻ không hiện sau khi đặt buổi cuối · màn cuối hứa
+  tuần sau · Back về trang đặt lịch tự mở lại hành trình · lóe màn khi phiên hết hạn · tiêu điểm "← Tới đầu" · buổi đã điểm danh hôm nay
+  đếm hai lần · tạ ngày không có buổi · giờ sổ đặt lịch chỉ điền ngày một buổi · mã KH chữ thường · không suy "lần đầu hít xà" — đã sửa,
+  có test.
 
 - **1.9.1 · hành trình CHỈ Ở QC + thanh truyện bấm được + "Tới cuối →"** (chủ studio 09/11 20:42: "… Cho tới khi tư duy được hết những
   thứ này, và thời điểm hợp lý để trigger journey lên cho khách xem thì mới đẩy lên live. Tạm thời hiện tại cứ để nó ở QC đã").
@@ -399,6 +445,8 @@ node test/ui_tk3d.js all && node test/ui_png.js all && node test/b0b_check.js &&
 | `bang_lich_tap.py` | Dựng tab `Bảng lịch tập` (tham số: sheetId, thư mục ra, số quy tắc CF, số hàng, số cột đang có) |
 | `lich_coach.py` | Tạo tab `Lịch coach` (chỉ lần đầu; tab đã có thì sửa tay) |
 | `ba_fixture.py` | BA.xlsx → `.local/fixture_ba.json` (cho realdata + mô phỏng) |
+| `ke_fixture.py` | Customer database.xlsx + Lịch tập tuần.xlsx → `.local/fixture_ke.json` (logbook, Tổng hợp bài, Sổ đặt lịch) |
+| `ke_real.mjs` · `ke_facts.mjs` | "Để B0DY kể về bạn" trên dữ liệu thật cả phòng (chỉ in số đếm) · `ke_facts` = dựng dữ liệu câu chuyện v2 từ các bảng gốc (bản mẫu nguồn câu chuyện) |
 | `sim_week.mjs` | Mô phỏng cả phòng đặt tuần tới từ lịch tập thật tuần trước, đúng luật máy chủ → `.local/sim/` (chỉ in số) |
 | `sim_week_payload.mjs` | Từ kết quả mô phỏng → 2 lượt `batchUpdate` ghi sổ (tên điền bằng công thức tra `_dữ liệu` rồi dán giá trị) — **xoá sổ**, chỉ chạy khi được yêu cầu |
 | `sim_week_verify.py` | So sổ đọc ngược với dòng dự kiến (không in tên) |

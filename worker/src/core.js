@@ -34,9 +34,6 @@ export const LT = {
   FIND_MAX: 300,                                     // lượt tìm tên / máy / khung 10 phút cố định (trang tìm theo từng chữ gõ: ~8 lượt / người)
   FIND_TOP: 6,                                       // tối đa 6 người mỗi lượt tìm; nhiều hơn → more: true
   LOG: 'Sổ đặt lịch', DATA: '_dữ liệu', SCHED: 'Lịch coach',
-  /* "Để B0DY kể về bạn" (09/11): tab của file Lịch tập tuần, một hàng một hội viên — A Mã KH · B phiên bản · C cập nhật · D dữ liệu JSON
-     (dạng v1: ke-core.js · worker/README.md). Ô Google Sheets chứa tối đa 50.000 ký tự. Chưa có tab / chưa có hàng → không có câu chuyện. */
-  STORY: 'Kể về bạn', STORY_ROWS: 1000, STORY_MAX: 50000,
   ON: 'Đã đặt', MOVED: 'Đã đổi',
   /* Ghép lớp 1:2 (chủ studio chốt 18/10 14:13): người đặt trước mời được một bạn 1:2 cùng coach (dòng sổ "Mời"), bạn kia nhận
      (đặt / thêm / dời vào) hoặc từ chối (dòng "Từ chối"); dời một buổi ĐANG LẺ vào cặp đang chờ = "Ghép" — không tính lượt đổi, được
@@ -354,9 +351,10 @@ export function persons(rows, today) {
   rows.forEach((r, i) => { if (bare.indexOf(i) < 0) { const k = nks[i], c = find(i); (byName[k] || (byName[k] = {}))[c] = 1; } });
   bare.forEach(i => { const cs = Object.keys(byName[nks[i]] || {}); if (cs.length === 1) join(+cs[0], i); });
 
-  const comp = {}, order = [], codeComp = {}, nameOwner = {};
+  const comp = {}, order = [], codeComp = {}, nameOwner = {}, comps = [];
   rows.forEach((r, i) => {
     const ci = find(i), c = comp[ci] || (comp[ci] = { all: [], act: [], person: null, no: '' });
+    if (!c.all.length) comps.push(c);                        /* mọi người, theo dòng MEMBERS đầu tiên của họ */
     c.all.push(r);
     if (!c.no && r.no) c.no = r.no;
     if (r.code) codeComp[r.code] = codeComp[r.code] === undefined || codeComp[r.code] === c ? c : null;   /* null: mã nằm ở hơn một người */
@@ -409,7 +407,57 @@ export function persons(rows, today) {
   for (const code in codeComp) if (codeComp[code] && codeComp[code].person) alias[code] = codeComp[code].person.key;
   out.forEach(p => { alias[p.key] = p.key; });
   Object.defineProperty(out, 'alias', { value: alias, enumerable: false });
+  Object.defineProperty(out, 'ended', { value: endedOf(comps, today, codeComp, nameOwner, used), enumerable: false });
   return out;
+}
+/**
+ * Khách ĐÃ HẾT GÓI (chủ studio 17/11: tìm tên ra mọi khách; khách hết gói vào thẳng "Để B0DY kể về bạn") = người (cùng cách nối dòng như
+ * trên) không còn dòng nào hiệu lực. Danh sách RIÊNG (persons(...).ended) — mọi phép tính đặt lịch (danh sách còn gói, bí danh, sổ,
+ * suất coach, _dữ liệu) không đổi. Khoá: Mã KH của chính người đó (dòng bắt đầu muộn nhất) → #tên (tên của đúng một người) → #tên|số HĐ;
+ * không trùng khoá của ai đang tập (used). Bí danh riêng: mọi Mã KH / #tên của người đó → khoá. Thứ tự theo dòng MEMBERS (ổn định).
+ */
+function endedOf(comps, today, codeComp, nameOwner, used) {
+  const out = [], alias = {};
+  comps.forEach((c, oi) => {
+    if (c.act.length) return;
+    const pick = pickRow(c.all, today);
+    let key = '';
+    const own = c.all.filter(r => r.code && codeComp[r.code] === c && !used[r.code]);
+    if (own.length) key = pickRow(own, today).code;
+    if (!key) {
+      const base = '#' + nameKey(pick.name);
+      key = nameOwner[base] === c && !used[base] ? base : base + '|' + (c.no || 'e' + oi);
+    }
+    if (used[key]) return;                                   /* không bao giờ trùng khoá người đang tập */
+    used[key] = 1;
+    let phone = '', left = 0, exp = '', start = '';
+    c.all.forEach(r => { if (!phone && r.phone && r.code === key) phone = r.phone; });
+    if (!phone) phone = pick.phone || '';
+    c.all.forEach(r => {
+      if (!phone && r.phone) phone = r.phone;
+      if (r.left > 0) left += r.left;                        /* buổi còn lại của gói đã hết hạn (không dùng được nữa) */
+      if (r.exp && r.exp > exp) exp = r.exp;
+      if (r.start && (!start || r.start < start)) start = r.start;
+    });
+    const p = { key: key, name: pick.name, toks: nameKey(pick.name).split(' '), short: short(pick.name), call: callName(pick.name),
+                coach: pick.coach, kind: pick.kind || '1:1', pkg: pkgLabel(pick.pkg, pick.total), left: left, exp: exp, start: start,
+                phone: phone, code: pick.code || '', off: !!pick.off, ended: true };
+    out.push(p);
+    c.all.forEach(r => { if (r.code && codeComp[r.code] === c) alias[r.code] = key; const n = '#' + nameKey(r.name); if (nameOwner[n] === c) alias[n] = key; });
+    alias[key] = key;
+  });
+  Object.defineProperty(out, 'alias', { value: alias, enumerable: false });
+  return out;
+}
+/**
+ * "Để B0DY kể về bạn" cho khách ĐANG tập chỉ mở ở TUẦN CUỐI của gói (chủ studio 17/11): tuần đặt lịch hiện tại đã có đủ số buổi còn lại,
+ * hoặc gói hết hạn trong tuần đó. Buổi đếm = buổi đã đặt từ hôm nay trở đi mà SESSION LOG chưa điểm danh (buổi đã điểm danh đã trừ vào
+ * "Còn lại" rồi — đếm nữa là sớm một buổi). mine: buổi của hội viên trong tuần (C.mine) · marks: điểm danh (C.marksFrom, theo tên|ngày).
+ */
+export function lastWeek(ctx, person, mine, marks) {
+  if (person.exp && person.exp <= ctx.days[ctx.days.length - 1]) return true;
+  const n = ((mine && mine.sessions) || []).filter(s => s.date >= ctx.today && !(marks && marks[person.name + '|' + s.date])).length;
+  return person.left > 0 && n >= person.left;
 }
 /** Khoá hiện tại của một mã bất kỳ (Mã KH cũ / #tên) — không biết thì giữ nguyên. */
 export function canonKey(list, k) {
@@ -974,27 +1022,15 @@ export function snapshotRows(list) {
   return list.slice().sort((a, b) => a.name.localeCompare(b.name, 'vi'))
     .map(p => [p.name, p.short, p.coach, p.left, p.exp, p.key, p.short + ' · ' + initials(p.coach)].map(String));
 }
-/**
- * Câu chuyện của person trong tab "Kể về bạn" (rows: các hàng A:D từ hàng 2). Mã ở cột A so theo khoá hiện tại (mã cũ của khách gia hạn
- * vẫn khớp nhờ canonKey). Hàng hỏng (JSON sai, không phải dạng v1, quá dài) bị bỏ; nhiều hàng khớp → hàng dưới cùng thắng.
- * Trả {ver, at, data} hoặc null.
- */
-export function storyOf(rows, list, person) {
-  let best = null;
-  const up = k => String(k == null ? '' : k).toUpperCase(), me = up(person.key);
-  (rows || []).forEach(r => {
-    const code = String((r || [])[0] == null ? '' : r[0]).trim();
-    /* so không phân biệt hoa thường (Mã KH gõ "b901dy" ở tab này hay ở MEMBERS đều khớp); mã cũ → khoá hiện tại qua canonKey */
-    if (!code || (up(canonKey(list, code)) !== me && up(canonKey(list, up(code))) !== me)) return;
-    const raw = String(r[3] == null ? '' : r[3]);
-    if (!raw || raw.length > LT.STORY_MAX) return;
-    let o = null;
-    try { o = JSON.parse(raw); } catch (e) { return; }
-    if (!o || typeof o !== 'object' || Array.isArray(o) || o.v !== 1 || !Array.isArray(o.sessions)) return;
-    best = { ver: String(r[1] == null ? '' : r[1]).trim() || '1', at: String(r[2] == null ? '' : r[2]).trim(), data: o };
-  });
-  return best;
+/** Khách đã hết gói (đã xác minh): không có lịch để đặt — trang vào thẳng "Để B0DY kể về bạn" (lt_story), không có thì màn "gói đã kết
+    thúc". Không có sổ / suất / người khác. */
+export function endedStateOf(ctx, person) {
+  return { ok: true, auth: true, ended: true, now: ctx.now, mode: 'ended',
+           week: { key: ctx.key, no: ctx.no, mon: ctx.mon, days: ctx.days, phase: ctx.phase, lead: ctx.lead > 0, nextOpen: ctx.nextOpen, nextNo: ctx.nextNo },
+           me: { short: person.short, call: person.call, coach: person.coach, kind: person.kind, pkg: person.pkg, left: person.left, exp: person.exp, start: person.start } };
 }
+/** Các trường câu chuyện (dạng v2 của ke-core.js) được đưa ra trình duyệt — nguồn có ghi thêm gì cũng không lộ */
+export const STORY_KEYS = ['asOf', 'sessions', 'load', 'lifts', 'pullup', 'body', 'goals', 'note', 'closing', 'room'];
 export function findPerson(list, key) {
   key = canonKey(list, key);
   for (let i = 0; i < list.length; i++) if (list[i].key === key) return list[i];

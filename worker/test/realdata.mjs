@@ -49,6 +49,8 @@ const gP = env.ltPersons_(env.ltMemberRows_(), ctx.today);
 await wk.loadBA();
 const wP = C.persons(wk.ba.members, ctx.today);
 ok('Hội viên còn hiệu lực: ' + wP.length + ' người, giống hệt từng trường (cả SĐT, ngày bắt đầu / hết hạn, gói, coach)', canon(gP) === canon(wP) && wP.length > 0, gP.length + ' vs ' + wP.length);   /* số người theo bản BA xuất ra (18/10: 54 · 31/10: 57) */
+ok('Khách đã hết gói (17/11): ' + wP.ended.length + ' người, giống hệt từng trường · không trùng khoá người đang tập · bí danh giống hệt',
+   canon(gP.ended) === canon(wP.ended) && canon(gP.ended.alias) === canon(wP.ended.alias) && wP.ended.every(e => !wP.some(p => p.key === e.key)), gP.ended.length + ' vs ' + wP.ended.length);
 ok('Ngày đóng cửa (B0B) giống hệt (' + Object.keys(wk.ba.closed).length + ' ngày)', canon(env.ltClosures_()) === canon(wk.ba.closed));
 ok('Sức chứa / khung = ' + wk.ba.cap + ' giống hệt', env.ltCap_() === wk.ba.cap);
 let trialSame = true, trialN = 0, markSame = true, markN = 0;
@@ -131,12 +133,12 @@ console.log('\n== Tìm tên gõ tới đâu ra tới đó trên dữ liệu th�
     if (canon(g) === canon(w)) qSame++;
     return w;
   };
-  const sg = await wk.signer(), idOf = {};
-  for (const p of wP) idOf[p.key] = await sg.idOf(p.key);
+  const sg = await wk.signer(), idOf = {}, wAll = wP.concat(wP.ended);   /* tìm tên ra mọi khách, cả khách đã hết gói (17/11) */
+  for (const p of wAll) idOf[p.key] = await sg.idOf(p.key);
   /* 26 chữ cái: số người khớp (đếm thẳng bằng findAll của Worker) · phản hồi đúng 6 dòng đầu + more */
   let maxN = 0, moreN = 0, zeroN = 0;
   for (let c = 97; c <= 122; c++) {
-    const q = String.fromCharCode(c), all = C.findAll([q], wP), w = await fnd(q);
+    const q = String.fromCharCode(c), all = C.findAll([q], wAll), w = await fnd(q);
     maxN = Math.max(maxN, all.length); if (all.length > 6) moreN++; if (!all.length) zeroN++;
     if (w.ok && canon(w.results.map(x => x.id)) === canon(all.slice(0, 6).map(x => idOf[x.key])) && !!w.more === all.length > 6 && (all.length > 6 || !('more' in w))) shape++;
   }
@@ -144,27 +146,27 @@ console.log('\n== Tìm tên gõ tới đâu ra tới đó trên dữ liệu th�
   console.log('        1 chữ cái: nhiều nhất ' + maxN + ' người khớp · ' + moreN + '/26 chữ cái có hơn 6 người (more) · ' + zeroN + '/26 không ai');
   /* từng hội viên: tên gọi một mình · họ một mình · đủ họ tên */
   let givenTop = 0, givenMore = 0, famLeak = 0, famN = 0, fullTop = 0, fullFirst = 0;
-  for (const p of wP) {
+  for (const p of wAll) {
     const toks = p.toks, V = toks.length >= 2 ? toks.slice(1) : toks, id = idOf[p.key];
     const wg = await fnd(toks[toks.length - 1]);
-    if (wg.results.some(x => x.id === id)) givenTop++; else if (wg.more && C.findAll([toks[toks.length - 1]], wP).some(x => x.key === p.key)) givenMore++;
+    if (wg.results.some(x => x.id === id)) givenTop++; else if (wg.more && C.findAll([toks[toks.length - 1]], wAll).some(x => x.key === p.key)) givenMore++;
     if (toks.length >= 2) {
       famN++;
       await fnd(toks[0]);
       /* gõ riêng họ: chỉ được ra người này nếu tên đệm / tên của chính họ có chữ đó */
-      if (C.findAll([toks[0]], wP).some(x => x.key === p.key) && !V.some(v => v.indexOf(toks[0]) >= 0)) famLeak++;
+      if (C.findAll([toks[0]], wAll).some(x => x.key === p.key) && !V.some(v => v.indexOf(toks[0]) >= 0)) famLeak++;
     }
     const wf = await fnd(p.name);
     if (wf.results.some(x => x.id === id)) fullTop++;
     if (wf.results.length && wf.results[0].short === p.short) fullFirst++;
   }
-  ok('Tên gọi một mình: mọi hội viên ở 6 dòng đầu hoặc có more để gõ thêm (' + givenTop + ' + ' + givenMore + ' / ' + wP.length + ')', givenTop + givenMore === wP.length, [givenTop, givenMore]);
+  ok('Tên gọi một mình: mọi khách (cả đã hết gói) ở 6 dòng đầu hoặc có more để gõ thêm (' + givenTop + ' + ' + givenMore + ' / ' + wAll.length + ')', givenTop + givenMore === wAll.length, [givenTop, givenMore]);
   ok('Gõ riêng họ: không hội viên nào ra nhờ họ (' + famLeak + ' / ' + famN + ')', famLeak === 0, famLeak);
-  ok('Đủ họ tên: ra đúng người trong 6 dòng đầu (' + fullTop + '/' + wP.length + '), xếp đầu ' + fullFirst + '/' + wP.length, fullTop === wP.length && fullFirst === wP.length, [fullTop, fullFirst]);
+  ok('Đủ họ tên: ra đúng người trong 6 dòng đầu (' + fullTop + '/' + wAll.length + '), xếp đầu ' + fullFirst + '/' + wAll.length, fullTop === wAll.length && fullFirst === wAll.length, [fullTop, fullFirst]);
   ok('Mọi lượt tìm mới (' + qn + '): phản hồi Worker = Apps Script', qSame === qn, qSame + '/' + qn);
 }
-const phones = gP.map(p => p.phone).filter(x => x.length >= 9);
-ok('Không phản hồi nào (' + allOut.length + ' lượt) chứa SĐT hay họ tên đầy đủ', allOut.every(o => phones.every(ph => o.indexOf(ph) < 0) && gP.every(p => o.indexOf(p.name) < 0)));
+const gAll = gP.concat(gP.ended), phones = gAll.map(p => p.phone).filter(x => x.length >= 9);
+ok('Không phản hồi nào (' + allOut.length + ' lượt) chứa SĐT hay họ tên đầy đủ (cả khách đã hết gói)', allOut.every(o => phones.every(ph => o.indexOf(ph) < 0) && gAll.every(p => o.indexOf(p.name) < 0)));
 
 console.log('\n' + pass + ' PASS, ' + fail + ' FAIL');
 process.exit(fail ? 1 : 0);

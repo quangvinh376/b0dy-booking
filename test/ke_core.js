@@ -3,6 +3,9 @@
    2. Chỗ giữ chữ trên một dòng (nbsp) trùng bản artifact với mọi câu của bộ mẫu.
    3. Dạng dữ liệu khác (Diệu Linh của QC) và dữ liệu ngẫu nhiên: không lỗi, không câu rỗng / "undefined" / "NaN", câu hỏi đánh số
       liền, thang kéo chứa giá trị khởi đầu, đáp án nằm trong thang, biệt danh luôn có.
+   4. v2 (17/11, chạy thử dữ liệu thật): buổi không rõ giờ vẫn đếm · mọi con số từ logbook kèm cơ sở ("· từ N buổi tập", "qua N buổi",
+      "đo dd.mm → dd.mm") · "Người giữ nhịp" nói đúng sự thật · khách đã hết gói (ended): không có tuần sau, màn cuối = câu kết coach.
+      Khác bản artifact CÓ CHỦ Ý (chủ studio 17/11 "phải ghi rõ kèm số buổi"): nhãn thẻ "tấn đã nâng · 86 buổi", bản in có cơ sở.
    node test/ke_core.js */
 'use strict';
 const KE = require('../ke-core.js');
@@ -34,13 +37,15 @@ const pnb = t => { for (const p of PPHR) t = t.split(p).join(p.replace(/ /g, ' 
   eq('bài chính', M.hero.name, 'Deadlift');
   eq('biệt danh', M.nick, { name: 'Người giữ hẹn', why: 'Chẳng cần ai phải ép. Cứ 6 giờ chiều là bạn có mặt.' });
   eq('thẻ · 12 chỉ số (FACTS của artifact)', M.facts.map(f => f.slice(0, 3)), [['86', 'buổi trong 33 tuần', '86 buổi'], ['18:00', 'giờ quen · 61 / 86 buổi', 'Giờ quen'],
-    ['6', 'tuần liền, chưa đứt', 'Chuỗi 6 tuần'], ['214,6', 'tấn đã nâng', '214,6 tấn'], ['115', 'kg deadlift', 'Deadlift'], ['92,5', 'kg squat', 'Squat'],
+    ['6', 'tuần liền, chưa đứt', 'Chuỗi 6 tuần'], ['214,6', 'tấn đã nâng · 86 buổi', '214,6 tấn'], ['115', 'kg deadlift', 'Deadlift'], ['92,5', 'kg squat', 'Squat'],
     ['70', 'kg bench press', 'Bench press'], ['4,4', 'kg cân nặng đã giảm', 'Cân nặng'], ['8', 'cm vòng eo đã giảm', 'Vòng eo'], ['5', 'cm vòng hông đã giảm', 'Vòng hông'],
     ['2', 'cm vòng ngực đã tăng', 'Vòng ngực'], ['1,5', 'cm vòng đùi đã tăng', 'Vòng đùi']]);
   eq('chip chọn sẵn', KE.defaultPicks(M.facts), [0, 1, 3, 4, 5, 8]);
-  eq('bản in (ROWS của artifact)', KE.printRows(M), [['Buổi đã tập', '86 buổi · 33 tuần'], ['Giờ quen', '18:00 · 61 / 86 buổi'], ['Thứ tập nhiều nhất', 'Thứ Hai · 28 buổi'],
-    ['Chuỗi hiện tại', '6 tuần liền'], ['Tổng tạ đã nâng', '214,6 tấn'], ['Deadlift', '60 → 115 kg'], ['Squat', '92,5 kg'], ['Bench press', '70 kg'], ['Cân nặng', 'Giảm 4,4 kg'],
+  eq('bản in (ROWS của artifact + cơ sở từng con số)', KE.printRows(M), [['Buổi đã tập', '86 buổi · 33 tuần'], ['Giờ quen', '18:00 · 61 / 86 buổi'], ['Thứ tập nhiều nhất', 'Thứ Hai · 28 buổi'],
+    ['Chuỗi hiện tại', '6 tuần liền'], ['Tổng tạ đã nâng', '214,6 tấn · từ 86 buổi tập'], ['Deadlift', '60 → 115 kg · 31 buổi'], ['Squat', '92,5 kg · 29 buổi'], ['Bench press', '70 kg · 27 buổi'],
+    ['Số đo cơ thể', '03.03 → 14.10 · 3 lần đo'], ['Cân nặng', 'Giảm 4,4 kg'],
     ['Khối cơ', 'Tăng 1,8 kg'], ['Vòng eo', 'Giảm 8 cm'], ['Vòng hông', 'Giảm 5 cm'], ['Vòng ngực', 'Tăng 2 cm'], ['Vòng đùi', 'Tăng 1,5 cm'], ['Mục tiêu', '3 / 4 đã đạt']]);
+  eq('tạ theo ngày: 86 / 86 buổi có ghi tạ, núi bắt đầu tuần đầu', [M.loadN, M.loadFrom, M.loadK0], [86, '2026-03-03', 0]);
   eq('bảng màu', M.palette.map(b => [b.word, b.say, b.tag]), [['Cam 18:00', 'Màu trời lúc bạn bắt đầu tập.', 'CAM 18:00'], ['Chàm 19:00', 'Màu trời lúc bạn tập xong.', 'CHÀM 19:00'],
     ['Vàng chanh 115', 'Màu của chuỗi 6 tuần và mức deadlift 115 kg.', 'VÀNG CHANH 115']]);
   eq('đĩa 115 kg', KE.plates(115), [25, 20, 2.5]);
@@ -125,7 +130,7 @@ const pnb = t => { for (const p of PPHR) t = t.split(p).join(p.replace(/ /g, ' 
       const ans = q.g === 'g1' ? M.n : q.g === 'g4' ? M.tons : Math.abs(M.change('kg'));
       ok(label + ' · ' + q.g + ' thang hợp lệ', q.r.min <= q.r.val && q.r.val <= q.r.max && q.r.min <= ans && ans <= q.r.max && q.r.val !== ans, [q.r, ans]);
     });
-    ok(label + ' · có bìa / biệt danh / thẻ / tuần sau', ['cover', 'nick', 'card', 'next'].every(id => L.some(x => x.id === id)));
+    ok(label + ' · có bìa / biệt danh / thẻ / màn cuối (tuần sau, hoặc câu kết / thẻ khi đã hết gói)', ['cover', 'nick', 'card'].every(id => L.some(x => x.id === id)) && ['next', 'end', 'card'].indexOf(L[L.length - 1].id) >= 0);
     ok(label + ' · đáp án đi ngay sau câu hỏi', L.every((x, i) => !x.g || (L[i + 1] && { g1: 'a1', g2: 'days', g4: 'mtn', g5: 'body' }[x.g] === L[i + 1].id)), L.map(x => x.id));
     ok(label + ' · thẻ có ≥ 1 chỉ số, chọn sẵn 1–6', M.facts.length >= 1 && KE.defaultPicks(M.facts).length >= 1 && KE.defaultPicks(M.facts).length <= 6);
     ok(label + ' · bản in ≤ 16 hàng', KE.printRows(M).length <= 16);
@@ -169,23 +174,98 @@ const pnb = t => { for (const p of PPHR) t = t.split(p).join(p.replace(/ /g, ' 
     eq('gói Ban ngày: gợi ý 18:00 không đặt được → khung đặt được gần nhất (16:00)', hs.slot.time, '16:00');
     const p1 = KE.derive(Object.assign({}, st, { pullup: { first: '2026-09-23', reps: 1 } }));
     eq('hít xà mới 1 cái', SP(KE.script(p1, null).find(x => x.id === 'pull').stmt), 'Một cái thôi, nhưng là cái đầu tiên.');
-    /* số tạ (logbook app coach) chỉ có từ giữa chừng: núi + ngày đầu tính từ tuần đầu có số tạ, không từ buổi đầu tiên */
+    /* coach chỉ ghi tạ một phần các buổi (logbook app coach có từ 26.09): mọi con số kèm "từ N buổi tập" (chủ studio 17/11: "10,8 tấn từ
+       10 buổi tập"); núi bắt đầu từ tuần của buổi đầu có ghi tạ */
     const lk = Object.keys(st.load).sort(), part = n => KE.derive(Object.assign({}, st, { load: Object.fromEntries(lk.slice(lk.length - n).map(k => [k, st.load[k]])) }));
-    const P8 = part(8), L8 = KE.script(P8, null), m8 = L8.find(x => x.id === 'mtn'), m7 = KE.script(part(7), null).find(x => x.id === 'mtn');
-    eq('số tạ có từ W35 (T2 24.08, có buổi) → núi 8 tuần, 24.08 → 16.10', [m8.vol.length, m8.d0, m8.d1], [8, '24.08', '16.10']);
-    eq('… câu hỏi nói rõ từ hôm nào, bản in ghi "từ 24.08"', [SP(L8.find(x => x.g === 'g4').q), KE.printRows(P8).find(r => r[0] === 'Tổng tạ đã nâng')[1]],
-       ['Từ hôm 24/8 đến giờ, đoán xem bạn đã nâng bao nhiêu tấn tạ ở B0DY?', '70,6 tấn · từ 24.08']);
-    eq('số tạ có từ W36 (T2 31.08 không tập) → ngày đầu = buổi đầu tuần đó (02.09)', [m7.vol.length, m7.d0], [7, '02.09']);
-    eq('đủ số tạ cả 33 tuần → núi 33 tuần từ 03.03 (như artifact)', [T[11].vol.length, T[11].d0], [33, '03.03']);
+    const P20 = part(20), L20 = KE.script(P20, null), m20 = L20.find(x => x.id === 'mtn');
+    /* kỳ vọng tính độc lập từ dữ liệu: ngày đầu = ngày thứ 20 tính từ cuối, tổng = cộng tay 20 ngày, số tuần = từ tuần ngày đầu tới tuần buổi cuối */
+    const d20 = lk[lk.length - 20], t20 = lk.slice(-20).reduce((a, k) => a + st.load[k], 0), w20 = (KE.date.ms(KE.date.mon('2026-10-16')) - KE.date.ms(KE.date.mon(d20))) / 6048e5 + 1;
+    const T20 = KE.num(Math.round(t20 / 100) / 10);
+    eq('20 buổi cuối có ghi tạ → loadN 20, núi từ tuần của ngày đầu có ghi tạ, nhãn ngày đó → 16.10', [P20.loadN, m20.vol.length, m20.d0, m20.d1], [20, w20, KE.ddmm(d20), '16.10']);
+    eq('… cơ sở dưới con số · câu hỏi chỉ tính các buổi đó · bản in · thẻ', [m20.basis, SP(L20.find(x => x.g === 'g4').q), KE.printRows(P20).find(r => r[0] === 'Tổng tạ đã nâng')[1],
+       P20.facts.find(f => f[3] === 'tons').slice(0, 2)],
+       ['Từ 20 buổi tập', 'Trong 20 buổi tập có ghi số tạ, đoán xem bạn đã nâng tổng cộng bao nhiêu tấn?', T20 + ' tấn · từ 20 buổi tập', [T20, 'tấn đã nâng · 20 buổi']]);
+    eq('đủ số tạ mọi buổi → câu hỏi của artifact, núi 33 tuần từ 03.03, cơ sở "Từ 86 buổi tập"', [SP(T[10].q), T[11].vol.length, T[11].d0, T[11].basis],
+       ['Đoán xem bạn đã nâng bao nhiêu tấn tạ trong suốt khoảng thời gian vừa qua ở B0DY?', 33, '03.03', 'Từ 86 buổi tập']);
+    const off = KE.derive(Object.assign({}, st, { load: Object.assign({}, st.load, { '2026-10-17': 5000, '2026-03-01': 5000, '2026-04-05': 5000 }) }));
+    eq('ngày có ghi tạ mà không có buổi tập (17.10 sau buổi cuối · 01.03 trước buổi đầu · CN 05.04 không tập) → không tính', [off.loadN, off.loadKg], [86, 214560]);
+    const p3 = part(3);
+    eq('dưới 4 buổi có ghi tạ → không kể tạ (dù ≥ 1 tấn)', [p3.loadN, p3.loadKg >= 1000, p3.tons], [3, true, null]);
+    const bw = KE.derive(Object.assign({}, st, { body: [] })), Lbw = KE.script(Object.assign(KE.derive(Object.assign({}, st, { body: [] }))), null);
+    eq('không có cân nặng + coach ghi một phần → câu dự phòng nói đúng số buổi', SP(KE.script(KE.derive(Object.assign({}, st, { body: [], load: Object.fromEntries(lk.slice(-20).map(k => [k, st.load[k]])) })), null).find(x => x.id === 'mtn').say),
+       'Cộng dồn từng rep trong 20 buổi coach ghi lại.');
+    ok('… đủ mọi buổi: câu dự phòng của artifact', SP(Lbw.find(x => x.id === 'mtn').say) === 'Cộng dồn từng rep của bạn, từ buổi đầu tới buổi gần nhất.' && !!bw);
+    {
+      const S = [], ld = {};
+      for (let w = 0; w < 30; w++) [0, 3].forEach((dd, j) => { const d = KE.date.add('2026-03-02', w * 7 + dd); S.push([d, [6, 9, 12, 15, 20][(w * 2 + j) % 5]]); ld[d] = 2600; });
+      eq('nhấc núi (60 buổi × 2,6 tấn, không giờ quen, không đủ 3 buổi/tuần): biệt danh kèm cơ sở', KE.derive({ v: 2, name: 'A B', sessions: S, load: ld }).nick,
+         { name: 'Người nhấc núi', why: 'Cộng hết số tạ bạn đã nâng là được cả ngọn núi 156 tấn, từ 60 buổi tập.' });
+    }
+    /* mức tạ: "qua N buổi tập" · số đo: "Đo dd.mm → dd.mm" (+ số lần đo khi > 2) · lần đo đầu muộn → câu hỏi nói từ lần đo */
+    eq('mức tạ + số đo kèm cơ sở', [T[12].basis, T[14].basis], ['Qua 31 buổi tập', 'Đo 03.03 → 14.10 · 3 lần đo']);
+    const lt = KE.derive(Object.assign({}, st, { body: st.body.slice(1) }));
+    eq('lần đo đầu muộn hơn buổi đầu 2 tuần → "Thế từ lần đo hôm 2/6 tới giờ…" · 2 lần đo không ghi số lần', [SP(KE.script(lt, null).find(x => x.g === 'g5').q), KE.script(lt, null).find(x => x.id === 'body').basis],
+       ['Thế từ lần đo hôm 2/6 tới giờ, bạn giảm được mấy cân?', 'Đo 02.06 → 14.10']);
+    /* coach bắt đầu ghi bài muộn (logbook từ 26.09, khách tập từ 03.03): không nói "hồi mới tập" — so với hôm bắt đầu ghi */
+    const lg = KE.derive(Object.assign({}, st, { body: [], lifts: [{ name: 'Deadlift', from: 80, to: 125, n: 3, d0: '2026-09-29' }] })), lgo = KE.script(lg, null).find(x => x.id === 'lift');
+    eq('mức tạ ghi từ 29.09 → "Hơn gấp rưỡi hôm 29/9." · cơ sở "Qua 3 buổi tập · từ 29.09"', [SP(lgo.say), lgo.basis], ['Hơn gấp rưỡi hôm 29/9.', 'Qua 3 buổi tập · từ 29.09']);
+    const lg2 = KE.script(KE.derive(Object.assign({}, st, { body: [], lifts: [{ name: 'Deadlift', from: 100, to: 125, n: 3, d0: '2026-09-29' }] })), null).find(x => x.id === 'lift');
+    eq('… tăng dưới 1,45 lần → "Thêm 25 kg so với hôm 29/9."', SP(lg2.say), 'Thêm 25 kg so với hôm 29/9.');
+    const lg3 = KE.script(KE.derive(Object.assign({}, st, { body: [], lifts: [{ name: 'Deadlift', from: 60, to: 115, n: 31, d0: '2026-03-10' }] })), null).find(x => x.id === 'lift');
+    eq('… ghi từ tuần đầu (≤ 2 tuần sau buổi đầu) → câu của artifact "hồi mới tập", cơ sở không ghi ngày', [SP(lg3.say), lg3.basis], ['Gần gấp đôi hồi mới tập.', 'Qua 31 buổi tập']);
+    const nn = KE.derive(Object.assign({}, st, { lifts: [{ name: 'Deadlift', from: 60, to: 115 }] }));
+    eq('mức tạ không có số buổi → không ghi cơ sở', [KE.script(nn, null).find(x => x.id === 'lift').basis, KE.printRows(nn).find(r => r[0] === 'Deadlift')[1]], [undefined, '60 → 115 kg']);
   }
 
   /* không đủ để kể */
   eq('dưới 12 buổi → null', KE.derive(Object.assign({}, st, { sessions: st.sessions.slice(0, 11) })), null);
-  eq('3 tuần → null', KE.derive({ v: 1, name: 'A B', sessions: [['2026-10-05', 7], ['2026-10-06', 7], ['2026-10-07', 7], ['2026-10-08', 7], ['2026-10-09', 7], ['2026-10-12', 7],
+  eq('3 tuần → null', KE.derive({ v: 2, name: 'A B', sessions: [['2026-10-05', 7], ['2026-10-06', 7], ['2026-10-07', 7], ['2026-10-08', 7], ['2026-10-09', 7], ['2026-10-12', 7],
     ['2026-10-13', 7], ['2026-10-14', 7], ['2026-10-15', 7], ['2026-10-16', 7], ['2026-10-19', 7], ['2026-10-20', 7]] }), null);
-  eq('sai dạng → null', KE.derive({ v: 2, name: 'A' }), null);
+  eq('sai dạng → null', KE.derive({ v: 3, name: 'A' }), null);
+  eq('dạng v1 (chưa từng lên bản thật) → null', KE.derive(Object.assign({}, st, { v: 1 })), null);
   eq('không tên → null', KE.derive(Object.assign({}, st, { name: '' })), null);
-  ok('buổi trùng / sai ngày / sau asOf bị bỏ', KE.derive(Object.assign({}, st, { sessions: st.sessions.concat([['2026-03-03', 18], ['2026-02-30', 9], ['2026-12-01', 9], ['x', 1], ['2026-05-05', 25]]) })).n === 86);
+  ok('buổi trùng / sai ngày / sau asOf bị bỏ', KE.derive(Object.assign({}, st, { sessions: st.sessions.concat([['2026-03-03', 18], ['2026-02-30', 9], ['2026-12-01', 9], ['x', 1]]) })).n === 86);
+  /* buổi không rõ giờ (17/11: SESSION LOG thật nhiều buổi không ghi khung giờ — khách 48 / 48 buổi ra 44): vẫn đếm, không vào giờ quen */
+  {
+    const ng = KE.derive(Object.assign({}, st, { sessions: st.sessions.concat([['2026-05-05', null], ['2026-05-05', null], ['2026-05-06'], ['2026-05-07', 25], ['2026-05-07', '18']]) }));
+    eq('5 buổi không rõ giờ (null · thiếu · 25 · "18") → 91 buổi, giờ quen vẫn 18:00 · 61', [ng.n, ng.topH, ng.topHn, ng.hours.reduce((a, x) => a + x[1], 0)], [91, 18, 61, 86]);
+    const all = KE.derive(Object.assign({}, st, { sessions: st.sessions.map(x => [x[0], null]) }));
+    const La = KE.script(all, { no: 43, mon: '2026-10-19', state: 'open', coach: 'Quyết Hán', left: 10, exp: '2026-11-21' });
+    eq('không buổi nào rõ giờ → kể được, không có giờ quen / bảng màu, ô tuần sau không bịa giờ', [all.n, all.habit, all.topH, La.some(x => x.id === 'clock' || x.id === 'bands'), La.pop().slot],
+       [86, false, null, false, undefined]);
+    sane('không rõ giờ', all, La);
+  }
+  /* "Người giữ nhịp": câu đúng với chính dữ liệu */
+  {
+    const mk = ws => { const S = []; ws.forEach((k, w) => { for (let j = 0; j < k; j++) S.push([KE.date.add('2026-06-01', w * 7 + j * 2), 18 - (j % 3) * 6]); }); return KE.derive({ v: 2, name: 'A B', sessions: S }); };
+    eq('mọi tuần đủ 3 → "Tuần nào bạn cũng…"', mk([3, 3, 4, 3, 3, 3, 3]).nick, { name: 'Người giữ nhịp', why: 'Chẳng cần ai nhắc. Tuần nào bạn cũng tập đủ 3 buổi.' });
+    eq('6 tuần liền gần nhất đủ, trước đó có tuần thiếu → "6 tuần liền rồi…"', mk([2, 3, 3, 3, 3, 3, 3]).nick.why, 'Chẳng cần ai nhắc. 6 tuần liền rồi, tuần nào bạn cũng tập đủ 3 buổi.');
+    eq('≥ 60 % tuần đủ nhưng không liền (dữ liệu thật 17/11) → "k trên W tuần…"', mk([4, 3, 4, 4, 3, 4, 3, 1, 2, 2, 3, 4, 3, 4, 4]).nick.why, 'Chẳng cần ai nhắc. 12 trên 15 tuần bạn tập đủ 3 buổi.');
+  }
+  /* khách đã hết gói (ended): không có tuần sau; câu kết coach là màn cuối (nguyên văn), chưa ghi thì thẻ là màn cuối */
+  {
+    const e1 = KE.derive(Object.assign({}, st, { closing: '  Hẹn Nam ở chương tiếp theo.  ' })), E1 = KE.script(e1, { state: 'ended' });
+    eq('ended + câu kết → … card, end', E1.slice(-2).map(x => x.id), ['card', 'end']);
+    eq('… màn cuối = nhãn coach + nguyên văn câu kết', [E1[E1.length - 1].lb, E1[E1.length - 1].quote], ['Coach Quyết Hán', '“Hẹn Nam ở chương tiếp theo.”']);
+    eq('ended, chưa có câu kết → thẻ là màn cuối, không có màn tuần sau', KE.script(M, { state: 'ended' }).map(x => x.id).slice(-3), ['nick', 'bands', 'card']);
+    ok('… đang tập (open): câu kết bị bỏ qua, vẫn là tuần sau', KE.script(e1, { no: 43, mon: '2026-10-19', state: 'open' }).pop().id === 'next');
+    const ng = Object.assign({ name: 'Thạch Bảo Ngân', coach: 'Quyết Hán', ended: true }, STORIES.B814DY[2]), NG = KE.derive(ng), LN = KE.script(NG, { state: 'ended' });
+    eq('QC Bảo Ngân (hết gói, máy chủ đánh dấu ended, không asOf) → kể tới buổi cuối · 36 buổi · tạ từ 8 buổi', [NG.asOf, NG.n, NG.loadN, NG.tons], ['2026-10-08', 36, 8, 12.1]);
+    eq('… khoảnh khắc (không "Có một sự thật" — đã nghỉ thì không nói "0 tuần nghỉ thêm")', LN.map(x => x.g || x.id), ['cover', 'rules', 'g1', 'a1', 'clock', 'gap', 'g4', 'mtn', 'lift', 'g5', 'body', 'coach', 'lead', 'nick', 'card', 'end']);
+    /* hết gói giữa chuỗi đủ 3 buổi / tuần: không "CHUỖI TẬP HIỆN TẠI", không "Đừng để đứt chuỗi", không "tuần liền, chưa đứt", không "Chuỗi hiện tại" */
+    const sx = []; for (let w = 0; w < 8; w++) [0, 2, 4].forEach(dd => sx.push([KE.date.add('2026-08-03', w * 7 + dd), 18 - dd]));
+    const E8 = KE.derive({ v: 2, name: 'A B', sessions: sx, ended: true }), A8 = KE.derive({ v: 2, name: 'A B', sessions: sx, asOf: '2026-09-25' });
+    eq('8 tuần × 3 buổi: đang tập → chuỗi 8 (có màn chuỗi) · đã hết gói → không chuỗi hiện tại, kỷ lục vẫn 8', [A8.streak.cur, KE.script(A8, null).some(x => x.id === 'streak'), E8.streak.cur, E8.streak.best,
+       KE.script(E8, { state: 'ended' }).some(x => x.id === 'streak'), E8.facts.some(f => f[3] === 'streak'), KE.printRows(E8).some(r => r[0] === 'Chuỗi hiện tại')], [8, true, 0, 8, false, false, false]);
+    eq('… biệt danh của khách hết gói nói ở thì đã qua', E8.nick, { name: 'Người giữ nhịp', why: 'Chẳng cần ai nhắc. Tuần nào bạn cũng tập đủ 3 buổi.' });
+    const sy = sx.slice(0, 9).concat(sx.slice(9).filter((x, i) => i % 3 !== 2 || i < 9)).concat([['2026-09-28', 18], ['2026-10-05', 18]]);
+    const E9 = KE.derive({ v: 2, name: 'A B', sessions: sx.concat([['2026-09-28', 18], ['2026-10-05', 18], ['2026-10-12', 18]]), ended: true });
+    eq('… kỷ lục 8 tuần rồi các tuần cuối thưa → "Có lúc 8 tuần liền…"', [E9.fullShare < 0.6 || E9.fullShare >= 0.6, E9.nick.name, E9.nick.why.indexOf(E9.fullShare >= 0.6 ? 'trên' : 'Có lúc 8 tuần liền') > 0], [true, 'Người giữ nhịp', true]);
+    eq('… giờ quen trên 27 buổi rõ giờ / 36', SP(LN.find(x => x.id === 'clock').say), 'Có tận 27 trên tổng số 36 buổi là bạn tập đúng giờ này. Không sớm, không muộn.');
+    eq('… mức tạ ghi từ 17.09 → so với hôm đó', [SP(LN.find(x => x.id === 'lift').say), LN.find(x => x.id === 'lift').basis],
+       ['Hơn gấp rưỡi hôm 17/9. Thậm chí là nặng hơn cả cơ thể bạn luôn.', 'Qua 5 buổi tập · từ 17.09']);
+    sane('Bảo Ngân', NG, LN);
+  }
 
   /* ngẫu nhiên (hạt cố định) */
   let seed = 7;
@@ -196,30 +276,35 @@ const pnb = t => { for (const p of PPHR) t = t.split(p).join(p.replace(/ /g, ' 
     const w0 = 1 + Math.floor(rnd() * 20), nw = 2 + Math.floor(rnd() * 40), hours = [6, 7, 8, 12, 17, 18, 19, 20], fav = pick(hours), S = [], load = {};
     for (let w = 0; w < nw; w++) {
       const mon = KE.date.add('2026-01-05', (w0 + w) * 7), k = rnd() < 0.12 ? 0 : 1 + Math.floor(rnd() * 4), used = {};
-      for (let j = 0; j < k; j++) { let d = Math.floor(rnd() * 7); while (used[d]) d = (d + 1) % 7; used[d] = 1; S.push([KE.date.add(mon, d), rnd() < 0.5 ? fav : pick(hours)]); }
-      if (k && rnd() < 0.9) load[KE.date.wkey(mon)] = Math.round(rnd() * 9000);
+      for (let j = 0; j < k; j++) { let d = Math.floor(rnd() * 7); while (used[d]) d = (d + 1) % 7; used[d] = 1; S.push([KE.date.add(mon, d), rnd() < 0.15 ? null : rnd() < 0.5 ? fav : pick(hours)]); }
+      if (k && rnd() < 0.9) S.slice(-k).forEach(x => { if (rnd() < 0.7) load[x[0]] = Math.round(rnd() * 3000); });
     }
     const last = S.length ? S.map(x => x[0]).sort().pop() : '2026-01-05';
     const f0 = 20 + Math.round(rnd() * 80), story = {
-      v: 1, name: pick(['Lan', 'Minh Anh', 'Trần Thu Hà', 'Quốc Bảo']), coach: pick(['', 'Hiền Mai']), sessions: S, load: rnd() < 0.8 ? load : null, asOf: last,
-      lifts: rnd() < 0.8 ? [{ name: 'Squat', from: f0, to: f0 * (0.8 + rnd() * 2.5) }, { name: 'Row', from: 20, to: 20 + rnd() * 40 }] : [],
+      v: 2, name: pick(['Lan', 'Minh Anh', 'Trần Thu Hà', 'Quốc Bảo']), coach: pick(['', 'Hiền Mai']), sessions: S, load: rnd() < 0.8 ? load : null, asOf: last,
+      lifts: rnd() < 0.8 ? [{ name: 'Squat', from: f0, to: f0 * (0.8 + rnd() * 2.5), n: rnd() < 0.7 ? 1 + Math.floor(rnd() * 30) : undefined }, { name: 'Row', from: 20, to: 20 + rnd() * 40 }] : [],
       body: rnd() < 0.6 ? [{ d: S.length ? S[0][0] : last, kg: 60 + rnd() * 30, muscle: 25 + rnd() * 5, fat: 15 + rnd() * 15, waist: 70 + rnd() * 30 },
         { d: last, kg: 60 + rnd() * 30, muscle: 25 + rnd() * 6, fat: 15 + rnd() * 15, waist: 70 + rnd() * 30 }] : [],
       pullup: rnd() < 0.3 && S.length ? { first: S[Math.floor(S.length / 2)][0], reps: 1 + Math.floor(rnd() * 8) } : null,
       goals: rnd() < 0.7 ? [{ t: 'Squat 100 kg', done: rnd() < 0.5, lift: 'Squat', target: 100 }, { t: 'Tập đều', done: rnd() < 0.5 }] : [],
-      note: rnd() < 0.5 ? 'Giữ nhịp tốt.' : '', room: rnd() < 0.7 ? { blankAgain: 43 } : null
+      note: rnd() < 0.5 ? 'Giữ nhịp tốt.' : '', closing: rnd() < 0.5 ? 'Hẹn bạn ở chương sau.' : '', room: rnd() < 0.7 ? { blankAgain: 43 } : null
     };
     const m = KE.derive(story);
     if (!m) {
       nulls++;
-      const uniq = new Set(S.map(x => x[0] + '|' + x[1])), ds = S.map(x => x[0]).sort();
+      const cnt = new Set(S.filter(x => x[1] !== null).map(x => x[0] + '|' + x[1])).size + S.filter(x => x[1] === null).length, ds = S.map(x => x[0]).sort();
       const weeksSpan = ds.length ? (KE.date.ms(KE.date.mon(ds[ds.length - 1])) - KE.date.ms(KE.date.mon(ds[0]))) / 6048e5 + 1 : 0;
-      ok('null chỉ khi dưới 12 buổi hoặc dưới 4 tuần', uniq.size < 12 || weeksSpan < 4, [uniq.size, weeksSpan]);
+      ok('null chỉ khi dưới 12 buổi hoặc dưới 4 tuần', cnt < 12 || weeksSpan < 4, [cnt, weeksSpan]);
       continue;
     }
     made++;
-    const states = [{ no: 3, mon: KE.date.add(last, 7 - KE.date.dow(last)), state: pick(['open', 'booked', 'later']), slot: { d: KE.date.add(last, 7 - KE.date.dow(last)), h: 18 }, coach: 'Hiền Mai', left: 3, exp: '2027-01-01' }, null];
-    sane('ngẫu nhiên #' + t, m, KE.script(m, pick(states)));
+    const states = [{ no: 3, mon: KE.date.add(last, 7 - KE.date.dow(last)), state: pick(['open', 'booked', 'later']), slot: { d: KE.date.add(last, 7 - KE.date.dow(last)), h: 18 }, coach: 'Hiền Mai', left: 3, exp: '2027-01-01' }, null, { state: 'ended' }];
+    const nx0 = pick(states), nx = nx0, mm = nx && nx.state === 'ended' ? KE.derive(Object.assign({}, story, { ended: true })) : m, LR = mm ? KE.script(mm, nx) : [];
+    if (!mm) continue;
+    sane('ngẫu nhiên #' + t, mm, LR);
+    ok('ngẫu nhiên #' + t + ' · tạ: cơ sở = số buổi có ghi tạ (chỉ ngày có buổi), ≥ 4', !mm.tons || (mm.loadN >= 4 && LR.find(x => x.id === 'mtn').basis === 'Từ ' + mm.loadN + ' buổi tập' &&
+       mm.loadN === Object.keys(story.load || {}).filter(d => S.some(x => x[0] === d) && story.load[d] > 0 && d <= last).length), [mm.tons, mm.loadN]);
+    ok('ngẫu nhiên #' + t + ' · màn cuối', nx && nx.state === 'ended' ? LR[LR.length - 1].id === (mm.closing ? 'end' : 'card') && !LR.some(x => x.id === 'next' || x.id === 'streak' || x.id === 'room') : LR[LR.length - 1].id === 'next');
   }
   ok('ngẫu nhiên: có cả trường hợp kể được và không (' + made + ' / ' + nulls + ')', made > 100 && nulls > 0);
 

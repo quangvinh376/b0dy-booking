@@ -891,7 +891,7 @@ async function coachCases(h) {
        jk.slice().sort().join(',') === '#khach hai ten|981J-W43,#khach hai ten|982J-W43', jk);
     t = await setup(vn('2026-10-18', '07:00'), { props: PJ, members: J(0) });
     s = await call(t, { action: 'lt_boot', tok: (j1.ok && j1.mine.code.indexOf('981J') > 0 ? j1 : j2).tok });
-    ok('… người 981J hết gói → mã nhớ máy của 981J không vào phiếu của 982J', s.ok !== false && s.auth !== true, [s.auth, s.mine && s.mine.code, s.error || s.why]);
+    ok('… người 981J hết gói → mã nhớ máy của 981J chỉ mở state "hết gói" của chính 981J, không vào phiếu của 982J', s.ok && s.ended === true && !s.mine, [s.auth, s.ended, s.mine && s.mine.code, s.error || s.why]);
 
     /* k · khách mới chưa có Mã KH: gói A có SĐT, gói B để trống SĐT → một người, xác minh bằng SĐT gói A */
     t = await setup(vn('2026-10-18', '07:00'), { members: [

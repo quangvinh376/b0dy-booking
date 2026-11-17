@@ -39,7 +39,6 @@ const DEFAULTS = {
   READ_MS: 8e3, WRITE_MS: 20e3,                     // hạn giờ gọi Google
   META_RECHECK: 5 * 60e3,                           // chưa có tab "Lịch coach": dò lại tên tab sau bấy lâu
   META_TRY: 30e3,                                   // … và không thử dò quá một lần mỗi bấy lâu (Google lỗi thì không dò dồn)
-  TTL_STORY: 5 * 60e3,                              // tab "Kể về bạn": đọc lại sau bấy lâu (tab chưa có cũng dò lại sau bấy lâu)
   BUSY_WINDOW: 30 * 60e3,                           // cron làm mới điểm danh đều khi 30 phút gần đây có người dùng
   IDLE_REFRESH: 10 * 60e3                           // … còn không thì 10 phút một lần
 };
@@ -181,6 +180,10 @@ export class BookingCore {
     this.baFailAt = 0;                // lần làm mới BA gần nhất bị lỗi (Date.now)
     this.metaTryAt = 0;               // lần dò lại tên tab gần nhất (getMeta)
     this.notify = deps.notify || null; // kênh live (live.js): gọi khi phòng của tuần đang đặt vừa đổi
+    /* "Để B0DY kể về bạn" — nguồn câu chuyện: async (person, {ended, ctx}) → {ver, data: dạng v2 của ke-core.js} | null. Chủ studio 17/11
+       bỏ tab "Kể về bạn" (Google Sheets đang phân mảnh, chờ chọn kho dữ liệu) → bản thật CHƯA có nguồn: lt_story luôn trả story null.
+       QC (qc.js) và test truyền nguồn giả. */
+    this.stories = deps.stories || null;
     this.sigLog = ''; this.sigBa = '';  // dấu của sổ / BA lần đọc trước — đọc lại khác thì báo kênh live
   }
 
@@ -537,6 +540,8 @@ export class BookingCore {
       if (t) {
         const ba = await this.getBA(), list = this.persons(ctx, ba), me = C.findPerson(list, t.k);
         if (me) return this.loadState(ctx, me, list, ba);
+        const ex = C.findPerson(list.ended, t.k);                 /* khách đã hết gói: state "ended" (trang vào thẳng hành trình) */
+        if (ex) return C.endedStateOf(ctx, ex);
         return C.publicOf(ctx, 'het_goi', ba.closed, ba.sched, list);
       }
       return this.publicNow(ctx, 'het_phien');
@@ -550,13 +555,13 @@ export class BookingCore {
   }
 
   /** Tìm tên gõ tới đâu ra tới đó (từ 1 ký tự, có dấu hay không dấu đều được; luật ở C.findRank). Trả tối đa 6 người,
-      nhiều hơn thì kèm more: true để trang nhắc gõ thêm. */
+      nhiều hơn thì kèm more: true để trang nhắc gõ thêm. Ra MỌI khách — cả khách đã hết gói (chủ studio 17/11), cùng một thứ hạng. */
   async apiFind(p, now) {
     /* đếm theo khung 10 phút cố định (khoá theo mốc khung): đang bị chặn mà gõ tiếp cũng không kéo dài khoá quá hết khung */
     if ((await this.bump('lt:q:' + p.dev + ':' + Math.floor(now / 6e5), 600)) > LT.FIND_MAX) return { ok: false, error: 'cham_lai', now: now };
     const words = C.nameKey(String(p.q || '').slice(0, 60)).split(' ').filter(x => !!x);
     if (!words.length) return { ok: true, now: now, results: [] };
-    const ctx = C.weekCtx(now), res = C.findAll(words, this.persons(ctx, await this.getBA()));
+    const ctx = C.weekCtx(now), list = this.persons(ctx, await this.getBA()), res = C.findAll(words, list.concat(list.ended));
     const sg = await this.signer(), out = [];
     for (const x of res.slice(0, LT.FIND_TOP)) out.push({ id: await sg.idOf(x.key), short: x.short, coach: x.coach });
     return res.length > LT.FIND_TOP ? { ok: true, now: now, results: out, more: true } : { ok: true, now: now, results: out };
@@ -568,7 +573,7 @@ export class BookingCore {
     if (until > now) return { ok: false, error: 'khoa', until: until, now: now };
     const ctx = C.weekCtx(now), ba = await this.getBA(), list = this.persons(ctx, ba), sg = await this.signer(), id = String(p.id || '');
     let me = null;
-    for (const x of list) { if (await sg.idOf(x.key) === id) { me = x; break; } }
+    for (const x of list.concat(list.ended)) { if (await sg.idOf(x.key) === id) { me = x; break; } }
     if (!me) return { ok: false, error: 'khong_thay', now: now };
     const myId = await sg.idOf(me.key), memKey = 'lt:lm:' + myId, mUntil = Number(await this.cGet(memKey)) || 0;
     if (mUntil > now) return { ok: false, error: 'khoa', until: mUntil, now: now };
@@ -585,52 +590,42 @@ export class BookingCore {
       return { ok: false, error: 'sai_ma', left: LT.FAILS - n, now: now };
     }
     await this.cDel('lt:fd:' + p.dev);
-    const ttl = p.remember ? LT.REMEMBER : LT.SESSION, st = await this.loadState(ctx, me, list, ba);
+    const ttl = p.remember ? LT.REMEMBER : LT.SESSION, st = me.ended ? C.endedStateOf(ctx, me) : await this.loadState(ctx, me, list, ba);
     st.tok = await sg.tokMake(me.key, p.dev, ttl, now);
     st.tokExp = now + ttl;
     return st;
   }
 
-  /** "Để B0DY kể về bạn": câu chuyện của hội viên đã xác minh (chỉ của chính họ). Tên lấy từ MEMBERS (luôn đúng tên hiện tại),
-      coach lấy từ dữ liệu (người viết lời nhận xét) hoặc MEMBERS. Chưa có tab / chưa có hàng → story: null (trang không hiện thẻ). */
+  /** "Để B0DY kể về bạn": câu chuyện của CHÍNH hội viên đã xác minh. Khách đang tập: chỉ ở tuần cuối của gói (C.lastWeek), còn lại
+      story null + why 'chua_toi'. Khách đã hết gói: luôn (trang vào thẳng hành trình). Dữ liệu lấy từ nguồn câu chuyện (this.stories —
+      bản thật chưa có: story null). Tên lấy từ MEMBERS (luôn đúng tên hiện tại), coach từ dữ liệu (người viết nhận xét) hoặc MEMBERS. */
   async apiStory(p, now) {
     const sg = await this.signer(), t = p.tok ? await sg.tokRead(p.tok, p.dev, now) : null;
     if (!t) return { ok: false, error: 'het_phien', now: now };
-    const ctx = C.weekCtx(now), ba = await this.getBA(), list = this.persons(ctx, ba), me = C.findPerson(list, t.k);
+    const ctx = C.weekCtx(now), ba = await this.getBA(), list = this.persons(ctx, ba);
+    let me = C.findPerson(list, t.k);
+    const ended = !me;
+    if (ended) me = C.findPerson(list.ended, t.k);
     if (!me) return { ok: false, error: 'het_goi', now: now };
-    const s = C.storyOf(await this.getStories(), list, me);
-    if (!s) return { ok: true, now: now, story: null };
-    /* tên trên bìa / thẻ = tên gọi của trang đặt lịch ("Đức Nam"); B0B gọi bằng chữ cuối ("Nam") trừ khi dữ liệu ghi rõ một phần của tên */
-    /* chỉ các trường của dạng v1 (ke-core.js): công cụ sinh dữ liệu có ghi thêm gì vào JSON cũng không lộ ra trình duyệt */
-    const d = s.data, c = typeof d.call === 'string' ? d.call.trim() : '', story = {};
-    ['asOf', 'sessions', 'load', 'lifts', 'pullup', 'body', 'goals', 'note', 'room'].forEach(k => { if (d[k] !== undefined) story[k] = d[k]; });
+    if (!ended) {
+      const m = C.mine(C.canonRows((await this.getLog()).rows, list), me, ctx);
+      if (!C.lastWeek(ctx, me, m, await this.marksFor(ctx))) return { ok: true, now: now, story: null, why: 'chua_toi' };
+    }
+    let s = null;
+    try { s = this.stories ? await this.stories(me, { ended: ended, ctx: ctx }) : null; }
+    catch (e) { this.logf({ ev: 'story_nguon_loi', msg: String(e && e.message || e).slice(0, 80) }); s = null; }   /* nguồn lỗi: không hiện thẻ, không lỗi hệ thống */
+    const d = s && s.data && typeof s.data === 'object' && s.data.v === 2 ? s.data : null;
+    if (!d) return { ok: true, now: now, story: null, ended: ended };
+    /* tên trên bìa / thẻ = tên gọi của trang đặt lịch ("Đức Nam"); B0B gọi bằng chữ cuối ("Nam") trừ khi dữ liệu ghi rõ một phần của tên.
+       Chỉ các trường của dạng v2 (ke-core.js): nguồn có thêm gì cũng không lộ ra trình duyệt. Khách đã hết gói: kể tới buổi cuối (bỏ asOf). */
+    const c = typeof d.call === 'string' ? d.call.trim() : '', story = {};
+    C.STORY_KEYS.forEach(k => { if (d[k] !== undefined) story[k] = d[k]; });
+    if (ended) { delete story.asOf; story.ended = true; }       /* kể tới buổi cuối, ở thì đã qua (ke-core: không chuỗi hiện tại) */
     Object.assign(story, {
-      v: 1, name: me.call, call: c && (' ' + me.call + ' ').indexOf(' ' + c + ' ') >= 0 ? c : '', coach: String(d.coach || me.coach || '').slice(0, 40),
-      code: /^[A-Z0-9]{3,16}$/.test(me.key) ? me.key : '', ver: s.ver, id: await sg.idOf(me.key)
+      v: 2, name: me.call, call: c && (' ' + me.call + ' ').indexOf(' ' + c + ' ') >= 0 ? c : '', coach: String(d.coach || me.coach || '').slice(0, 40),
+      code: /^[A-Z0-9]{3,16}$/.test(me.key) ? me.key : '', ver: String(s.ver || me.start || '').slice(0, 40), id: await sg.idOf(me.key)
     });
-    return { ok: true, now: now, story: story };
-  }
-  /** Các hàng của tab "Kể về bạn" (A2:D), giữ trong bộ nhớ cfg.TTL_STORY. Tên tab dò theo danh sách tab (so dạng NFC như mọi tab khác —
-      tên gõ tiếng Việt có thể ở dạng tổ hợp); chưa có tab → [] (dò lại sau TTL). Google lỗi → bản cũ nếu có, và không gọi lại Google
-      trong cfg.META_TRY (lượt sau trả ngay bản cũ / lỗi thay vì đợi hết hạn giờ). */
-  async getStories() {
-    const c = this.storyCache, t = this.now();
-    if (c && t - c.at < this.cfg.TTL_STORY) return c.rows;
-    if (this.storyFailAt && t - this.storyFailAt < this.cfg.META_TRY) { if (c) return c.rows; throw new Error('story_google_loi'); }
-    return this.once('story', async () => {
-      let rows = [];
-      try {
-        const n = LT.STORY.normalize('NFC'), tab = (await this.g.meta(this.OUT)).find(x => String(x.title).normalize('NFC') === n);
-        if (tab) rows = (await this.g.batchGet(this.OUT, [q(tab.title) + '!A2:D' + (LT.STORY_ROWS + 1)]))[0] || [];
-      } catch (e) {
-        this.storyFailAt = this.now();
-        if (c) return c.rows;                                             /* Google lỗi: dùng bản cũ nếu có */
-        throw e;
-      }
-      this.storyFailAt = 0;
-      this.storyCache = { at: this.now(), rows: rows };
-      return rows;
-    });
+    return { ok: true, now: now, story: story, ended: ended };
   }
 
   /** Dựng state cho một hội viên (lượt XEM). */

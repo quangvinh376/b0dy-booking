@@ -9,7 +9,7 @@
 'use strict';
 
 /* ============================== CẤU HÌNH ============================== */
-var VER = '1.9.1';
+var VER = '1.10.0';
 var API_URL = 'https://b0dy-booking-api.little-bonus-1d87.workers.dev/';
 var API_SLOW = false;                 /* true khi chạy Apps Script (chậm hơn nhiều) → nới thời gian chờ */
 /* kênh live: Worker chỉ nhận từ trang thật (ALLOW_ORIGINS) → trang chạy chỗ khác (test trên máy) không nối, khỏi gõ cửa máy chủ thật.
@@ -592,8 +592,9 @@ function chipHTML() {
     '<span class="kc-t">' + esc(done || 'Để B0DY kể về bạn') + '</span>' + ico('right', 'kc-ar') + (seen ? '' : '<i class="kc-dot" aria-hidden="true"></i>') + '</button>';
 }
 
-/* ============================== "ĐỂ B0DY KỂ VỀ BẠN" (09/11) ==============================
-   Máy chủ (lt_story) trả câu chuyện của chính hội viên đã xác minh — chỉ khi đã có dữ liệu (tab "Kể về bạn"); không có → không có thẻ.
+/* ============================== "ĐỂ B0DY KỂ VỀ BẠN" (09/11 · 17/11) ==============================
+   Máy chủ (lt_story) trả câu chuyện của chính hội viên đã xác minh — khách đang tập: chỉ ở TUẦN CUỐI của gói (đặt đủ số buổi còn lại /
+   gói hết hạn trong tuần); khách đã hết gói: luôn (tìm tên + 4 số cuối → vào thẳng hành trình, mở ở "Khoe thành tích"). Không có → không thẻ.
    KE.derive (ke-core.js) quyết định có đủ để kể không (≥ 12 buổi, ≥ 4 tuần). Bấm thẻ → để câu chuyện + tuần sau vào sessionStorage
    ('ke_payload') rồi mở ke.html. Bộ nhớ máy theo hội viên + phiên bản câu chuyện (id:ver): ke_seen (đã mở → hết chấm Cam) ·
    ke_done (đã tới biệt danh → nhãn thẻ = biệt danh; ke.js ghi) · ke_hint (đã hiện câu gợi ý lần đầu). */
@@ -614,21 +615,24 @@ function keSet(story, who) {
   } else hdRight();
 }
 /* đăng xuất / hết phiên: bỏ câu chuyện, cả dữ liệu đã để sẵn cho ke.html (máy dùng chung: người sau không mở lại được), bỏ lượt hỏi đang bay */
-function keReset() { KS.st = null; KS.M = null; KS.who = ''; KS.at = 0; KS.for = ''; KS.req = null; SS.del('ke_story'); SS.del('ke_payload'); keHintOff(true); hdRight(); }
+function keReset() { KS.st = null; KS.M = null; KS.who = ''; KS.at = 0; KS.for = ''; KS.req = null; SS.del('ke_story'); SS.del('ke_payload'); SS.del('ke_auto'); KE_END.story = null; KE_END.req = null; keHintOff(true); hdRight(); }
 /* gọi khi đã vào màn của hội viên (routeAuthed): hiện ngay bản đã có trong phiên, hỏi lại máy chủ tối đa 10 phút một lần */
+/* hỏi lại ngay khi số buổi còn lại / số buổi đã đặt trong tuần đổi (vừa đặt đủ buổi cuối của gói → thẻ hiện liền, không đợi 10 phút) */
+function keSig() { var st = S.st; return st ? whoOf(st) + '|' + st.week.key + '|' + (st.me && st.me.left) + '|' + (st.me && st.me.exp) + '|' + (st.mine ? st.mine.sessions.length : 0) : ''; }
 function keFetch() {
   if (!QC && !KE_LIVE) return;
   var who = whoOf(S.st); if (!who || !window.KE) return;
   if (KS.who !== who) { var c = jget(SS, 'ke_story'); keSet(c && c.who === who ? c.story : null, who); }
-  if ((KS.req && KS.req.who === who) || (KS.for === who && Date.now() - KS.at < 10 * 60e3)) return;
+  var sig = keSig();
+  if ((KS.req && KS.req.who === who && KS.req.sig === sig) || (KS.for === sig && Date.now() - KS.at < 10 * 60e3)) return;
   var tok = TOK.get(); if (!tok) return;
-  var my = KS.req = { who: who };
+  var my = KS.req = { who: who, sig: sig };
   call('lt_story', { tok: tok }).then(function (r) {
     if (KS.req !== my) return;                                       /* lượt cũ (đã đăng xuất / có lượt mới hơn) */
     KS.req = null;
     if (tok !== TOK.get() || whoOf(S.st) !== who) return;            /* đã đăng xuất / người khác vào trong lúc chờ */
     if (!r || !r.ok) return;                                         /* máy chủ chưa có lt_story (unknown_action) / lỗi: giữ như cũ */
-    KS.at = Date.now(); KS.for = who;
+    KS.at = Date.now(); KS.for = sig;
     var story = r.story && typeof r.story === 'object' ? r.story : null;
     if (story) SS.set('ke_story', JSON.stringify({ who: who, story: story })); else SS.del('ke_story');
     keSet(story, who);
@@ -644,6 +648,9 @@ function keNext() {
     else o.state = st.mode === 'book' ? 'open' : 'none';
   } else { o.no = w.nextNo; o.mon = addD(w.mon, 7); o.state = 'later'; }
   if (o.state !== 'booked' && ((o.exp && o.exp < o.mon) || !(+me.left > 0))) o.state = 'none';
+  /* tuần cuối của gói: các buổi đã đặt từ hôm nay đã dùng hết số buổi còn lại → tuần sau không còn gì để đặt (không hứa ô lịch) */
+  var today = isoOf(now()), upcoming = (st.mine && st.mine.sessions || []).filter(function (s) { return s.date >= today && s.st !== 'done' && s.st !== 'absent'; }).length;
+  if (o.state === 'later' && +me.left - upcoming <= 0) o.state = 'none';
   return o;
 }
 function keOpen() {
@@ -654,6 +661,39 @@ function keOpen() {
   var ok = SS.set('ke_payload', JSON.stringify({ story: KS.st, next: keNext(), nav: true, tk: String(TOK.get()).slice(-16) }));
   if (!ok) { toast('Trình duyệt đang chặn bộ nhớ tạm. Chưa mở được câu chuyện.'); hdRight(); return; }
   location.href = 'ke.html' + (QC ? '?qc' : '');
+}
+/* khách đã hết gói (state ended — chủ studio 17/11): hỏi câu chuyện rồi vào thẳng ke.html, mở ở "Khoe thành tích" (ke.js). Thay trang này
+   trong lịch sử (location.replace): nút Lùi không quay lại một trang đặt lịch không dùng được nữa. Chưa bật (KE_LIVE) / chưa có câu
+   chuyện / lỗi mạng → màn "Gói tập đã kết thúc". */
+/* Màn "ended" là chỗ đứng của khách đã hết gói trên trang này: có câu chuyện → nút "Xem lại câu chuyện" + "Không phải bạn?"; chưa có →
+   lời cảm ơn. Vào thẳng hành trình CHỈ MỘT LẦN mỗi phiên tab (ke_auto = đuôi mã nhớ máy): nút Lùi từ ke.html trở về màn này, không bị
+   đẩy sang ke.html lần nữa (không kẹt), và ke.html không mở được thì cũng không chuyển qua lại mãi. */
+var KE_END = { req: null, story: null };
+function keEndOpen() {
+  var tok = TOK.get(), story = KE_END.story;
+  if (!tok || !story) return false;
+  if (!SS.set('ke_payload', JSON.stringify({ story: story, next: { state: 'ended' }, nav: true, tk: String(tok).slice(-16) }))) return false;
+  SS.set('ke_auto', String(tok).slice(-16));
+  location.href = 'ke.html' + (QC ? '?qc' : '');
+  return true;
+}
+function keEnded(dir, op) {
+  if (!S.st || !S.st.ended) return;
+  if ((!QC && !KE_LIVE) || !window.KE) { KE_END.story = null; go('ended', dir, op); return; }
+  var tok = TOK.get(); if (!tok) { go('ended', dir, op); return; }
+  if (KE_END.req && KE_END.req.tok === tok) return;                   /* đang hỏi */
+  if (S.view !== 'ended') go('loading', dir, op);
+  var my = KE_END.req = { tok: tok }, g = S.gen;
+  call('lt_story', { tok: tok }).then(function (r) {
+    if (KE_END.req !== my) return;
+    KE_END.req = null;
+    if (g !== S.gen || tok !== TOK.get() || !S.st || !S.st.ended) return;   /* đã đăng xuất / người khác vào trong lúc chờ */
+    if (r && r.ok === false && r.error === 'het_phien') { signedOut('het_phien'); return; }
+    var story = r && r.ok && r.story && typeof r.story === 'object' ? r.story : null;
+    KE_END.story = story && window.KE.derive(story) ? story : null;
+    go('ended', 'fwd');                                              /* màn đứng (Lùi từ ke.html về đây) */
+    if (KE_END.story && SS.get('ke_auto') !== String(tok).slice(-16)) keEndOpen();
+  }, function () { if (KE_END.req === my) KE_END.req = null; if (g === S.gen && S.st && S.st.ended) go('ended', 'fwd'); });
 }
 /* câu gợi ý lần đầu: B0B nhìn thẻ, một câu dưới thẻ 6 giây (chạm đâu cũng tắt) */
 var KH = { t: 0 };
@@ -679,7 +719,11 @@ function keHintOff(instant) {
 }
 document.addEventListener('pointerdown', function () { if ($('#khint')) keHintOff(); }, true);
 /* quay lại từ ke.html (bộ nhớ đệm trang / tab hiện lại): thẻ đọc lại đã mở / biệt danh */
-window.addEventListener('pageshow', function () { hdRight(); });
+window.addEventListener('pageshow', function (e) {
+  hdRight();
+  /* Lùi từ ke.html (trang lấy lại từ bộ nhớ đệm đúng lúc đang "loading" trước khi chuyển) → màn đứng của khách đã hết gói */
+  if (e.persisted && S.st && S.st.ended && S.view !== 'ended') { KE_END.req = null; go('ended', 'back'); }
+});
 document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') hdRight(); });
 
 /* ============================== KHUNG MÀN (vào / ra như app coach) ============================== */
@@ -1331,6 +1375,16 @@ VIEWS.fail = function () {
     '<div class="rs r1"><button class="btn btn-phu" type="button" data-a="retry" data-focus>' + ico('swap') + '<span>Thử lại</span></button></div></div></div>');
   return { page: page, mood: 'doubt', step: -1 };
 };
+/* khách đã hết gói mà chưa có câu chuyện để kể (chủ studio 17/11 — chữ mới, chờ soát) */
+VIEWS.ended = function () {
+  var me = S.st && S.st.me || {}, call1 = me.call || '';
+  var page = pageEl('pg-ended', '<div class="ctr st"><div class="col">' +
+    '<div class="ttl-row rs"><div class="ttl"><h1 class="h56" tabindex="-1">Gói tập đã kết thúc.</h1><p class="b16">' +
+    esc('Cảm ơn ' + (call1 || 'bạn') + ' đã tập cùng B0DY. Muốn tập tiếp, nhắn ' + (me.coach ? 'coach ' + me.coach : 'coach của bạn') + ' nhé.') + '</p></div><div class="bob-slot m"></div></div>' +
+    (KE_END.story ? '<div class="rs r2"><button class="btn btn-chinh" type="button" data-a="ke-replay" data-focus><span class="bt">Xem lại câu chuyện</span>' + ico('right') + '</button></div>' : '') +
+    '<div class="rs r3"><button class="btn btn-chu cs" type="button" data-a="notyou"><span class="bt">Không phải bạn?</span></button></div></div></div>');
+  return { page: page, mood: 'observe', step: -1 };
+};
 
 /* ============================== E01 · CHƯA MỞ ĐẶT ============================== */
 var CDT = 0;
@@ -1687,6 +1741,7 @@ function routeAuthed(dir, op) {
   op = op || {};
   var st = S.st, w = st.week;
   S.addMode = false; S.chg = { from: null, to: null };
+  if (st.ended) { keEnded(dir, op); return; }                   /* khách đã hết gói: vào thẳng hành trình (17/11) */
   keFetch();
   if (w.phase === 'before') { go('closed', dir, op); return; }
   var lp = landedOf(mineP(jget(LS, 'lt_pend'), st), st);
@@ -2382,6 +2437,7 @@ function onWrite(r, kind, p) {
     S.picks = []; S.addMode = false; S.chg = { from: null, to: null };
     if (history.replaceState) history.replaceState({ v: 'ticket' }, '');
     go('ticket', 'fwd', { variant: variant });
+    keFetch();                                                     /* vừa đặt đủ số buổi còn lại → tuần cuối của gói: thẻ hiện ngay */
     return;
   }
   var e = r && r.error;
@@ -3533,6 +3589,7 @@ function signedOut(why) {
 }
 var ACT = {
   notyou: function () { signedOut(''); },
+  'ke-replay': function () { if (!keEndOpen()) toast('Trình duyệt đang chặn bộ nhớ tạm. Chưa mở được câu chuyện.'); },
   info: openDrawer, closedrawer: function () { closeDrawer(); }, closesheet: function () { closeSheet(); },
   note: function () { var n = S.view === 'change' ? currentChgNotice() : noticeForErr(bookNotice() || {}); if (n && n.title) openSheet(n); },
   clearq: function () { S.q = ''; var i = $('#q'); if (i) { i.value = ''; i.focus(); } onQuery(); },
@@ -3622,9 +3679,13 @@ function applyPublic(r) {
   else headerFor();
 }
 function applyAuthed(r, quiet) {
-  var prevView = S.view, prevMode = S.st && S.st.mode, prevWeek = S.st && S.st.week.key, prevTk = S.st ? tkSig(S.st) : '';
+  var prevView = S.view, prevMode = S.st && S.st.mode, prevWeek = S.st && S.st.week.key, prevTk = S.st && !S.st.ended ? tkSig(S.st) : '';
   S.st = cleanSt(r); saveSt();
   var st = S.st;
+  if (!st.ended) keFetch();                                        /* vừa đặt đủ buổi cuối của gói (lượt của máy khác / live) → thẻ hiện */
+  /* khách đã hết gói: không có lịch để vẽ — đang ở màn hết gói thì giữ, còn lại đi theo routeAuthed (vào hành trình) */
+  if (st.ended) { if (prevView !== 'ended') routeAuthed('fwd'); else headerFor(); return; }
+  if (prevView === 'ended') { routeAuthed('fwd'); return; }          /* vừa gia hạn: về đặt lịch như thường */
   renderPairs();                                   /* bảng Tập đôi đang mở: lời mời / bạn tập mới */
   if (prevWeek && prevWeek !== st.week.key) { S.picks = []; S.gone = []; S.notice = null; S.pending = null; savePend(); routeAuthed('fwd'); return; }
   /* lệnh chờ của lần gửi trước (mất phản hồi) — hoặc lệnh trước nó mà khách đã sửa lựa chọn — đã nằm trong sổ → xong */
@@ -3769,6 +3830,11 @@ function liveCount(n) {
 }
 function boot() {
   S.dev = devId();
+  /* ke.html · "Không phải bạn?" của khách đã hết gói → ?out: đăng xuất như nút cùng tên (mã nhớ máy, bản lưu, lệnh chờ, câu chuyện) */
+  if (/[?&]out(=|&|$)/.test(location.search)) {
+    TOK.clear(); S.pending = null; savePend(); keReset();
+    history.replaceState && history.replaceState(null, '', location.pathname + (QC ? '?qc' : ''));
+  }
   SKEW = +LS.get('lt_skew') || 0;
   if (!QC && Math.abs(SKEW) > 7 * DAY) SKEW = 0;      /* QC: đồng hồ giả có thể lệch giờ thật bao nhiêu cũng được */
   var hd = $('#hd'); var b = document.createElement('i'); b.className = 'busy'; b.id = 'busy'; hd.appendChild(b);
@@ -3807,7 +3873,7 @@ function boot() {
     if (el && !TWS.length && !tkMoving(el) && !TILT.raf && !TILT.drag && PNGC.key !== pngKey()) makePng().catch(function () {});
   }, 4000);
 }
-window.__lt = { S: S, ver: VER, code128B: code128B, why: function (d, h, l) { return why(d, h, l); }, weekCtx: weekCtx, tilt: TILT, tiltKick: function () { tiltKick(); } };
+window.__lt = { S: S, ver: VER, keNext: function () { return keNext(); }, code128B: code128B, why: function (d, h, l) { return why(d, h, l); }, weekCtx: weekCtx, tilt: TILT, tiltKick: function () { tiltKick(); } };
 /* QC: nạp máy chủ giả (qc.js — module) + bảng QC rồi mới khởi động; đặt đồng hồ trang theo đồng hồ giả trước khi vẽ màn đầu.
    Không nạp được thì báo lỗi, KHÔNG bao giờ lui về máy chủ thật. */
 function qcStart() {

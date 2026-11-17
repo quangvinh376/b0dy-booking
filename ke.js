@@ -9,6 +9,9 @@
    · Đi tới khoảnh khắc biệt danh → ghi localStorage 'ke_done:<id>:<phiên bản>' = biệt danh (trang đặt lịch đổi chữ trên thẻ header).
    · Thanh truyện (chủ studio 09/11): chạm đoạn nào → tới thẳng khoảnh khắc đó (bỏ qua câu hỏi chưa trả lời). Đã xem tới khoảnh khắc cuối
      một lần ('ke_end:<id>:<phiên bản>') → từ đó có nút "Tới cuối →" góc trên phải.
+   · Khách đã hết gói (chủ studio 17/11; next.state 'ended'): tìm tên + 4 số cuối điện thoại là vào thẳng đây, mở sẵn ở "Khoe thành tích".
+     Header: "← Tới đầu" (thay "← Đặt lịch" — không còn trang đặt lịch để về) · "Tới cuối →" (luôn có, trừ khi đang ở cuối). Màn cuối có
+     "Không phải bạn?" (máy dùng chung: đăng xuất, về tìm tên).
    ===================================================================== */
 (() => {
 'use strict';
@@ -35,6 +38,7 @@ function mine() {
 }
 const M = DATA && window.KE && mine() ? window.KE.derive(DATA.story) : null;
 if (!M) { location.replace(HOME); return; }
+const ENDED = !!(DATA.next && DATA.next.state === 'ended');
 /* quay lại trang này từ bộ nhớ đệm (nút Tiến) sau khi đã đăng xuất → không hiện lại */
 addEventListener('pageshow', e => { if (e.persisted && !mine()) location.replace(HOME); });
 const KE = window.KE, L = KE.script(M, DATA.next || null);
@@ -46,6 +50,12 @@ let HOMET = 0;
 function home() {
   if (DATA.nav && history.length > 1) { history.back(); HOMET = setTimeout(() => location.replace(HOME), 2500); }   /* mạng chậm: trang đặt lịch có thể mất ~1,2 s */
   else location.replace(HOME);
+}
+/** "Không phải bạn?" (khách đã hết gói — không có trang đặt lịch để bấm nút này): bỏ dữ liệu câu chuyện rồi để trang đặt lịch đăng xuất
+    (?out — app.js xoá mã nhớ máy, bản lưu, lệnh chờ như nút "Không phải bạn?" của nó) */
+function signOut() {
+  try { sessionStorage.removeItem(PF + 'ke_payload'); } catch (e) { /* bỏ qua */ }
+  location.replace('./?' + (QC ? 'qc&' : '') + 'out');
 }
 addEventListener('pagehide', () => clearTimeout(HOMET));
 
@@ -89,6 +99,8 @@ const SVGNS = 'http://www.w3.org/2000/svg';
 /* ============================== KHOẢNH KHẮC ============================== */
 const ans = {}, REF = {};
 const B = {};
+/** cơ sở của con số (chủ studio 17/11: "10,8 tấn từ 10 buổi tập") — dòng nhãn ngay dưới con số; không có thì thôi */
+const basis = m => m.basis ? h('p', 'lb a mt12 basis', m.basis, { '--d0': '.2s' }) : null;
 B.cover = m => [
   bob('greet', 'paper', 'ink', { '--d': 'min(60cqi,28cqb)', '--cx': 'calc(100% - min(23cqi,10.7cqb))', '--cy': '60%', '--d0': '.15s' }),
   h('p', 'lb a', m.lb), lines('h1', 'word rise mt24', m.lines, fz('min(30cqi,15cqb)')), grow(), h('p', 'say lg a', m.say, { '--d0': '.4s' })];
@@ -168,15 +180,15 @@ B.mtn = m => {
   REF.r4 = h('p', 'say a dim mt12', '', { '--d0': '1.6s' });
   const box = add(h('div', 'mtn'), mountain(m.vol), h('span', 'lb l', m.d0), h('span', 'lb r', m.d1));
   return [h('p', 'lb a', m.lb), nu('rise mt24 acidt', num(KE.num(m.value), { count: m.value, from: 'g4', dec: 1 }), 'tấn', fz('min(28cqi,13cqb)')),
-    h('p', 'say lg a mt24', m.say, { '--d0': '.3s' }), REF.r4, grow('var(--s24)'), box];
+    basis(m), h('p', 'say lg a mt24', m.say, { '--d0': '.3s' }), REF.r4, grow('var(--s24)'), box];
 };
-B.lift = m => [h('p', 'lb a', m.lb), nu('rise mt24', num(KE.num(m.to), { count: m.to, from0: m.from }), 'kg', fz('min(34cqi,15cqb)')),
+B.lift = m => [h('p', 'lb a', m.lb), nu('rise mt24', num(KE.num(m.to), { count: m.to, from0: m.from }), 'kg', fz('min(34cqi,15cqb)')), basis(m),
   add(h('div', 'bbwrap'), barbell(m)), h('p', 'say lg a', m.say, { '--d0': '.4s' }), h('p', 'say a dim mt12', m.dim, { '--d0': '1.4s' })];
 B.body = m => {
   REF.r5t = h('p', 'lb a', 'Đáp án');
   const panel = add(h('div', 'panel night up', null, { '--d0': '1.5s' }), h('p', 'lb acid', m.plb), h('h2', 'word stmt mt24 acidt', m.pword),
     nu('mt12 acidt', num(KE.num(m.pvalue)), 'kg', fz('min(34cqi,13cqb)')), m.pdet ? h('p', 'lb mt24', m.pdet) : null, grow(), h('p', 'say lg', m.psay));
-  return [REF.r5t, h('h2', 'word stmt a mt24', m.word), nu('rise mt12', num(KE.num(m.value)), 'kg', fz('min(34cqi,13cqb)')), h('p', 'say lg a mt24', m.say, { '--d0': '.5s' }), panel];
+  return [REF.r5t, h('h2', 'word stmt a mt24', m.word), nu('rise mt12', num(KE.num(m.value)), 'kg', fz('min(34cqi,13cqb)')), basis(m), h('p', 'say lg a mt24', m.say, { '--d0': '.5s' }), panel];
 };
 B.pull = m => {
   const cal = add(h('div', 'cal'), add(h('div', 'ct'), h('p', 'lb', m.mlb)), add(h('div', 'cb'), nu('', num(String(m.day))), h('p', 'say mt16', m.dname)));
@@ -212,6 +224,8 @@ B.card = m => {
   return [h('h2', 'word stmt a center', m.stmt), add(h('div', 'cardwrap a mt24', null, { '--d0': '.12s' }), add(h('div', 'card'), cv)), REF.picks,
     add(h('div', 'btns a mt16', null, { '--d0': '.3s' }), save, pv)];
 };
+/* câu kết coach tự ghi (khách đã hết gói) — nguyên văn, như lời coach */
+B.end = m => [h('p', 'lb a', m.lb), h('p', 'qt a mt24', m.quote, { '--d0': '.1s' }), grow()];
 B.next = m => {
   const out = [];
   if (m.lb) out.push(h('p', 'lb a', m.lb));
@@ -318,15 +332,22 @@ const scrs = L.map(m => {
 /* thanh truyện: mỗi đoạn một nút (vạch 2 px, vùng chạm cao 26 px) — chạm là tới thẳng khoảnh khắc đó */
 const NAMES = { cover: 'Mở đầu', rules: 'Luật chơi', a1: 'Số buổi đã tập', clock: 'Khung giờ quen', days: 'Ngày hay tập', gap: 'Tuần vắng', room: 'Một sự thật',
   streak: 'Chuỗi tuần', mtn: 'Tạ đã nâng', lift: 'Mức tạ', body: 'Cân nặng và khối cơ', pull: 'Hít xà', coach: 'Lời coach', lead: 'Trước biệt danh', nick: 'Biệt danh',
-  bands: 'Bảng màu', card: 'Thẻ khoe thành tích', next: 'Tuần sau' };
+  bands: 'Bảng màu', card: 'Thẻ khoe thành tích', next: 'Tuần sau', end: 'Lời kết' };
 L.forEach((m, i) => {
   const b = document.createElement('button'); b.type = 'button';
   b.setAttribute('aria-label', 'Khoảnh khắc ' + (i + 1) + ' / ' + L.length + ': ' + (m.g ? m.lb : NAMES[m.id] || m.id));
   b.addEventListener('click', () => jump(i));
   segs.appendChild(b);
 });
-const LAST = scrs.length - 1, toEnd = document.getElementById('toend');
+const LAST = scrs.length - 1, toEnd = document.getElementById('toend'), closeB = document.getElementById('close');
 const seenEnd = () => !!LS.get('ke_end:' + SID);
+/* khách đã hết gói: nút trái là "← Tới đầu"; màn cuối có "Không phải bạn?" */
+if (ENDED) {
+  closeB.textContent = '← Tới đầu'; closeB.setAttribute('aria-label', 'Về khoảnh khắc đầu tiên');
+  const out = h('button', 'notme a mt16', 'Không phải bạn?', { '--d0': '.5s' }); out.type = 'button'; out.id = 'notme';
+  out.addEventListener('click', signOut);
+  scrs[LAST].appendChild(out);
+}
 
 /* ============================== CĂN QUANG HỌC + TỰ VỪA KHUNG (như artifact) ============================== */
 const MC = document.createElement('canvas').getContext('2d');
@@ -408,7 +429,12 @@ function paint(i) {
   document.getElementById('top').style.color = FG[bg];
   if (theme) theme.setAttribute('content', COL[bg]);
   [...segs.children].forEach((e, k) => { e.classList.toggle('done', k <= i); if (k === i) e.setAttribute('aria-current', 'step'); else e.removeAttribute('aria-current'); });
-  toEnd.hidden = !(seenEnd() && i < LAST);   /* "Tới cuối →" chỉ từ lần xem thứ hai, ẩn khi đã ở cuối */
+  toEnd.hidden = !((ENDED || seenEnd()) && i < LAST);   /* "Tới cuối →" chỉ từ lần xem thứ hai (khách hết gói: luôn có), ẩn khi đã ở cuối */
+  if (ENDED) {                                            /* "← Tới đầu" ẩn khi đang ở đầu — đang giữ tiêu điểm bàn phím thì chuyển sang "Tới cuối →" */
+    const had = document.activeElement === closeB;
+    closeB.hidden = i === 0;
+    if (had && closeB.hidden) (toEnd.hidden ? stage : toEnd).focus({ preventScroll: true });
+  }
   document.getElementById('sprev').disabled = i === 0; document.getElementById('snext').disabled = i === scrs.length - 1;
   document.getElementById('pos').textContent = 'Khoảnh khắc ' + (i + 1) + ' trên ' + scrs.length;
 }
@@ -466,7 +492,7 @@ document.addEventListener('keydown', e => {
 });
 document.getElementById('sprev').addEventListener('click', () => go(cur - 1));
 document.getElementById('snext').addEventListener('click', () => go(cur + 1));
-document.getElementById('close').addEventListener('click', home);
+closeB.addEventListener('click', () => { if (ENDED) jump(0); else home(); });
 toEnd.addEventListener('click', () => jump(LAST));
 stage.querySelectorAll('[data-next]').forEach(b => b.addEventListener('click', () => go(cur + 1)));
 
@@ -753,7 +779,9 @@ function toast(t) {
 }
 
 /* ============================== KHỞI ĐỘNG ============================== */
-paint(0); enter(0);
+/* khách đã hết gói: mở sẵn ở "Khoe thành tích" (chủ studio 17/11); còn lại từ bìa */
+cur = ENDED ? Math.max(0, L.findIndex(x => x.id === 'card')) : 0;
+paint(cur); enter(cur);
 fontsReady().then(() => requestAnimationFrame(() => { optical(); fitScreen(scrs[cur]); }))
   .then(loadBob).then(() => { drawCard(); fillPrintPage(); });
 window.__ke = { M: M, L: L, go: i => { cur = i; paint(i); enter(i); }, cur: () => cur, busy: () => busy, ans: ans, sel: a => { sel = a; drawPicks(); drawCard(); },

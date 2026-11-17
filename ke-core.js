@@ -2,18 +2,21 @@
    B0DY · "Để B0DY kể về bạn" — lõi câu chuyện (ke-core.js)
    Hàm thuần, không đụng DOM: chạy được trong trình duyệt (window.KE) lẫn Node (require) để test.
 
-   · KE.derive(story)  → mô hình (số đã tính sẵn) từ dữ liệu câu chuyện máy chủ trả (lt_story · dạng v1, xem worker/README.md).
+   · KE.derive(story)  → mô hình (số đã tính sẵn) từ dữ liệu câu chuyện máy chủ trả (lt_story · dạng v2, xem worker/README.md).
                           Dữ liệu không đủ để kể (dưới 12 buổi hoặc dưới 4 tuần) / hỏng → null: trang không hiện thẻ, không mở hành trình.
    · KE.script(M, next) → danh sách khoảnh khắc theo đúng thứ tự bản thiết kế (artifact 3.3 · 22 khoảnh khắc). Khoảnh khắc nào thiếu
                           dữ liệu thì bỏ (luật từng màn ghi ngay tại chỗ); câu hỏi đánh số lại theo số câu còn lại.
    · Chữ: giọng B0B (doc "Giọng B0B tiếng Việt"); với bộ dữ liệu mẫu, mọi câu ra đúng nguyên văn bản artifact chủ studio đã sửa
      (test/ke_core.js so từng câu). Câu cho dạng dữ liệu khác (ngày khác thứ Hai, tăng cân, biệt danh khác…) là chữ mới, ghi trong
      CLAUDE.md để chủ studio soát.
+   · v2 (17/11, chạy thử dữ liệu thật): buổi không rõ giờ vẫn đếm (chỉ không dùng cho giờ quen) · số tạ theo NGÀY → mọi con số từ logbook
+     ghi kèm cơ sở ("214,6 tấn · từ 86 buổi tập", mức tạ "qua N buổi tập", số đo "đo dd.mm → dd.mm") — chủ studio 17/11 · khách đã hết
+     gói (next.state 'ended'): không có "tuần sau", màn cuối là câu kết coach tự ghi (closing), chưa ghi thì thẻ khoe thành tích là màn cuối.
    ===================================================================== */
 (function (root) {
 'use strict';
 
-var V = 1;                                   /* dạng dữ liệu câu chuyện */
+var V = 2;                                   /* dạng dữ liệu câu chuyện (v1 09/11 chưa từng lên bản thật — không nhận nữa) */
 var MIN_SESSIONS = 12, MIN_WEEKS = 4;        /* dưới mức này không kể */
 var FULL = 3;                                /* tuần "đủ" = từ 3 buổi (KPI nhịp của phòng) */
 var DAY = 864e5;
@@ -91,35 +94,51 @@ function pos(v) { return finite(v) && v > 0 ? v : null; }
 function derive(story) {
   if (!story || typeof story !== 'object' || story.v !== V) return null;
   var asOf = okIso(story.asOf) ? story.asOf : null;
+  /* buổi: [ngày, giờ bắt đầu] — giờ không rõ (null / thiếu / hỏng) thì buổi VẪN đếm, chỉ không dùng cho giờ quen (SESSION LOG thật nhiều
+     buổi không ghi khung giờ — 17/11). Trùng y [ngày, giờ] (giờ rõ) → một buổi; buổi không rõ giờ thì mỗi dòng một buổi. */
   var seen = {}, S = [];
   (Array.isArray(story.sessions) ? story.sessions : []).forEach(function (x) {
-    if (!Array.isArray(x) || !okIso(x[0]) || !(x[1] === +x[1] && x[1] >= 0 && x[1] <= 23 && x[1] % 1 === 0)) return;
+    if (!Array.isArray(x) || !okIso(x[0])) return;
     if (asOf && x[0] > asOf) return;
-    var k = x[0] + '|' + x[1]; if (seen[k]) return; seen[k] = 1;
-    S.push({ d: x[0], h: x[1] });
+    var h = x[1] === +x[1] && x[1] >= 0 && x[1] <= 23 && x[1] % 1 === 0 ? x[1] : null;
+    if (h !== null) { var k = x[0] + '|' + h; if (seen[k]) return; seen[k] = 1; }
+    S.push({ d: x[0], h: h });
   });
-  S.sort(function (a, b) { return a.d < b.d ? -1 : a.d > b.d ? 1 : a.h - b.h; });
+  var hv = function (x) { return x.h === null ? -1 : x.h; };
+  S.sort(function (a, b) { return a.d < b.d ? -1 : a.d > b.d ? 1 : hv(a) - hv(b); });
   var name = str(story.name, 40);
   if (!name || S.length < MIN_SESSIONS) return null;
   var first = S[0].d, last = S[S.length - 1].d;
-  var M = { story: story, name: name, coach: str(story.coach, 40), code: str(story.code, 16).toUpperCase(), n: S.length, first: first, last: last, asOf: asOf || last };
+  var M = { story: story, name: name, coach: str(story.coach, 40), code: str(story.code, 16).toUpperCase(), n: S.length, first: first, last: last, asOf: asOf || last,
+            ended: story.ended === true };   /* khách đã hết gói (máy chủ đánh dấu): kể ở thì quá khứ — không "chuỗi hiện tại", không "0 tuần nghỉ thêm" */
   var nw = name.split(/\s+/);
   M.call = str(story.call, 20) || nw[nw.length - 1];
   M.nameLines = nw.length >= 2 ? [nw.slice(0, nw.length - 1).join(' '), nw[nw.length - 1]] : [name];
 
   /* tuần: liền mạch từ tuần buổi đầu tới tuần buổi gần nhất */
-  var load = story.load && typeof story.load === 'object' ? story.load : null, W = [], idx = {};
-  for (var m = monOf(first); m <= monOf(last); m = add(m, 7)) { idx[m] = W.length; W.push({ mon: m, key: wkey(m), n: 0, kg: load && finite(load[wkey(m)]) && load[wkey(m)] > 0 ? load[wkey(m)] : 0 }); }
+  var W = [], idx = {};
+  for (var m = monOf(first); m <= monOf(last); m = add(m, 7)) { idx[m] = W.length; W.push({ mon: m, key: wkey(m), n: 0, kg: 0 }); }
   S.forEach(function (x) { W[idx[monOf(x.d)]].n++; });
+  /* tạ theo NGÀY (Σ kg × rep các set coach ghi trên app): chỉ ngày trong khoảng các tuần tập, không quá asOf. loadN = số buổi (ngày) có
+     ghi tạ — mọi con số tạ đều kể kèm cơ sở này (chủ studio 17/11: "10,8 tấn từ 10 buổi tập") */
+  /* chỉ ngày CÓ BUỔI TẬP mới tính ("từ N buổi tập" phải đúng là buổi tập) — coach ghi set vào ngày không có buổi "Đã tập" thì bỏ */
+  var load = story.load && typeof story.load === 'object' && !Array.isArray(story.load) ? story.load : {}, LD = [], onDay = {};
+  S.forEach(function (x) { onDay[x.d] = 1; });
+  Object.keys(load).forEach(function (d) {
+    var v = load[d], i = okIso(d) ? idx[monOf(d)] : undefined;
+    if (i === undefined || !onDay[d] || !finite(v) || v <= 0 || d > (asOf || last)) return;
+    W[i].kg += v; LD.push(d);
+  });
+  LD.sort();
   M.weeks = W; M.W = W.length;
   if (M.W < MIN_WEEKS) return null;
   M.avg = M.n / M.W;
 
-  /* giờ quen */
-  var hc = {}; S.forEach(function (x) { hc[x.h] = (hc[x.h] || 0) + 1; });
+  /* giờ quen — chỉ trên các buổi rõ giờ; tỉ lệ vẫn chia cho TỔNG số buổi (câu "x trên tổng số n buổi" luôn đúng) */
+  var hc = {}; S.forEach(function (x) { if (x.h !== null) hc[x.h] = (hc[x.h] || 0) + 1; });
   M.hours = Object.keys(hc).map(function (h) { return [+h, hc[h]]; }).sort(function (a, b) { return b[1] - a[1] || a[0] - b[0]; });
-  M.topH = M.hours[0][0]; M.topHn = M.hours[0][1]; M.share = M.topHn / M.n;
-  M.habit = M.share >= 0.4 && (M.hours.length < 2 || M.hours[1][1] < M.topHn);
+  M.topH = M.hours.length ? M.hours[0][0] : null; M.topHn = M.hours.length ? M.hours[0][1] : 0; M.share = M.topHn / M.n;
+  M.habit = M.hours.length > 0 && M.share >= 0.4 && (M.hours.length < 2 || M.hours[1][1] < M.topHn);
 
   /* thứ trong tuần (0 = T2 … 6 = CN) */
   var dc = [0, 0, 0, 0, 0, 0, 0]; S.forEach(function (x) { dc[dow(x.d)]++; });
@@ -136,7 +155,7 @@ function derive(story) {
   for (var mm = add(monOf(last), 7); mm <= endMon; mm = add(mm, 7)) X.push(0);
   var top = X.length - 1, open = dow(M.asOf) !== 6 && monOf(M.asOf) === endMon, start = open && X[top] < FULL ? top - 1 : top;
   M.away = Math.max(0, start - (W.length - 1));
-  var cur = 0; for (var i = start; i >= 0 && X[i] >= FULL; i--) cur++;
+  var cur = 0; if (!M.ended) for (var i = start; i >= 0 && X[i] >= FULL; i--) cur++;
   var best = 0, run = 0; for (var q = 0; q <= start; q++) { run = X[q] >= FULL ? run + 1 : 0; if (run > best) best = run; }
   M.streak = { cur: cur, best: best, mon: cur ? add(monOf(first), 7 * (start - cur + 1)) : null };
   M.streakNow = start < top;   /* ô viền cuối dải chuỗi = tuần đang dở (tuần này) thay vì tuần sau */
@@ -151,20 +170,19 @@ function derive(story) {
     break;
   }
 
-  /* tạ đã nâng */
-  var tot = W.reduce(function (s, w) { return s + w.kg; }, 0), wl = W.filter(function (w) { return w.kg > 0; }).length;
-  M.tons = tot >= 1000 && wl >= 4 ? Math.round(tot / 100) / 10 : null;
+  /* tạ đã nâng: ≥ 1 tấn từ ≥ 4 buổi có ghi tạ. loadN = số buổi có ghi tạ (cơ sở kể kèm mọi con số tạ) · loadFrom = ngày đầu có ghi tạ ·
+     loadK0 = tuần của ngày đó (núi tạ không vẽ phần phẳng trước khi coach bắt đầu ghi — logbook app coach có từ 26.09.2026) */
+  var tot = W.reduce(function (s, w) { return s + w.kg; }, 0);
+  M.loadN = LD.length;
+  M.tons = tot >= 1000 && M.loadN >= 4 ? Math.round(tot / 100) / 10 : null;
   M.loadKg = tot;
-  /* số tạ có từ đâu: logbook app coach chỉ có từ 26.09.2026 — khách tập từ trước thì tổng chỉ tính từ tuần đầu có số tạ.
-     loadK0 = tuần đầu có số tạ · loadFrom = buổi đầu tiên của tuần đó (núi, nhãn ngày, câu hỏi, bản in đều tính từ đây) */
-  var k0 = 0; while (k0 < W.length && !W[k0].kg) k0++;
-  if (k0 >= W.length) k0 = 0;
-  var q0 = 0; while (q0 < S.length - 1 && S[q0].d < W[k0].mon) q0++;
-  M.loadK0 = k0; M.loadFrom = S[q0].d;
+  M.loadFrom = LD.length ? LD[0] : first;
+  M.loadK0 = LD.length ? idx[monOf(LD[0])] : 0;
 
   /* mức tạ: bài nặng nhất có tiến bộ rõ là bài chính (thanh tạ) */
   M.lifts = (Array.isArray(story.lifts) ? story.lifts : []).map(function (l) {
-    return l && { name: str(l.name, 30), from: pos(l.from), to: pos(l.to) };
+    /* n: số buổi có ghi bài này · d0: ngày của mức "from" (lần đầu coach ghi bài này) */
+    return l && { name: str(l.name, 30), from: pos(l.from), to: pos(l.to), n: pos(l.n) && l.n % 1 === 0 ? l.n : null, d0: okIso(l.d0) ? l.d0 : '' };
   }).filter(function (l) { return l && l.name && l.to; }).sort(function (a, b) { return b.to - a.to; });
   M.hero = null;
   for (var k = 0; k < M.lifts.length; k++) { var L = M.lifts[k]; if (L.from && L.to >= 20 && L.to >= L.from * 1.1 && L.to <= 500) { M.hero = L; break; } }
@@ -172,7 +190,7 @@ function derive(story) {
   /* cơ thể: lần đo đầu → lần đo gần nhất */
   var body = (Array.isArray(story.body) ? story.body : []).filter(function (b) { return b && okIso(b.d) && (!asOf || b.d <= asOf); })
     .sort(function (a, b) { return a.d < b.d ? -1 : a.d > b.d ? 1 : 0; });
-  M.b0 = body[0] || null; M.b1 = body.length > 1 ? body[body.length - 1] : null;
+  M.b0 = body[0] || null; M.b1 = body.length > 1 ? body[body.length - 1] : null; M.bodyN = body.length;
   M.bw = null;
   if (M.b1 && pos(M.b1.kg)) M.bw = M.b1.kg; else if (M.b0 && pos(M.b0.kg)) M.bw = M.b0.kg;
   M.change = function (f) { return M.b0 && M.b1 && pos(M.b0[f]) && pos(M.b1[f]) ? Math.round((M.b1[f] - M.b0[f]) * 10) / 10 : null; };
@@ -181,8 +199,9 @@ function derive(story) {
   var pu = story.pullup;
   M.pull = pu && okIso(pu.first) && pu.first >= first && pu.first <= M.asOf && pos(pu.reps) && pu.reps % 1 === 0 ? { first: pu.first, reps: pu.reps } : null;
 
-  /* lời coach (nguyên văn) + mục tiêu */
+  /* lời coach (nguyên văn) + mục tiêu · câu kết coach tự ghi cho khách đã hết gói (nguyên văn) */
   M.note = str(story.note, 400);
+  M.closing = str(story.closing, 400);
   M.goals = (Array.isArray(story.goals) ? story.goals : []).filter(function (g) { return g && str(g.t, 60); })
     .map(function (g) { return { t: str(g.t, 60).replace(/[\s.!…,;:]+$/, ''), done: !!g.done, lift: str(g.lift, 30), target: pos(g.target) }; }).filter(function (g) { return g.t; }).slice(0, 8);
 
@@ -200,8 +219,16 @@ function derive(story) {
 /* Theo thứ tự ưu tiên; điều kiện đầu tiên đúng thì lấy. "Người giữ hẹn" là của bản artifact; các biệt danh còn lại là chữ mới. */
 function nickOf(M) {
   if (M.habit && M.share >= 0.6) return { name: 'Người giữ hẹn', why: 'Chẳng cần ai phải ép. Cứ ' + spoken(M.topH) + ' là bạn có mặt.' };
-  if (M.streak.cur >= 6 || M.fullShare >= 0.6) return { name: 'Người giữ nhịp', why: 'Chẳng cần ai nhắc. Tuần nào bạn cũng tập đủ 3 buổi.' };
-  if (M.tons && M.tons >= 150) return { name: 'Người nhấc núi', why: 'Cộng hết số tạ bạn đã nâng là được cả ngọn núi ' + num(M.tons) + ' tấn.' };
+  /* câu phải đúng với chính dữ liệu: "tuần nào cũng" chỉ khi mọi tuần đều đủ 3 buổi (17/11: khách thật 60 % tuần đủ mà câu nói "tuần nào") */
+  /* khách đã hết gói: không có "chuỗi hiện tại" — xét kỷ lục chuỗi (best) và tỉ lệ tuần đủ, nói ở thì đã qua */
+  if (M.streak.cur >= 6 || M.fullShare >= 0.6 || (M.ended && M.streak.best >= 6)) {
+    var fw = M.weeks.filter(function (w) { return w.n >= FULL; }).length;
+    return { name: 'Người giữ nhịp', why: fw === M.W ? 'Chẳng cần ai nhắc. Tuần nào bạn cũng tập đủ 3 buổi.'
+      : M.streak.cur >= 6 ? 'Chẳng cần ai nhắc. ' + M.streak.cur + ' tuần liền rồi, tuần nào bạn cũng tập đủ 3 buổi.'
+      : M.fullShare >= 0.6 ? 'Chẳng cần ai nhắc. ' + fw + ' trên ' + M.W + ' tuần bạn tập đủ 3 buổi.'
+      : 'Chẳng cần ai nhắc. Có lúc ' + M.streak.best + ' tuần liền, tuần nào bạn cũng tập đủ 3 buổi.' };
+  }
+  if (M.tons && M.tons >= 150) return { name: 'Người nhấc núi', why: 'Cộng hết số tạ bạn đã nâng là được cả ngọn núi ' + num(M.tons) + ' tấn, từ ' + M.loadN + ' buổi tập.' };
   if (M.blank && M.blank.after >= 2) return { name: 'Người quay lại', why: 'Có lúc vắng mặt, nhưng lần nào bạn cũng quay lại tập.' };
   return { name: 'Người bền bỉ', why: M.W + ' tuần, ' + M.n + ' buổi. Không ồn ào, cứ đều đặn mà tiến.' };
 }
@@ -227,7 +254,7 @@ function factsOf(M) {
   var F = [[String(M.n), 'buổi trong ' + M.W + ' tuần', M.n + ' buổi', 'n']];
   if (M.habit) F.push([hh(M.topH), 'giờ quen · ' + M.topHn + ' / ' + M.n + ' buổi', 'Giờ quen', 'hour']);
   if (M.streak.cur >= FULL) F.push([String(M.streak.cur), 'tuần liền, chưa đứt', 'Chuỗi ' + M.streak.cur + ' tuần', 'streak']);
-  if (M.tons) F.push([num(M.tons), 'tấn đã nâng', num(M.tons) + ' tấn', 'tons']);
+  if (M.tons) F.push([num(M.tons), 'tấn đã nâng · ' + M.loadN + ' buổi', num(M.tons) + ' tấn', 'tons']);
   M.lifts.slice(0, 4).forEach(function (l, i) { F.push([num(l.to), 'kg ' + lower1(l.name), l.name, 'lift' + i]); });
   var dk = M.change('kg');
   if (dk && Math.abs(dk) >= 0.5) F.push([num(Math.abs(dk)), 'kg cân nặng đã ' + (dk < 0 ? 'giảm' : 'tăng'), 'Cân nặng', 'kg']);
@@ -286,15 +313,17 @@ function dowLine(i, k) {
     'Chủ Nhật người ta nghỉ ngơi, thế mà bạn đi tập ' + many + ' vào hôm đó cơ đấy.'][i];
 }
 /** mức tạ so với hồi mới tập */
-function liftRatio(r, kg) {
-  if (r >= 3.1) return 'Hơn gấp ba hồi mới tập.';
-  if (r >= 2.9) return 'Gấp ba hồi mới tập.';
-  if (r >= 2.2) return 'Hơn gấp đôi hồi mới tập.';
-  if (r >= 1.97) return 'Gấp đôi hồi mới tập.';
-  if (r >= 1.8) return 'Gần gấp đôi hồi mới tập.';
-  if (r >= 1.55) return 'Hơn gấp rưỡi hồi mới tập.';
-  if (r >= 1.45) return 'Gấp rưỡi hồi mới tập.';
-  return 'Nặng hơn hồi mới tập ' + num(kg) + ' kg.';
+/** mức tạ so với hồi mới tập — hoặc so với hôm coach bắt đầu ghi bài này (d0, khi muộn hơn buổi đầu 2 tuần: "hồi mới tập" sẽ sai) */
+function liftRatio(r, kg, d0) {
+  var ref = d0 ? 'hôm ' + dm(d0) : 'hồi mới tập';
+  if (r >= 3.1) return 'Hơn gấp ba ' + ref + '.';
+  if (r >= 2.9) return 'Gấp ba ' + ref + '.';
+  if (r >= 2.2) return 'Hơn gấp đôi ' + ref + '.';
+  if (r >= 1.97) return 'Gấp đôi ' + ref + '.';
+  if (r >= 1.8) return 'Gần gấp đôi ' + ref + '.';
+  if (r >= 1.55) return 'Hơn gấp rưỡi ' + ref + '.';
+  if (r >= 1.45) return 'Gấp rưỡi ' + ref + '.';
+  return d0 ? 'Thêm ' + num(kg) + ' kg so với ' + ref + '.' : 'Nặng hơn hồi mới tập ' + num(kg) + ' kg.';
 }
 /** mức tạ so với cân nặng */
 function liftBody(b) {
@@ -324,8 +353,9 @@ function platesLabel(kg) {
 
 /* ============================== KỊCH BẢN ============================== */
 /**
- * next (do trang đặt lịch đưa sang): {no, mon, state: 'open' | 'booked' | 'later', slot: {d, h} | null, coach, left, exp, today}
- *   open: lịch tuần no đang mở, chưa đặt · booked: đã đặt (slot = buổi đầu) · later: tuần sau chưa mở (mở 06:00 CN).
+ * next (do trang đặt lịch đưa sang): {no, mon, state: 'open' | 'booked' | 'later' | 'none' | 'ended', slot: {d, h} | null, coach, left, exp, today}
+ *   open: lịch tuần no đang mở, chưa đặt · booked: đã đặt (slot = buổi đầu) · later: tuần sau chưa mở (mở 06:00 CN) · none: không đặt được ·
+ *   ended: khách đã hết gói, vào thẳng hành trình (17/11) — không có màn tuần sau, màn cuối là câu kết của coach (nếu coach đã ghi).
  */
 function script(M, next) {
   var L = [], Q = [], n = M.n, rangeShort = span(M.first, M.last);
@@ -361,7 +391,7 @@ function script(M, next) {
     push({ id: 'gap', bg: 'ink', lb: ddmm(b.from) + ' → ' + ddmm(b.to), stmt: 'Hồi ' + part + ' tháng ' + month(b.from) + ' bạn lặn mất tăm.',
            say: b.weeks > 1 ? 'Thế là mình ngủ khò những ' + b.weeks + ' tuần.' : 'Thế là mình ngủ khò cả tuần.',
            seg: [b.i0, b.weeks, M.W - b.i1 - 1], at: (b.i0 + b.weeks / 2) / M.W, d0: ddmm(M.first), d1: ddmm(b.from), d2: ddmm(M.last) });
-    if (M.roomPct && !M.away) push({ id: 'room', bg: 'night', lb: 'CÓ MỘT SỰ THẬT', value: M.roomPct, unitLines: ['trên 100', 'người'],
+    if (M.roomPct && !M.away && !M.ended) push({ id: 'room', bg: 'night', lb: 'CÓ MỘT SỰ THẬT', value: M.roomPct, unitLines: ['trên 100', 'người'],
                           say: 'đã nghỉ liền tù tì mấy tuần mà không quay lại tập.', dim: 'Điều này làm cho B0DY rất lo :(',
                           plb: 'Bạn · từ tháng ' + month(b.back), pvalue: 0, punitLines: ['tuần', 'nghỉ thêm'] });
   }
@@ -374,21 +404,23 @@ function script(M, next) {
   }
   /* 10 · hỏi số tấn · 11 · ngọn núi — có tải từng tuần */
   if (M.tons) {
-    /* số tạ chỉ có từ giữa chừng (M.loadFrom sau buổi đầu) → câu hỏi / câu đáp nói rõ "từ hôm …", núi không vẽ phần phẳng chưa có dữ liệu */
-    var part = M.loadFrom > M.first;
-    ask({ id: 'q', g: 'g4', bg: 'paper', q: part ? 'Từ hôm ' + dm(M.loadFrom) + ' đến giờ, đoán xem bạn đã nâng bao nhiêu tấn tạ ở B0DY?'
+    /* cơ sở luôn đi kèm con số (chủ studio 17/11): "từ N buổi tập". Coach chưa ghi tạ đủ mọi buổi → câu hỏi nói rõ chỉ tính N buổi đó */
+    var part = M.loadN < M.n;
+    ask({ id: 'q', g: 'g4', bg: 'paper', q: part ? 'Trong ' + M.loadN + ' buổi tập có ghi số tạ, đoán xem bạn đã nâng tổng cộng bao nhiêu tấn?'
                                                 : 'Đoán xem bạn đã nâng bao nhiêu tấn tạ trong suốt khoảng thời gian vừa qua ở B0DY?', unit: 'tấn', r: rangeT(M.tons), aria: 'Số tấn bạn đoán' });
     var times = M.bw ? M.loadKg / M.bw : 0;
-    push({ id: 'mtn', bg: 'ink', lb: 'ĐÁP ÁN SẼ KHIẾN BẠN BẤT NGỜ', value: M.tons,
+    push({ id: 'mtn', bg: 'ink', lb: 'ĐÁP ÁN SẼ KHIẾN BẠN BẤT NGỜ', value: M.tons, basis: 'Từ ' + M.loadN + ' buổi tập',
            say: times >= 10 ? 'Tức là bằng ' + num(times >= 1000 ? round(times, 100) : round(times, 10), 0) + ' lần bạn tự nhấc chính cơ thể mình lên.'
-                            : 'Cộng dồn từng rep của bạn, từ ' + (part ? 'hôm ' + dm(M.loadFrom) : 'buổi đầu') + ' tới buổi gần nhất.',
+                            : part ? 'Cộng dồn từng rep trong ' + M.loadN + ' buổi coach ghi lại.' : 'Cộng dồn từng rep của bạn, từ buổi đầu tới buổi gần nhất.',
            vol: M.weeks.slice(M.loadK0).map(function (w) { return w.kg; }), d0: ddmm(M.loadFrom), d1: ddmm(M.last) });
   }
   /* 12 · thanh tạ — bài chính có tiến bộ rõ */
   if (M.hero) {
     var h = M.hero;
-    push({ id: 'lift', bg: 'dusk', lb: h.name + ' · ' + num(h.from) + ' → ' + num(h.to) + ' kg', from: h.from, to: h.to, aria: platesLabel(h.to),
-           say: liftRatio(h.to / h.from, h.to - h.from) + (M.bw ? liftBody(h.to / M.bw) : ''), dim: 'Một tràng vỗ tay dành cho bạn.' });
+    var late = h.d0 && h.d0 > add(M.first, 13) ? h.d0 : '';           /* coach bắt đầu ghi bài này muộn: so với hôm đó, không "hồi mới tập" */
+    var lo = push({ id: 'lift', bg: 'dusk', lb: h.name + ' · ' + num(h.from) + ' → ' + num(h.to) + ' kg', from: h.from, to: h.to, aria: platesLabel(h.to),
+           say: liftRatio(h.to / h.from, h.to - h.from, late) + (M.bw ? liftBody(h.to / M.bw) : ''), dim: 'Một tràng vỗ tay dành cho bạn.' });
+    if (h.n || late) lo.basis = (h.n ? 'Qua ' + h.n + ' buổi tập' : '') + (h.n && late ? ' · ' : '') + (late ? 'từ ' + ddmm(late) : '');   /* cơ sở khi nguồn có */
   }
   /* 13 · hỏi số cân · 14 · cân + khối cơ — đổi ≥ 1 kg và khối cơ tăng (giảm cân: cơ tăng ≥ 0,3 kg · tăng cân: cơ chiếm ≥ nửa) */
   var dk = M.change('kg'), dm2 = M.change('muscle');
@@ -396,8 +428,11 @@ function script(M, next) {
     var lose = dk < 0, kk = Math.abs(dk), det = [], dw = M.change('waist'), f0 = M.b0.fat, f1 = M.b1.fat;
     if (dw !== null && Math.abs(dw) >= 0.5) det.push('Eo ' + (dw < 0 ? 'giảm ' : 'tăng ') + num(Math.abs(dw)) + ' cm');
     if (pos(f0) && pos(f1)) det.push('Mỡ ' + num(f0) + '% → ' + num(f1) + '%');
-    ask({ id: 'q', g: 'g5', bg: 'paper', q: 'Thế từ hồi đầu tới giờ, bạn ' + (lose ? 'giảm' : 'tăng') + ' được mấy cân?', unit: 'kg', r: rangeK(kk), aria: 'Số cân bạn đoán', dec: true });
-    push({ id: 'body', bg: 'paper', word: lose ? 'Giảm' : 'Tăng', value: kk,
+    /* lần đo đầu muộn hơn buổi đầu 2 tuần → không nói "từ hồi đầu" mà nói từ lần đo đó; cơ sở (hai lần đo) luôn ghi dưới con số */
+    var late = M.b0.d > add(M.first, 13);
+    ask({ id: 'q', g: 'g5', bg: 'paper', q: (late ? 'Thế từ lần đo hôm ' + dm(M.b0.d) : 'Thế từ hồi đầu') + ' tới giờ, bạn ' + (lose ? 'giảm' : 'tăng') + ' được mấy cân?',
+          unit: 'kg', r: rangeK(kk), aria: 'Số cân bạn đoán', dec: true });
+    push({ id: 'body', bg: 'paper', word: lose ? 'Giảm' : 'Tăng', value: kk, basis: 'Đo ' + span(M.b0.d, M.b1.d) + (M.bodyN > 2 ? ' · ' + M.bodyN + ' lần đo' : ''),
            say: lose ? (kk < 6 ? 'Nghe thì ít. Nhưng không chỉ có vậy.' : 'Nghe đã thấy nhiều. Nhưng chưa hết đâu.') : 'Đừng vội lo. Không chỉ có mỡ đâu.',
            plb: 'Khối cơ', pword: 'Tăng', pvalue: dm2, pdet: det.join(' · '),
            psay: lose ? 'Cái cân đâu có biết bạn đã đổi mỡ lấy cơ.' : 'Cái cân đâu có biết phần lớn số cân ấy là cơ.' });
@@ -432,8 +467,9 @@ function script(M, next) {
   if (M.palette) push({ id: 'bands', bg: 'ink', lb: 'Bảng màu riêng', stmt: 'Bảng màu này chỉ ' + M.call + ' mới có.', bands: M.palette });
   /* 20 · thẻ chia sẻ */
   push({ id: 'card', bg: 'ink', stmt: 'Khoe thành tích!' });
-  /* 21 · lịch tuần sau */
-  push(nextMoment(M, next));
+  /* 21 · lịch tuần sau — khách đã hết gói (ended): không có tuần sau; màn cuối là câu kết coach tự ghi (nguyên văn), chưa ghi thì bỏ */
+  if (next && next.state === 'ended') { if (M.closing) push({ id: 'end', bg: 'dusk', lb: M.coach ? 'Coach ' + M.coach : 'Coach của bạn', quote: '“' + M.closing + '”' }); }
+  else push(nextMoment(M, next));
 
   Q.forEach(function (q, i) { q.lb = 'Câu ' + (i + 1) + ' / ' + Q.length; });
   return L;
@@ -446,9 +482,10 @@ function nextMoment(M, nx) {
   o.lb = 'Tuần sau · ' + ddmm(nx.mon) + ' → ' + ddmm(add(nx.mon, 6));
   /* gợi ý: giờ quen vào thứ hay tập nhất — giờ đó không đặt được (gói Ban ngày, giờ nghỉ trưa) → khung đặt được gần nhất */
   var hs = Array.isArray(nx.hours) && nx.hours.length ? nx.hours : null, h0 = M.topH;
-  if (hs && hs.indexOf(h0) < 0) h0 = hs.slice().sort(function (a, b) { return Math.abs(a - M.topH) - Math.abs(b - M.topH) || b - a; })[0];
-  var slot = nx.state === 'booked' && nx.slot && okIso(nx.slot.d) ? nx.slot : { d: add(nx.mon, M.topDow), h: h0 };
-  o.slot = { lb: DOWF[dow(slot.d)] + ' · ' + ddmm(slot.d), time: hh(slot.h), coach: nx.coach || M.coach ? 'Coach ' + (nx.coach || M.coach) : '',
+  if (hs && h0 !== null && hs.indexOf(h0) < 0) h0 = hs.slice().sort(function (a, b) { return Math.abs(a - M.topH) - Math.abs(b - M.topH) || b - a; })[0];
+  /* gợi ý ô lịch cần giờ quen; không rõ giờ buổi nào (dữ liệu chỉ có ngày) → không bịa giờ, chỉ hiện ô lịch khi đã đặt */
+  var slot = nx.state === 'booked' && nx.slot && okIso(nx.slot.d) ? nx.slot : h0 !== null ? { d: add(nx.mon, M.topDow), h: h0 } : null;
+  if (slot) o.slot = { lb: DOWF[dow(slot.d)] + ' · ' + ddmm(slot.d), time: hh(slot.h), coach: nx.coach || M.coach ? 'Coach ' + (nx.coach || M.coach) : '',
              pkg: finite(nx.left) ? 'Còn ' + nx.left + ' buổi' + (okIso(nx.exp) ? ' · hết hạn ' + ddmm(nx.exp) : '') : '' };
   if (nx.state === 'booked') { o.stmt = 'Lịch tuần sau đã đặt.'; o.say = 'Hẹn gặp bạn ở B0DY nhé!'; o.btn = 'Xem phiếu tuần ' + nx.no; }
   else if (nx.state === 'later') { o.stmt = 'Lịch tuần sau chưa mở.'; o.say = 'Lịch mở lúc 6 giờ sáng Chủ Nhật. Hãy tiếp tục tập luyện cùng B0DY nhé!'; o.btn = 'Về trang đặt lịch'; }
@@ -462,10 +499,13 @@ function printRows(M) {
   if (M.habit) R.push(['Giờ quen', hh(M.topH) + ' · ' + M.topHn + ' / ' + M.n + ' buổi']);
   if (M.dowOk) R.push(['Thứ tập nhiều nhất', DOWF[M.topDow] + ' · ' + M.topDown + ' buổi']);
   if (M.streak.cur >= FULL) R.push(['Chuỗi hiện tại', M.streak.cur + ' tuần liền']);
-  if (M.tons) R.push(['Tổng tạ đã nâng', num(M.tons) + ' tấn' + (M.loadFrom > M.first ? ' · từ ' + ddmm(M.loadFrom) : '')]);
-  M.lifts.slice(0, 4).forEach(function (l) { R.push([l.name, l === M.hero ? num(l.from) + ' → ' + num(l.to) + ' kg' : num(l.to) + ' kg']); });
-  var ch = function (lbl, f, unit) { var c = M.change(f); if (c && Math.abs(c) >= 0.5) R.push([lbl, (c < 0 ? 'Giảm ' : 'Tăng ') + num(Math.abs(c)) + ' ' + unit]); };
+  if (M.tons) R.push(['Tổng tạ đã nâng', num(M.tons) + ' tấn · từ ' + M.loadN + ' buổi tập']);
+  M.lifts.slice(0, 4).forEach(function (l) { R.push([l.name, (l === M.hero ? num(l.from) + ' → ' + num(l.to) + ' kg' : num(l.to) + ' kg') + (l.n ? ' · ' + l.n + ' buổi' : '')]); });
+  /* số đo: cơ sở (hai lần đo so với nhau) ghi MỘT hàng ngay trước các hàng thay đổi */
+  var B = [], ch = function (lbl, f, unit) { var c = M.change(f); if (c && Math.abs(c) >= 0.5) B.push([lbl, (c < 0 ? 'Giảm ' : 'Tăng ') + num(Math.abs(c)) + ' ' + unit]); };
   ch('Cân nặng', 'kg', 'kg'); ch('Khối cơ', 'muscle', 'kg'); ch('Vòng eo', 'waist', 'cm'); ch('Vòng hông', 'hip', 'cm'); ch('Vòng ngực', 'chest', 'cm'); ch('Vòng đùi', 'thigh', 'cm');
+  if (B.length) R.push(['Số đo cơ thể', span(M.b0.d, M.b1.d) + ' · ' + M.bodyN + ' lần đo']);
+  R = R.concat(B);
   if (M.goals.length) R.push(['Mục tiêu', M.goals.filter(function (g) { return g.done; }).length + ' / ' + M.goals.length + ' đã đạt']);
   return R.slice(0, 16);
 }

@@ -338,9 +338,10 @@ function ltPersons_(rows, today) {
   rows.forEach(function (r, i) { if (bare.indexOf(i) < 0) { var k = nks[i], c = find(i); (byName[k] || (byName[k] = {}))[c] = 1; } });
   bare.forEach(function (i) { var cs = Object.keys(byName[nks[i]] || {}); if (cs.length === 1) join(+cs[0], i); });
 
-  var comp = {}, order = [], codeComp = {}, nameOwner = {}, ci, n;
+  var comp = {}, order = [], codeComp = {}, nameOwner = {}, comps = [], ci, n;
   rows.forEach(function (r, i) {
     var cid = find(i), c = comp[cid] || (comp[cid] = { all: [], act: [], person: null, no: '' });
+    if (!c.all.length) comps.push(c);                        /* mọi người, theo dòng MEMBERS đầu tiên của họ */
     c.all.push(r);
     if (!c.no && r.no) c.no = r.no;
     if (r.code) codeComp[r.code] = codeComp[r.code] === undefined || codeComp[r.code] === c ? c : null;
@@ -392,7 +393,46 @@ function ltPersons_(rows, today) {
   for (code in codeComp) if (codeComp[code] && codeComp[code].person) alias[code] = codeComp[code].person.key;
   out.forEach(function (p) { alias[p.key] = p.key; });
   Object.defineProperty(out, 'alias', { value: alias, enumerable: false });
+  Object.defineProperty(out, 'ended', { value: ltEndedOf_(comps, today, codeComp, nameOwner, used), enumerable: false });
   return out;
+}
+/** Khách ĐÃ HẾT GÓI (chủ studio 17/11) — y hệt core.js · endedOf: danh sách riêng, không đụng danh sách còn gói / bí danh / sổ. */
+function ltEndedOf_(comps, today, codeComp, nameOwner, used) {
+  var out = [], alias = {};
+  comps.forEach(function (c, oi) {
+    if (c.act.length) return;
+    var pick = ltPickRow_(c.all, today), key = '';
+    var own = c.all.filter(function (r) { return r.code && codeComp[r.code] === c && !used[r.code]; });
+    if (own.length) key = ltPickRow_(own, today).code;
+    if (!key) {
+      var base = '#' + ltName_(pick.name);
+      key = nameOwner[base] === c && !used[base] ? base : base + '|' + (c.no || 'e' + oi);
+    }
+    if (used[key]) return;
+    used[key] = 1;
+    var phone = '', left = 0, exp = '', start = '';
+    c.all.forEach(function (r) { if (!phone && r.phone && r.code === key) phone = r.phone; });
+    if (!phone) phone = pick.phone || '';
+    c.all.forEach(function (r) {
+      if (!phone && r.phone) phone = r.phone;
+      if (r.left > 0) left += r.left;
+      if (r.exp && r.exp > exp) exp = r.exp;
+      if (r.start && (!start || r.start < start)) start = r.start;
+    });
+    out.push({ key: key, name: pick.name, toks: ltName_(pick.name).split(' '), short: ltShort_(pick.name), call: ltCall_(pick.name),
+               coach: pick.coach, kind: pick.kind || '1:1', pkg: ltPkg_(pick.pkg, pick.total), left: left, exp: exp, start: start,
+               phone: phone, code: pick.code || '', off: !!pick.off, ended: true });
+    c.all.forEach(function (r) { if (r.code && codeComp[r.code] === c) alias[r.code] = key; var nn = '#' + ltName_(r.name); if (nameOwner[nn] === c) alias[nn] = key; });
+    alias[key] = key;
+  });
+  Object.defineProperty(out, 'alias', { value: alias, enumerable: false });
+  return out;
+}
+/** Khách đã hết gói (đã xác minh) — y hệt core.js · endedStateOf. */
+function ltEndedState_(ctx, p) {
+  return { ok: true, auth: true, ended: true, now: ctx.now, mode: 'ended',
+           week: { key: ctx.key, no: ctx.no, mon: ctx.mon, days: ctx.days, phase: ctx.phase, lead: ctx.lead > 0, nextOpen: ctx.nextOpen, nextNo: ctx.nextNo },
+           me: { short: p.short, call: p.call, coach: p.coach, kind: p.kind, pkg: p.pkg, left: p.left, exp: p.exp, start: p.start } };
 }
 /** Khoá hiện tại của một mã bất kỳ (Mã KH cũ / #tên) — không biết thì giữ nguyên. */
 function ltCanonKey_(persons, k) {
@@ -1067,6 +1107,8 @@ function ltApiBoot_(p, now) {
     if (t) {
       var persons = ltPersonsNow_(ctx, false), me = ltFindPerson_(persons, t.k);
       if (me) return ltLoadState_(ctx, me, persons);
+      var ex = ltFindPerson_(persons.ended, t.k);
+      if (ex) return ltEndedState_(ctx, ex);
       return ltPublic_(ctx, 'het_goi');
     }
     return ltPublic_(ctx, 'het_phien');
@@ -1086,7 +1128,7 @@ function ltApiFind_(p, now) {
   if (ltBump_('lt:q:' + p.dev + ':' + Math.floor(now / 6e5), 600) > LT.FIND_MAX) return { ok: false, error: 'cham_lai', now: now };
   var q = ltName_(String(p.q || '').slice(0, 60)).split(' ').filter(function (x) { return !!x; });
   if (!q.length) return { ok: true, now: now, results: [] };
-  var ctx = ltWeekCtx_(now), res = ltFindAll_(q, ltPersonsNow_(ctx, false));
+  var ctx = ltWeekCtx_(now), ps = ltPersonsNow_(ctx, false), res = ltFindAll_(q, ps.concat(ps.ended));   /* mọi khách, cả khách đã hết gói (17/11) */
   var out = res.slice(0, LT.FIND_TOP).map(function (x) { return { id: ltIdOf_(x.key), short: x.short, coach: x.coach }; });
   return res.length > LT.FIND_TOP ? { ok: true, now: now, results: out, more: true } : { ok: true, now: now, results: out };
 }
@@ -1096,7 +1138,7 @@ function ltApiVerify_(p, now) {
   var c = ltCache_(), lockKey = 'lt:lk:' + p.dev, until = Number(c.get(lockKey)) || 0;
   if (until > now) return { ok: false, error: 'khoa', until: until, now: now };
   var ctx = ltWeekCtx_(now), persons = ltPersonsNow_(ctx, false), me = null, id = String(p.id || '');
-  persons.forEach(function (x) { if (!me && ltIdOf_(x.key) === id) me = x; });
+  persons.concat(persons.ended).forEach(function (x) { if (!me && ltIdOf_(x.key) === id) me = x; });
   if (!me) return { ok: false, error: 'khong_thay', now: now };
   var memKey = 'lt:lm:' + ltIdOf_(me.key), mUntil = Number(c.get(memKey)) || 0;
   if (mUntil > now) return { ok: false, error: 'khoa', until: mUntil, now: now };
@@ -1113,7 +1155,7 @@ function ltApiVerify_(p, now) {
     return { ok: false, error: 'sai_ma', left: LT.FAILS - n, now: now };
   }
   c.remove('lt:fd:' + p.dev);
-  var ttl = p.remember ? LT.REMEMBER : LT.SESSION, st = ltLoadState_(ctx, me, persons);
+  var ttl = p.remember ? LT.REMEMBER : LT.SESSION, st = me.ended ? ltEndedState_(ctx, me) : ltLoadState_(ctx, me, persons);
   st.tok = ltTokMake_(me.key, p.dev, ttl, now);
   st.tokExp = now + ttl;
   return st;

@@ -142,7 +142,22 @@ console.log('\n== 3. Tìm tên ==');
   r = call(t, { action: 'lt_find', q: 'hoang duc' });
   ok('Họ + tên đệm (không phải phần cuối) → không ra', r.results.length === 0, r);
   r = call(t, { action: 'lt_find', q: 'xuan tu' });
-  ok('Hết buổi → không có trong danh sách', r.results.length === 0, r);
+  ok('Hết buổi → VẪN tìm thấy (chủ studio 17/11: tìm tên ra mọi khách; khách hết gói vào thẳng hành trình)', r.results.length === 1 && r.results[0].short === 'M. Xuân Tú', r);
+  {
+    /* khách đã hết gói: 4 số cuối điện thoại như mọi khách → state "ended" (không sổ, không phiếu); mã nhớ máy mở lại đúng state đó;
+       mọi lệnh ghi → het_goi; khách hết HẠN còn buổi (Cao Bảo Anh) cũng vậy */
+    const v = call(t, { action: 'lt_verify', id: r.results[0].id, pin: '0009', remember: true });
+    ok('hết gói · xác minh → auth + ended, có mã nhớ máy, không có phiếu / bảng / người khác', v.ok && v.auth === true && v.ended === true && v.mode === 'ended' && !!v.tok &&
+       !('mine' in v) && !('taken' in v) && !('limits' in v) && v.me.short === 'M. Xuân Tú' && v.me.left === 0 && JSON.stringify(v).indexOf('0900') < 0, v);
+    const b = call(t, { action: 'lt_boot', tok: v.tok });
+    ok('hết gói · mở lại trang bằng mã nhớ máy → state ended như lúc xác minh', b.ok && b.auth && b.ended && b.me.short === 'M. Xuân Tú' && !('mine' in b), b);
+    const w = call(t, { action: 'lt_book', tok: v.tok, rid: 'ridENDEDENDED01', week: b.week.key, picks: [{ date: '2026-10-20', h: 7 }, { date: '2026-10-22', h: 7 }] });
+    ok('hết gói · đặt lịch bằng mã nhớ máy → het_goi', w.ok === false && w.error === 'het_goi', w);
+    const sx = call(t, { action: 'lt_verify', id: r.results[0].id, pin: '1234' });
+    ok('hết gói · sai 4 số → sai_ma như mọi khách', sx.ok === false && sx.error === 'sai_ma', sx);
+    const ca = call(t, { action: 'lt_find', q: 'cao bao anh' }), cv = call(t, { action: 'lt_verify', id: ca.results[0].id, pin: '0010' });
+    ok('hết HẠN (còn 5 buổi) · tìm thấy, xác minh → ended, left 5', ca.results.length === 1 && cv.ended === true && cv.me.left === 5, [ca, cv]);
+  }
   r = call(t, { action: 'lt_find', q: 'gia phong' });
   ok('Hai hợp đồng cùng tên → một kết quả', r.results.length === 1, r);
   const S = x => x.results.map(y => y.short).join(' | ');
@@ -183,8 +198,9 @@ console.log('\n== 3b. Tìm tên: xếp hạng · tối đa 6 người + more · 
   let r = call(t, { action: 'lt_find', q: 'thu' });
   ok('"thu" → 11 người (Thứ = Thử; "K. T. …": Thử hiện tắt) → 6 + more', r.results.length === 6 && r.more === true && r.results.every(x => /Th[ứử]|^K\. T\. /.test(x.short)), r);
   r = call(t, { action: 'lt_find', q: 'an' });
-  ok('"an" → An (trùng trọn) trước Anh (gõ dở); người khớp giữa chữ (Văn) xếp cuối', S(r) === 'K. Thử An | K. T. Đức Anh | K. T. Đức Anh | K. Thử Anh | M. T. Ngọc Ánh | Đ. Văn Hưng' && !('more' in r), r);
-  ok('… hai người trùng họ tên xếp theo Mã KH', r.results[1].id === t.env.ltIdOf_('B931DY') && r.results[2].id === t.env.ltIdOf_('B938DY'), r);
+  ok('"an" → An (trùng trọn) trước Anh (gõ dở); khách hết hạn C. Bảo Anh cùng thứ hạng (17/11) → người khớp giữa chữ (Văn) ra ngoài 6 → more',
+     S(r) === 'K. Thử An | C. Bảo Anh | K. T. Đức Anh | K. T. Đức Anh | K. Thử Anh | M. T. Ngọc Ánh' && r.more === true, r);
+  ok('… hai người trùng họ tên xếp theo Mã KH', r.results[2].id === t.env.ltIdOf_('B931DY') && r.results[3].id === t.env.ltIdOf_('B938DY'), r);
   r = call(t, { action: 'lt_find', q: 'nam' });
   ok('"nam" → tên gọi Nam trước tên đệm Nam', S(r) === 'H. Đức Nam | N. Ngọc Nam | K. T. Nam Phong', r);
   r = call(t, { action: 'lt_find', q: 'hoi' });

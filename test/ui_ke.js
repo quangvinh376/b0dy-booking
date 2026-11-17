@@ -7,6 +7,10 @@
    "Không phải bạn?" → thẻ biến mất · 0 lỗi console / CSP · không lệnh nào ra máy chủ thật. Desktop 1440 × 900 + mobile 393 × 852.
    1.9.1: thanh truyện bấm được (tới thẳng đoạn đó, kể cả vượt câu hỏi chưa trả lời; Tiếp vẫn bắt chốt) · "Tới cuối →" chỉ sau khi đã xem
    hết một lần (theo từng câu chuyện), ẩn ở khoảnh khắc cuối · Home / End · trang thật (không ?qc) KHÔNG hỏi lt_story, không có thẻ (KE_LIVE).
+   1.10.0 (17/11): thẻ chỉ ở TUẦN CUỐI của gói (Hà Minh Quân có câu chuyện nhưng chưa tới → không thẻ) · khách ĐÃ HẾT GÓI: tìm tên + 4 số
+   cuối → vào thẳng ke.html ở "Khoe thành tích", "← Tới đầu" / "Tới cuối →", màn cuối = câu kết coach + "Không phải bạn?" (đăng xuất) ·
+   chưa có câu chuyện → màn "Gói tập đã kết thúc" · Back từ hành trình → màn đó + "Xem lại câu chuyện" (không tự mở lại) · mọi con số từ
+   logbook có cơ sở ("Từ 8 buổi tập") · đặt buổi cuối của gói → thẻ hiện ngay (Thanh Hằng) · tuần cuối không có câu chuyện → không thẻ.
    node test/ui_ke.js */
 'use strict';
 const { chromium } = require('playwright');
@@ -72,17 +76,38 @@ async function run(browser, server, mobile) {
   ok(tag + ': header L3 — không tín hiệu tuần / dãy bước; chưa xác minh → không có thẻ', !g.old && !g.chip, g);
   if (!mobile) ok(tag + ': ngày giờ Hà Nội ngay cạnh logo (khoảng 32 px)', g.clock && g.wm && Math.abs(g.clock.x - g.wm.r - 32) <= 1, g);
 
-  /* hội viên không có câu chuyện → không thẻ */
+  /* đang ở tuần cuối (gói hết hạn T4 21.10) nhưng không có câu chuyện → không thẻ */
+  await login(t, 'quoc bao', '3333');
+  await waitView(page, 'book'); await sleep(1500);
+  ok(tag + ': Đặng Quốc Bảo (tuần cuối, không có câu chuyện) → không thẻ', !(await hdGeo(page)).chip);
+  await notMe(t);
+
+  /* Vũ Thanh Hằng: còn 1 buổi, có câu chuyện — chưa đặt thì chưa phải tuần cuối; đặt xong buổi cuối của gói → thẻ hiện ngay, không cần tải lại */
   await login(t, 'thanh hang', '2222');
   await waitView(page, 'book'); await sleep(1500);
-  ok(tag + ': Vũ Thanh Hằng (không có câu chuyện) → không thẻ', !(await hdGeo(page)).chip);
+  ok(tag + ': Thanh Hằng (còn 1 buổi, chưa đặt) → chưa có thẻ', !(await hdGeo(page)).chip);
+  await page.locator('#wkb .c[data-d="2026-10-24"][data-h="8"] >> visible=true').first().click();
+  await page.locator(t.desk ? '#cta' : '#ctaM').click();
+  await waitView(page, 'ticket', 10000);
+  ok(tag + ': … đặt buổi cuối (T7 24.10 08:00) → phiếu + thẻ "Để B0DY kể về bạn" hiện ngay', await until(() => page.evaluate(() => !!document.querySelector('#kchip')), 4000));
+  const kn = await page.evaluate(() => {
+    const S = window.__lt.S, st0 = S.st, wk = Object.assign({}, st0.week, { phase: 'closed', nextNo: st0.week.no + 1 }), me = st0.me;
+    const a = window.__lt.keNext();
+    S.st = Object.assign({}, st0, { week: wk }); const b = window.__lt.keNext();
+    S.st = Object.assign({}, st0, { week: wk, me: Object.assign({}, me, { left: 4 }) }); const c = window.__lt.keNext();
+    S.st = st0; return [a.state, a.slot && a.slot.d, b.state, c.state];
+  });
+  ok(tag + ': … màn cuối hành trình: tuần này = phiếu đã đặt · đã đóng đặt mà buổi đã đặt dùng hết số buổi còn lại → không hứa tuần sau (còn 4 thì có)',
+     kn.join() === 'booked,2026-10-24,none,later', kn);
   await notMe(t);
+  ok(tag + ': … "Không phải bạn?" → thẻ rời header (mờ ra; máy test vẽ bằng CPU nên chờ tới 5 s)', await until(() => page.evaluate(() => !document.querySelector('#kchip')), 5000));
 
   /* Minh Khôi: có câu chuyện (bộ số artifact) */
   await login(t, 'minh khoi', '1111');
   await waitView(page, 'book');
   ok(tag + ': Minh Khôi → thẻ "Để B0DY kể về bạn" hiện ở góc phải', await until(() => page.evaluate(() => !!document.querySelector('#kchip')), 4000));
   await sleep(500);
+  await until(() => page.evaluate(() => document.querySelector('#kchip').getAnimations().every(a => a.playState === 'finished')), 5000);   /* thẻ trồi vào xong mới đo */
   g = await hdGeo(page);
   const H = mobile ? 36 : 40, W = mobile ? 159 : 181, M = mobile ? 16 : 48;
   ok(tag + ': thẻ H4 — cao ' + H + ', rộng ≈ ' + W + ' (Figma), mép phải cách ' + M + ' px, giữa chiều cao header', g.chip && Math.abs(g.chip.h - H) < .5 && Math.abs(g.chip.w - W) <= 3 &&
@@ -191,7 +216,7 @@ async function run(browser, server, mobile) {
   const nx = await page.evaluate(() => ({ lb: document.querySelector('.scr.on .lb').textContent, h: document.querySelector('.scr.on h2').textContent, btn: document.querySelector('#book').textContent,
     slot: document.querySelector('.scr.on .slot') && document.querySelector('.scr.on .slot').textContent }));
   ok(tag + ': tuần sau — "Lịch tuần sau đã mở." · ô 18:00 Thứ Hai · "Đặt lịch tuần 43"', nx.lb === 'Tuần sau · 19.10 → 25.10' && nx.h.replace(/ /g, ' ') === 'Lịch tuần sau đã mở.' && nx.btn === 'Đặt lịch tuần 43' &&
-     /Thứ Hai · 19\.10/.test(nx.slot) && /18:00/.test(nx.slot) && /Coach Quyết Hán/.test(nx.slot) && /Còn 30 buổi · hết hạn 01\.03/.test(nx.slot), nx);
+     /Thứ Hai · 19\.10/.test(nx.slot) && /18:00/.test(nx.slot) && /Coach Quyết Hán/.test(nx.slot) && /Còn 30 buổi · hết hạn 25\.10/.test(nx.slot), nx);
   b0 = await bar();
   ok(tag + ': tới khoảnh khắc cuối → ghi ke_end; ở cuối thì không có "Tới cuối →"', b0.end === 1 && b0.cur === 21 && b0.done === 22 && !b0.toend, b0);
   /* chạm một đoạn bất kỳ → tới thẳng khoảnh khắc đó */
@@ -251,8 +276,8 @@ async function run(browser, server, mobile) {
   await waitView(page, 'change'); await sleep(400);
   g = await hdGeo(page);
   ok(tag + ': đổi lịch → góc phải là nút "← Phiếu", không phải thẻ', g.back && !g.chip, g);
-  await page.click('#hdR .hd-back'); await waitView(page, 'ticket'); await sleep(400);
-  ok(tag + ': "← Phiếu" → về phiếu, thẻ trở lại', !!(await hdGeo(page)).chip);
+  await page.click('#hdR .hd-back'); await waitView(page, 'ticket');
+  ok(tag + ': "← Phiếu" → về phiếu, thẻ trở lại', await until(async () => !!(await hdGeo(page)).chip, 4000));
   await page.click('#kchip');
   await page.waitForURL(/\/ke\.html\?qc$/); await page.waitForFunction(() => window.__ke && document.querySelector('.scr.on'));
   const kl = await page.evaluate(() => ({ ids: window.__ke.L.map(x => x.id).join(','), last: window.__ke.L[window.__ke.L.length - 1] }));
@@ -276,6 +301,72 @@ async function run(browser, server, mobile) {
   await page.click('#close');
   await page.waitForURL(u => !/ke\.html/.test(u)); await page.waitForSelector('.qc-tab'); await waitView(page, 'ticket');
   ok(tag + ': "← Đặt lịch" → về phiếu', true);
+  await notMe(t);
+
+  /* Hà Minh Quân: có câu chuyện nhưng CHƯA tới tuần cuối của gói (còn 18 buổi, hạn 31.03) → không thẻ */
+  await login(t, 'ha minh quan', '9999');
+  await waitView(page, 'book'); await sleep(1800);
+  ok(tag + ': Hà Minh Quân (có câu chuyện, chưa tới tuần cuối) → không thẻ', !(await hdGeo(page)).chip);
+  await notMe(t);
+
+  /* Thạch Bảo Ngân: ĐÃ HẾT GÓI → vào thẳng hành trình, mở ở "Khoe thành tích" */
+  await login(t, 'bao ngan', '1515');
+  await page.waitForURL(/\/ke\.html\?qc$/, { timeout: 10000 });
+  await page.waitForFunction(() => window.__ke && document.querySelector('.scr.on')); await idle(); await sleep(600);
+  const hn = () => page.evaluate(() => { const c = document.getElementById('close'), te = document.getElementById('toend'), vis = e => !e.hidden && e.getClientRects().length > 0;
+    return { at: window.__ke.L[window.__ke.cur()].id, ids: window.__ke.L.map(x => x.id).join(','), close: vis(c) ? c.textContent : null, toend: vis(te) ? te.textContent : null,
+             notme: !!document.querySelector('.scr.on #notme'), back: history.length }; });
+  let e0 = await hn();
+  ok(tag + ': Bảo Ngân (hết gói) → ke.html mở sẵn ở "Khoe thành tích", header "← Tới đầu" + "Tới cuối →"', e0.at === 'card' && e0.close === '← Tới đầu' && e0.toend === 'Tới cuối →', e0);
+  ok(tag + ': … 16 khoảnh khắc (không "Có một sự thật": đã nghỉ thì không nói chuỗi / tuần nghỉ), không có "Tuần sau", màn cuối là câu kết', e0.ids === 'cover,rules,q,a1,clock,gap,q,mtn,lift,q,body,coach,lead,nick,card,end', e0.ids);
+  /* nút Back của trình duyệt → trang đặt lịch: màn "Gói tập đã kết thúc" có "Xem lại câu chuyện", không tự mở lại (mỗi tab một lần) */
+  await page.goBack(); await page.waitForURL(u => !/ke\.html/.test(u)); await page.waitForSelector('.qc-tab');
+  await waitView(page, 'ended', 10000); await sleep(1500);
+  const hb = await page.evaluate(() => ({ url: location.pathname + location.search, h1: (document.querySelector('.pg-ended h1') || {}).textContent,
+    re: (document.querySelector('.pg-ended [data-a="ke-replay"]') || {}).textContent, ny: !!document.querySelector('.pg-ended [data-a="notyou"]') }));
+  ok(tag + ': Back từ hành trình → "Gói tập đã kết thúc." + "Xem lại câu chuyện" + "Không phải bạn?", ở lại trang đặt lịch',
+     /\/\?qc$/.test(hb.url) && hb.h1 === 'Gói tập đã kết thúc.' && hb.re === 'Xem lại câu chuyện' && hb.ny, hb);
+  if (mobile) await page.locator('[data-a="ke-replay"]').tap(); else await page.click('[data-a="ke-replay"]');
+  await page.waitForURL(/\/ke\.html\?qc$/); await page.waitForFunction(() => window.__ke && document.querySelector('.scr.on')); await idle(); await sleep(400);
+  ok(tag + ': … "Xem lại câu chuyện" → mở lại ở "Khoe thành tích"', (await hn()).at === 'card');
+  await page.click('#toend'); await until(() => page.evaluate(() => window.__ke.L[window.__ke.cur()].id === 'end'), 3000); await idle();
+  e0 = await hn();
+  const en = await page.evaluate(() => ({ lb: document.querySelector('.scr.on .lb').textContent, qt: document.querySelector('.scr.on .qt').textContent.replace(/\u00a0/g, ' '),
+    nm: (b => b ? { t: b.textContent, h: Math.round(b.getBoundingClientRect().height), in: b.getBoundingClientRect().bottom <= innerHeight } : null)(document.querySelector('.scr.on #notme')) }));
+  ok(tag + ': "Tới cuối →" → câu kết coach (nguyên văn) + "Không phải bạn?" (cao ≥ 44 px, trong màn); ở cuối thì "Tới cuối →" ẩn',
+     e0.at === 'end' && !e0.toend && e0.close === '← Tới đầu' && en.lb === 'Coach Quyết Hán' &&
+     en.qt === '“36 buổi rồi đấy Ngân. Chương tiếp theo mình đưa squat lên 70 kg nhé, khi nào sẵn sàng thì nhắn mình.”' && en.nm && en.nm.t === 'Không phải bạn?' && en.nm.h >= 44 && en.nm.in, [e0, en]);
+  await page.click('#close'); await until(() => page.evaluate(() => window.__ke.cur() === 0), 3000); await idle();
+  e0 = await hn();
+  ok(tag + ': "← Tới đầu" → bìa; ở bìa thì "← Tới đầu" ẩn, còn "Tới cuối →"', e0.at === 'cover' && e0.close === null && e0.toend === 'Tới cuối →', e0);
+  /* cơ sở của con số: tạ chỉ từ 8 buổi coach ghi, mức tạ qua 5 buổi, số đo giữa hai lần đo */
+  const bs = {};
+  for (const id of ['mtn', 'lift', 'body']) {
+    const k = await page.evaluate(id => window.__ke.L.findIndex(x => x.id === id), id);
+    await seg(k);
+    bs[id] = await page.evaluate(() => { const b = document.querySelector('.scr.on .basis'); return b ? b.textContent : null; });
+  }
+  ok(tag + ': cơ sở dưới con số — "Từ 8 buổi tập" · "Qua 5 buổi tập · từ 17.09" · "Đo 01.06 → 05.10"', bs.mtn === 'Từ 8 buổi tập' && bs.lift === 'Qua 5 buổi tập · từ 17.09' && bs.body === 'Đo 01.06 → 05.10', bs);
+  const q4 = await page.evaluate(() => window.__ke.L.find(x => x.g === 'g4').q.replace(/\u00a0/g, ' '));
+  ok(tag + ': câu hỏi tạ nói rõ chỉ tính các buổi có ghi', q4 === 'Trong 8 buổi tập có ghi số tạ, đoán xem bạn đã nâng tổng cộng bao nhiêu tấn?', q4);
+  await page.click('#toend'); await until(() => page.evaluate(() => window.__ke.L[window.__ke.cur()].id === 'end'), 3000); await idle();
+  if (mobile) await page.locator('#notme').tap(); else await page.click('#notme');
+  await page.waitForURL(u => !/ke\.html/.test(u)); await page.waitForSelector('.qc-tab');
+  await waitView(page, 'find');
+  const so = await page.evaluate(() => ({ url: location.search, tok: Object.keys(localStorage).concat(Object.keys(sessionStorage)).filter(k => /^qc:(lt_tok|lt_st|ke_payload)/.test(k)) }));
+  ok(tag + ': "Không phải bạn?" → đăng xuất (không còn mã nhớ máy / bản lưu / dữ liệu hành trình), về tìm tên, đường dẫn sạch "?qc"', so.url === '?qc' && so.tok.length === 0, so);
+  await page.goto(server.url + 'ke.html?qc'); await page.waitForURL(u => !/ke\.html/.test(u)); await page.waitForSelector('.qc-tab');
+  ok(tag + ': … mở lại ke.html sau khi đăng xuất → về trang đặt lịch', /\?qc$/.test(page.url()));
+  await waitView(page, 'find');
+
+  /* Phó Đăng Khoa: đã hết gói, chưa có câu chuyện → màn "Gói tập đã kết thúc" */
+  await login(t, 'dang khoa', '1616');
+  await waitView(page, 'ended', 10000); await sleep(400);
+  const ek = await page.evaluate(() => ({ h1: document.querySelector('.pg-ended h1').textContent, p: document.querySelector('.pg-ended .b16').textContent, url: location.pathname + location.search, chip: !!document.querySelector('#kchip') }));
+  ok(tag + ': Phó Đăng Khoa (hết gói, chưa có câu chuyện) → "Gói tập đã kết thúc." + lời cảm ơn, ở lại trang đặt lịch, không thẻ',
+     ek.h1 === 'Gói tập đã kết thúc.' && ek.p === 'Cảm ơn Đăng Khoa đã tập cùng B0DY. Muốn tập tiếp, nhắn coach Khải Phan nhé.' && /\/\?qc$/.test(ek.url) && !ek.chip, ek);
+  await notMe(t);
+  ok(tag + ': … "Không phải bạn?" → về tìm tên', true);
 
   ok(tag + ': không một lệnh nào ra máy chủ thật', t.hits === 0, t.hits);
   ok(tag + ': 0 lỗi console / pageerror / CSP (trang đặt lịch + ke.html)', t.errs.length === 0, t.errs);
@@ -299,7 +390,7 @@ async function gate(browser, server) {
     ss: Object.keys(sessionStorage).filter(k => /ke_/.test(k)) }));
   ok('trang thật: đã xác minh, ke-core có nạp, nhưng KHÔNG hỏi lt_story · không thẻ · không gợi ý · không lưu gì của hành trình',
      g.ke && !g.chip && !g.hint && g.ss.length === 0 && t.calls.indexOf('lt_story') < 0 && t.calls.indexOf('lt_verify') >= 0, Object.assign(g, { calls: t.calls }));
-  ok('trang thật: VER 1.9.1 · 0 lỗi console', g.ver === '1.9.1' && errs.length === 0, [g.ver, errs]);
+  ok('trang thật: VER 1.10.0 · 0 lỗi console', g.ver === '1.10.0' && errs.length === 0, [g.ver, errs]);
   await ctx.close();
 }
 

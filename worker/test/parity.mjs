@@ -214,7 +214,15 @@ console.log('\n== 3. Tìm tên ==');
   r = await call(t, { action: 'lt_find', q: 'hoang duc' });
   ok('Họ + tên đệm (không phải phần cuối) → không ra', r.results.length === 0, r);
   r = await call(t, { action: 'lt_find', q: 'xuan tu' });
-  ok('Hết buổi → không có trong danh sách', r.results.length === 0, r);
+  ok('Hết buổi → VẪN tìm thấy (chủ studio 17/11: tìm tên ra mọi khách)', r.results.length === 1 && r.results[0].short === 'M. Xuân Tú', r);
+  {
+    const v = await call(t, { action: 'lt_verify', id: r.results[0].id, pin: '0009', remember: true });
+    ok('hết gói · xác minh → auth + ended, không phiếu / bảng', v.ok && v.auth === true && v.ended === true && v.mode === 'ended' && !!v.tok && !('mine' in v) && !('taken' in v) && v.me.left === 0, v);
+    const b = await call(t, { action: 'lt_boot', tok: v.tok });
+    ok('hết gói · mở lại trang bằng mã nhớ máy → ended', b.ok && b.auth && b.ended && !('mine' in b), b);
+    const w = await call(t, { action: 'lt_book', tok: v.tok, rid: 'ridENDEDENDED01', week: b.week.key, picks: [{ date: '2026-10-20', h: 7 }, { date: '2026-10-22', h: 7 }] });
+    ok('hết gói · đặt lịch → het_goi', w.ok === false && w.error === 'het_goi', w);
+  }
   r = await call(t, { action: 'lt_find', q: 'gia phong' });
   ok('Hai hợp đồng cùng tên → một kết quả', r.results.length === 1, r);
   /* giới hạn 300 lượt / máy / khung 10 phút: đếm trên một máy riêng */
@@ -534,7 +542,7 @@ console.log('\n== 12. Tìm tên gõ tới đâu ra tới đó: ma trận chữ g
   /* 2 ký tự trở lên · more khi hơn 6 người */
   await chk('th', TH6, 'Tên một chữ (Thửnghiệm) là tên gọi → xếp đầu; 16 người → 6 + more', true);
   await chk('thu', TH6, '"thu": họ "Thử" của T. Ngọc Nam không tính; 14 người → 6 + more', true);
-  await chk('an', ['K. Thử An'].concat(DANH, ['K. T. N. Bảo Anh', 'K. Thử Anh', 'M. T. Ngọc Ánh']), 'Trùng trọn chữ (An) trước gõ dở (Anh); người thứ 7 (Văn, khớp giữa chữ) → more', true);
+  await chk('an', ['K. Thử An', 'C. Bảo Anh'].concat(DANH, ['K. T. N. Bảo Anh', 'K. Thử Anh']), 'Trùng trọn chữ (An) trước gõ dở (Anh); khách hết hạn C. Bảo Anh cùng thứ hạng (17/11) → more', true);
   await chk('nam', NAM3, 'Tên gọi Nam trước tên đệm Nam (dù K < T)');
   /* nhiều chữ: bậc 0 (phần cuối họ tên) > bậc 1 (đầu chữ, đúng thứ tự, được bỏ chữ giữa) */
   await chk('d nam', ['H. Đức Nam'], 'Đầu chữ đúng thứ tự: "d nam"');
@@ -568,7 +576,8 @@ console.log('\n== 12. Tìm tên gõ tới đâu ra tới đó: ma trận chữ g
   await chk('nam' + ' '.repeat(57) + 'zzz', NAM3, 'Quá 60 ký tự → phần sau ký tự 60 bỏ');
   await chk('x'.repeat(80), [], '80 ký tự một chữ');
   await chk('a '.repeat(40), [], '30 chữ "a" (nhiều chữ hơn tên)');
-  await chk('x', [], 'Không ai');
+  await chk('x', ['M. Xuân Tú'], '1 ký tự "x" → chỉ khách đã hết gói Mai Xuân Tú (17/11: tìm ra mọi khách)');
+  await chk('zz', [], 'Không ai');
   ok('Ma trận tìm tên: không phản hồi nào lộ họ đầy đủ hay SĐT (' + outs.length + ' lượt)',
      outs.every(o => !/Khách|Mẫu|Hoàng|Trần|0900/.test(o)), outs.filter(o => /Khách|Mẫu|Hoàng|Trần|0900/.test(o)));
 }

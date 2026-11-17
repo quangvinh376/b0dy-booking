@@ -69,20 +69,23 @@ const QH = 'Quyết Hán', HM = 'Hiền Mai', KP = 'Khải Phan', LN = 'Lâm Ngu
 /* Hội viên thử (chủ studio đăng nhập bằng tên + 4 số cuối điện thoại). Tên bịa, đã so với file BA thật:
    không trùng họ tên, không trùng tên đệm + tên của hội viên nào. SĐT bịa. */
 const PERSONAS = [
-  { code: 'B801DY', name: 'Trịnh Minh Khôi', pkg: 48, kind: '1:1', coach: QH, phone: '0900001111', left: 30, start: '2026-08-03', exp: '2027-03-01', test: 'Đặt mới 2–4 buổi, đổi lịch, thêm buổi · "Coach bận" ở khung Quyết đang dạy (T6 07:00) và khung Quyết nhận khách tập thử (T3 07:00) · Quyết nghỉ T5 06–07, nhận CN 08–11 (Lịch coach) · Có câu chuyện «Để B0DY kể về bạn» (bộ số của bản artifact) · thẻ ở góc phải header' },
-  { code: 'B802DY', name: 'Vũ Thanh Hằng', pkg: 24, kind: '1:1', coach: HM, phone: '0900002222', left: 1, start: '2026-06-01', exp: '2026-12-31', test: 'Còn 1 buổi · chỉ đặt được 1 buổi' },
+  { code: 'B801DY', name: 'Trịnh Minh Khôi', pkg: 48, kind: '1:1', coach: QH, phone: '0900001111', left: 30, start: '2026-08-03', exp: '2026-10-25', test: 'Đặt mới 2–4 buổi, đổi lịch, thêm buổi · "Coach bận" ở khung Quyết đang dạy (T6 07:00) và khung Quyết nhận khách tập thử (T3 07:00) · Quyết nghỉ T5 06–07, nhận CN 08–11 (Lịch coach) · Tuần cuối của gói (hết hạn CN 25.10) → thẻ «Để B0DY kể về bạn» ở góc phải header (bộ số của bản artifact)' },
+  { code: 'B802DY', name: 'Vũ Thanh Hằng', pkg: 24, kind: '1:1', coach: HM, phone: '0900002222', left: 1, start: '2026-06-01', exp: '2026-12-31', test: 'Còn 1 buổi · chỉ đặt được 1 buổi · đặt xong buổi cuối của gói → thẻ «Để B0DY kể về bạn» hiện ngay (tuần cuối)' },
   { code: 'B803DY', name: 'Đặng Quốc Bảo', pkg: 24, kind: '1:1', coach: KP, phone: '0900003333', left: 6, start: '2026-07-01', exp: '2026-10-21', test: 'Gói hết hạn T4 21.10 · từ T5 bị khoá' },
   { code: 'B804DY', name: 'Lương Thùy Dung', pkg: 36, kind: '1:1', coach: BN, phone: '0900004444', left: 36, start: '2026-10-21', exp: '2027-04-30', test: 'Gói bắt đầu T4 21.10 · T2, T3 bị khoá' },
   { code: 'B805DY', name: 'Tạ Uyển Nhi', pkg: 48, kind: '1:2', coach: LN, phone: '0900005555', left: 20, start: '2026-08-03', exp: '2027-02-28', test: 'Gói 1:2 · đặt mọi khung (từ 01/11) · Tuấn Kiệt mời tập đôi T3 17:00 (phòng đầy vẫn ghép được) · Thảo Vy mời T7 15:00 · T2 15:00 cặp đã đủ → "Coach bận"' },
   { code: 'B806DY', name: 'Châu Gia Huy', pkg: 24, kind: '1:1', coach: QH, phone: '', left: 12, start: '2026-08-03', exp: '2027-01-31', test: 'Hồ sơ chưa có số điện thoại' },
-  { code: 'B807DY', name: 'Phùng Diệu Linh', pkg: 48, kind: '1:1', coach: HM, phone: '0900007777', left: 25, start: '2026-07-06', exp: '2027-02-28', test: 'Đã đặt sẵn 3 buổi · mở thẳng phiếu, đổi, thêm buổi · Có câu chuyện «Để B0DY kể về bạn» dạng khác (giờ sáng, nghỉ 2 tuần, không số đo cơ thể)' },
+  { code: 'B807DY', name: 'Phùng Diệu Linh', pkg: 48, kind: '1:1', coach: HM, phone: '0900007777', left: 25, start: '2026-07-06', exp: '2026-10-25', test: 'Đã đặt sẵn 3 buổi · mở thẳng phiếu, đổi, thêm buổi · Tuần cuối của gói (hết hạn CN 25.10) → câu chuyện «Để B0DY kể về bạn» dạng khác (giờ sáng, nghỉ 2 tuần, không số đo cơ thể)' },
   { code: 'B808DY', name: 'Kiều Hữu Tâm', pkg: 24, kind: '1:1', coach: KP, phone: '0900008888', left: 14, start: '2026-07-06', exp: '2027-01-31', test: 'Đã đổi 2 lần · hết lượt đổi' },
-  { code: 'B809DY', name: 'Hà Minh Quân', pkg: 36, kind: '1:1', coach: LN, phone: '0900009999', left: 18, start: '2026-07-06', exp: '2027-03-31', test: 'Trùng tên đệm + tên · gõ "minh quân" ra hai người' },
+  { code: 'B809DY', name: 'Hà Minh Quân', pkg: 36, kind: '1:1', coach: LN, phone: '0900009999', left: 18, start: '2026-07-06', exp: '2027-03-31', test: 'Trùng tên đệm + tên · gõ "minh quân" ra hai người · Có câu chuyện nhưng chưa tới tuần cuối của gói → KHÔNG có thẻ' },
   { code: 'B810DY', name: 'Lục Minh Quân', pkg: 12, kind: '1:1', coach: BN, phone: '0900001010', left: 8, start: '2026-09-07', exp: '2026-12-31', test: 'Trùng tên đệm + tên với Hà Minh Quân' },
   { code: 'B811DY', name: 'Mẫn Thục Quyên', pkg: 24, kind: '1:2', coach: LN, phone: '0900001212', left: 16, start: '2026-08-03', exp: '2027-02-28', test: 'Gói 1:2 cùng coach Lâm với Tạ Uyển Nhi · đặt một khung rồi mời bạn, hoặc mở trang xem lời mời bạn gửi' },
   /* gói ban ngày (MEMBERS cột "Khung giờ", từ 31/10; tên "Ban ngày" từ 01/11): chỉ đặt các khung 06:00 → hết khung 16:00 (06:00–17:00) */
   { code: 'B812DY', name: 'Văn Thục Đoan', pkg: 24, kind: '1:1', coach: BN, phone: '0900001313', left: 20, start: '2026-08-03', exp: '2027-02-28', tier: 'Ban ngày', test: 'Gói ban ngày · bảng chỉ có các khung 06 · 07 · 08 · 09 · 10 · 11 · 12 · 14 · 15 · 16 (06:00–17:00)' },
-  { code: 'B813DY', name: 'Tiêu Hạ Miên', pkg: 24, kind: '1:2', coach: LN, phone: '0900001414', left: 20, start: '2026-08-03', exp: '2027-02-28', tier: 'Ban ngày', test: 'Gói 1:2 ban ngày · chỉ các khung 06:00–17:00 · Uyển Nhi, Thục Quyên chỉ mời được bạn này vào các khung đó' }
+  { code: 'B813DY', name: 'Tiêu Hạ Miên', pkg: 24, kind: '1:2', coach: LN, phone: '0900001414', left: 20, start: '2026-08-03', exp: '2027-02-28', tier: 'Ban ngày', test: 'Gói 1:2 ban ngày · chỉ các khung 06:00–17:00 · Uyển Nhi, Thục Quyên chỉ mời được bạn này vào các khung đó' },
+  /* đã hết gói (chủ studio 17/11): tìm tên + 4 số cuối → vào thẳng «Để B0DY kể về bạn», mở ở «Khoe thành tích» */
+  { code: 'B814DY', name: 'Thạch Bảo Ngân', pkg: 36, kind: '1:1', coach: QH, phone: '0900001515', left: 0, start: '2026-06-01', exp: '2026-12-01', test: 'ĐÃ HẾT GÓI (36 / 36) · vào thẳng hành trình ở «Khoe thành tích» · ← Tới đầu / Tới cuối → · câu kết của coach · coach ghi tạ 8 / 36 buổi («từ 8 buổi tập»)' },
+  { code: 'B815DY', name: 'Phó Đăng Khoa', pkg: 12, kind: '1:1', coach: KP, phone: '0900001616', left: 0, start: '2026-08-10', exp: '2026-10-10', test: 'ĐÃ HẾT GÓI, chưa có câu chuyện → màn «Gói tập đã kết thúc»' },
 ];
 /* Người tập nền: lấp bảng giờ cho giống ngày mở đặt thật (đã so với file BA thật như trên). Coach xoay vòng Quyết · Mai · Khải ·
    Lâm · Ngọc; hai người của Lâm (Quách Tuấn Kiệt, Bế Thảo Vy) mua gói 1:2 — để thử luật ghép 1:2 cùng coach. */
@@ -107,7 +110,7 @@ const BUSY = [
   [0, 15, ['LN22']]];
 const TAG = { QH: QH, HM: HM, KP: KP, LN: LN, BN: BN };
 /* Đổi dữ liệu thế giới giả (người tập nền, khung bận) → tăng số này: máy đã mở ?qc trước đó dựng lại thế giới mới khi tải trang. */
-const WORLD_V = 8;                                   /* 6 (31/10): cột "Khung giờ" + 2 hội viên thử gói thấp điểm · Lịch coach có 12:00 · 7 (01/11): "Ban ngày" 06–17 · 8 (09/11): tab "Kể về bạn" */
+const WORLD_V = 9;                                   /* 6 (31/10): cột "Khung giờ" + 2 hội viên thử gói thấp điểm · Lịch coach có 12:00 · 7 (01/11): "Ban ngày" 06–17 · 8 (09/11): tab "Kể về bạn" · 9 (17/11): bỏ tab, khách đã hết gói, thẻ chỉ ở tuần cuối */
 /* Lịch coach giả (tab "Lịch coach" của file Lịch tập tuần, từ 19/10): Quyết nghỉ T5 06–07 (ô "Coach nghỉ" một phần ngày) và nhận
    CN 08–11; Mai nhận CN 14–17; coach khác không có lưới → T2–T7 đủ giờ, CN nghỉ (khối "COACH NGHỈ" trọn ngày). */
 function schedRows() {
@@ -222,9 +225,7 @@ function buildFiles(key, nghi) {
       { id: 201, title: 'Bảng lịch tập', rows: [['', '— LỊCH TẬP TUẦN · QC']] },
       { id: 202, title: LT.LOG, rows: so },
       { id: 203, title: LT.DATA, rows: [['SỨC CHỨA / KHUNG', 4], ['CẬP NHẬT', ''], [], ['Hội viên', 'Tên ngắn', 'Coach', 'Còn lại', 'Hết hạn', 'Mã KH', '_hiển thị']] },
-      { id: 204, title: LT.SCHED, rows: schedRows() },
-      /* "Để B0DY kể về bạn": A Mã KH · B phiên bản · C cập nhật · D dữ liệu JSON (qc-ke.js) */
-      { id: 205, title: LT.STORY, rows: [['Mã KH', 'Phiên bản', 'Cập nhật', 'Dữ liệu (JSON)']].concat(Object.keys(STORIES).map(k => [k, STORIES[k][0], STORIES[k][1], JSON.stringify(STORIES[k][2])])) }
+      { id: 204, title: LT.SCHED, rows: schedRows() }
     ]
   };
 }
@@ -410,8 +411,10 @@ const storage = new FakeStorage(DO_OK ? DO0 : {}, o => { if (own()) save(K.do, O
 let LIVE_CB = null, liveRev = 0, liveT = null;
 function liveEmit(m) { if (LIVE_CB) try { LIVE_CB(m); } catch (e) { console.debug('[QC] kênh live', e); } }
 function liveNotify() { clearTimeout(liveT); liveT = setTimeout(() => { liveRev++; liveEmit({ t: 'bump', r: liveRev }); }, 150); }
+/* nguồn câu chuyện giả (qc-ke.js · STORIES) — bản thật chưa có nguồn (chủ studio 17/11 bỏ tab "Kể về bạn", chờ chọn kho dữ liệu) */
+const stories = async person => { const s = STORIES[person.key]; return s ? { ver: s[0], data: JSON.parse(JSON.stringify(s[2])) } : null; };
 const core = new BookingCore({
-  storage: storage, sheets: sheets, now: nowMs, notify: liveNotify,
+  storage: storage, sheets: sheets, now: nowMs, notify: liveNotify, stories: stories,
   env: { BA_ID: BA_ID, OUT_ID: OUT_ID, LT_SECRET: SECRET },
   log: o => { try { console.debug('[QC · máy chủ giả]', JSON.stringify(o)); } catch (e) { /* bỏ qua */ } }
 });
